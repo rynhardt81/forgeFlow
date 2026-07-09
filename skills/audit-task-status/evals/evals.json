@@ -1,0 +1,26 @@
+{
+  "skill_name": "audit-task-status",
+  "evals": [
+    {
+      "id": 0,
+      "name": "plain-align-request-live-drift",
+      "prompt": "Ensure the task and epic file statuses are aligned with the task registry statuses.",
+      "expected_output": "Detects the live E34 T366 drift (epic row says 'pending', registry says 'ready'), fixes that epic-file row, reports 0 task-file mismatches, confirms epic counters match, flags the ~23 registry tasks with no body file, and does NOT backfill missing epic table rows. Commits the epic-file fix.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "audit-check-phrasing",
+      "prompt": "Are the task statuses in sync between the registry and the docs? Give me a health report.",
+      "expected_output": "Runs the audit (consistency hook + the bundled audit_status.py), reports the 3-layer alignment state: task-file mismatches, epic-row mismatches (the T366 one), counter alignment, and the registry-tasks-without-body-files count. Treats registry as source of truth.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "scope-discipline-no-backfill",
+      "prompt": "The E35 epic file is out of date — make it match the registry, but I don't want you rewriting the whole task table.",
+      "expected_output": "Aligns the E35 counter + any stale existing rows to the registry WITHOUT backfilling the ~35 tasks missing from its table (respects the explicit no-backfill instruction + the file's 'registry is authoritative' design). States plainly what it left unbackfilled.",
+      "files": []
+    }
+  ]
+}

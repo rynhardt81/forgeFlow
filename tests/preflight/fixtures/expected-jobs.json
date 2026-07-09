@@ -1,0 +1,87 @@
+[
+  {
+    "name": "typecheck",
+    "file": "tests/preflight/fixtures/ci.yml",
+    "runs_on": "ubuntu-latest",
+    "env": {
+      "NODE_ENV": "test"
+    },
+    "steps": [
+      {
+        "name": null,
+        "run": null,
+        "uses": "actions/checkout@v4",
+        "env": {}
+      },
+      {
+        "name": "Install deps",
+        "run": "npm ci",
+        "uses": null,
+        "env": {}
+      },
+      {
+        "name": "Type check",
+        "run": "npm run type-check",
+        "uses": null,
+        "env": {}
+      }
+    ]
+  },
+  {
+    "name": "test",
+    "file": "tests/preflight/fixtures/ci.yml",
+    "runs_on": "ubuntu-latest",
+    "env": {
+      "NODE_ENV": "test",
+      "COVERAGE": "1"
+    },
+    "steps": [
+      {
+        "name": null,
+        "run": null,
+        "uses": "actions/checkout@v4",
+        "env": {}
+      },
+      {
+        "name": null,
+        "run": "npm ci",
+        "uses": null,
+        "env": {}
+      },
+      {
+        "name": null,
+        "run": "npm test",
+        "uses": null,
+        "env": {}
+      }
+    ]
+  },
+  {
+    "name": "lint",
+    "file": "tests/preflight/fixtures/ci.yml",
+    "runs_on": "ubuntu-latest",
+    "env": {
+      "NODE_ENV": "test"
+    },
+    "steps": [
+      {
+        "name": null,
+        "run": null,
+        "uses": "actions/checkout@v4",
+        "env": {}
+      },
+      {
+        "name": null,
+        "run": "npm ci",
+        "uses": null,
+        "env": {}
+      },
+      {
+        "name": null,
+        "run": "npm run lint",
+        "uses": null,
+        "env": {}
+      }
+    ]
+  }
+]

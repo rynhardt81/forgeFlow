@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tasks · /visualize</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --bg-elev: #1a1d24;
+    --bg-deep: #06080b;
+    --bg-card: #f5f7fa;
+    --bg-card-muted: #cdd3db;
+    --fg: #e8ebf0;
+    --fg-dim: #8b929c;
+    --fg-card: #111418;
+    --fg-card-dim: #4b5563;
+    --border: #2a2e36;
+    --accent: #38bdf8;
+
+    --state-pending:     #6b7280;
+    --state-ready:       #0ea5e9;
+    --state-in_progress: #d97706;
+    --state-pr_pending:  #9333ea;
+    --state-completed:   #16a34a;
+    --state-blocked:     #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+    /* flex column so header + breadcrumb + main share the viewport height */
+    display: flex;
+    flex-direction: column;
+  }
+  nav.breadcrumb { flex-shrink: 0; }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 24px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    height: 60px;
+    flex-shrink: 0;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  header .meta {
+    color: var(--fg-dim);
+    font-size: 12px;
+  }
+  header .actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .copy-json {
+    padding: 7px 14px;
+    background: transparent;
+    color: var(--fg-dim);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 150ms;
+  }
+  header .copy-json:hover {
+    color: var(--fg);
+    border-color: var(--fg-dim);
+  }
+  nav.breadcrumb {
+    padding: 12px 24px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--fg-dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  nav.breadcrumb a {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  nav.breadcrumb a:hover { text-decoration: underline; }
+  nav.breadcrumb .sep { color: var(--border); }
+  nav.breadcrumb .current { color: var(--fg); }
+
+  main {
+    /* Header (60) + breadcrumb (~41) → main fills the rest. The board
+       inside it gets the full available height; columns stretch to that
+       height regardless of how many cards they hold. Internal column
+       overflow scrolls within each lane. */
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  #board {
+    flex: 1;
+    min-height: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 20px 24px;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(280px, 1fr);
+    gap: 16px;
+    align-items: stretch;  /* columns fill row height */
+  }
+  .column {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;          /* always fill the row */
+    min-height: 0;
+    overflow: hidden;      /* clip so the body's scroll behaves */
+  }
+  .column-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-dim);
+    font-weight: 600;
+  }
+  .column-header .state-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .column-header .count {
+    margin-left: auto;
+    color: var(--fg-dim);
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .column-body {
+    padding: 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+  }
+  .column-empty {
+    color: var(--fg-dim);
+    font-size: 12px;
+    font-style: italic;
+    padding: 24px 8px;
+    text-align: center;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--bg-card);
+    color: var(--fg-card);
+    border-radius: 6px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: transform 120ms, box-shadow 120ms;
+    border-left: 3px solid var(--state-pending);
+    position: relative;
+  }
+  .card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  }
+  .card.muted {
+    background: var(--bg-card-muted);
+    color: var(--fg-card-dim);
+    opacity: 0.75;
+  }
+  .card-id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--fg-card-dim);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .card-name {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--fg-card);
+  }
+  .card.muted .card-name { color: var(--fg-card-dim); }
+  .card-meta {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--fg-card-dim);
+  }
+  .card-meta .badge {
+    padding: 2px 7px;
+    background: rgba(0,0,0,0.06);
+    border-radius: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    color: var(--fg-card-dim);
+  }
+  .card-meta .badge.epic-badge {
+    color: var(--epic-color, var(--fg-card-dim));
+    background: var(--epic-color-bg, rgba(0,0,0,0.06));
+    font-weight: 600;
+  }
+  .card .progress {
+    margin-top: 10px;
+    height: 4px;
+    background: rgba(0,0,0,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .card .progress > .bar {
+    height: 100%;
+    background: var(--progress-color, var(--state-completed));
+    transition: width 200ms;
+  }
+  .card .progress-label {
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--fg-card-dim);
+    display: flex;
+    justify-content: space-between;
+  }
+  .card .deps-mini {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--fg-card-dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .card .deps-mini .icon {
+    opacity: 0.5;
+  }
+  .card .blocked-by {
+    margin-top: 6px;
+    padding: 4px 8px;
+    background: rgba(220, 38, 38, 0.1);
+    color: #b91c1c;
+    border-radius: 4px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+
+  /* Detail drawer (slides in from right) */
+  #drawer {
+    position: fixed;
+    top: 60px;
+    right: 0;
+    bottom: 0;
+    width: 420px;
+    background: var(--bg-elev);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 220ms ease-out;
+    overflow-y: auto;
+    z-index: 50;
+    padding: 24px 28px;
+  }
+  #drawer.visible { transform: translateX(0); }
+  #drawer .close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    color: var(--fg-dim);
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    user-select: none;
+  }
+  #drawer .close:hover { color: var(--fg); }
+  #drawer h2 {
+    margin: 0 0 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    color: var(--fg-dim);
+    font-weight: 500;
+  }
+  #drawer .drawer-name {
+    margin-bottom: 20px;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--fg);
+  }
+  #drawer .meta-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 16px;
+  }
+  #drawer .meta-row .label {
+    color: var(--fg-dim);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  #drawer .meta-row .value {
+    color: var(--fg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  #drawer h3 {
+    margin: 24px 0 10px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  #drawer .pill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  #drawer .pill {
+    padding: 4px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  #drawer .pill:hover { border-color: var(--accent); }
+  #backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms;
+    z-index: 40;
+  }
+  #backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Tasks</h1>
+  <span class="meta" id="meta"></span>
+  <div class="actions">
+    <button class="copy-json" id="copy-json">Copy view as JSON</button>
+  </div>
+</header>
+
+<nav class="breadcrumb" id="breadcrumb"></nav>
+
+<main>
+  <div id="board"></div>
+</main>
+
+<div id="backdrop"></div>
+<aside id="drawer">
+  <span class="close" id="drawer-close">×</span>
+  <div id="drawer-body"></div>
+</aside>
+
+<script id="data" type="application/json">__DATA_JSON__</script>
+
+<script>
+"use strict";
+
+const data = JSON.parse(document.getElementById("data").textContent);
+const STATE_COLORS = data.state_colors;
+
+// Status column order — left to right represents progress through the workflow.
+const EPIC_COLUMN_ORDER = ["pending", "ready", "in_progress", "blocked", "completed"];
+const TASK_COLUMN_ORDER = ["pending", "ready", "in_progress", "continuation", "pr_pending", "blocked", "completed"];
+
+const taskById = new Map(data.tasks.map(t => [t.id, t]));
+const epicById = new Map(data.epics.map(e => [e.id, e]));
+
+// Per-epic stable color (used as small accent on epic cards)
+const EPIC_PALETTE = [
+  "#0ea5e9", "#d946ef", "#16a34a", "#d97706", "#9333ea",
+  "#fb923c", "#06b6d4", "#dc2626", "#eab308", "#a855f7",
+];
+function epicColor(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return EPIC_PALETTE[h % EPIC_PALETTE.length];
+}
+
+// View state
+let currentEpic = null; // null = epic-level board; epic id = task board for that epic
+
+function epicProgress(epic) {
+  const taskIds = epic.tasks || [];
+  if (!taskIds.length) return { pct: 0, done: 0, total: 0 };
+  const done = taskIds.filter(id => {
+    const t = taskById.get(id);
+    return t && (t.status === "completed" || t.status === "pr_pending");
+  }).length;
+  return { pct: Math.round((done / taskIds.length) * 100), done, total: taskIds.length };
+}
+
+function taskBlockedBy(task) {
+  // List of dep ids that are NOT yet completed
+  return (task.dependencies || []).filter(d => {
+    const dep = taskById.get(d);
+    return dep && dep.status !== "completed" && dep.status !== "pr_pending";
+  });
+}
+
+// --- Render: epic-level board ---
+function renderEpicBoard() {
+  currentEpic = null;
+  document.title = "Tasks · Epics";
+
+  // Group epics by status
+  const groups = new Map();
+  for (const s of EPIC_COLUMN_ORDER) groups.set(s, []);
+  for (const e of data.epics) {
+    const s = EPIC_COLUMN_ORDER.includes(e.status) ? e.status : "pending";
+    groups.get(s).push(e);
+  }
+  // Within each column: sort by priority ascending, then by id
+  for (const arr of groups.values()) {
+    arr.sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99) || a.id.localeCompare(b.id));
+  }
+
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  for (const status of EPIC_COLUMN_ORDER) {
+    const epics = groups.get(status);
+    const col = document.createElement("div");
+    col.className = "column";
+    col.innerHTML = `
+      <div class="column-header">
+        <span class="state-dot" style="background:${STATE_COLORS[status] || "#6b7280"}"></span>
+        <span>${status.replace("_", " ")}</span>
+        <span class="count">${epics.length}</span>
+      </div>
+      <div class="column-body">${
+        epics.length === 0
+          ? '<div class="column-empty">no epics</div>'
+          : epics.map(e => renderEpicCard(e)).join("")
+      }</div>
+    `;
+    board.appendChild(col);
+  }
+
+  // Wire up clicks
+  board.querySelectorAll("[data-epic]").forEach(el => {
+    el.addEventListener("click", () => {
+      const epicId = el.dataset.epic;
+      renderTaskBoard(epicId);
+    });
+  });
+
+  renderBreadcrumb();
+  updateMeta();
+}
+
+function renderEpicCard(epic) {
+  const color = epicColor(epic.id);
+  const { pct, done, total } = epicProgress(epic);
+  const muted = epic.status === "completed";
+  return `
+    <div class="card ${muted ? "muted" : ""}"
+         data-epic="${escapeAttr(epic.id)}"
+         style="border-left-color:${color};">
+      <div class="card-id">${escapeHtml(epic.id)}</div>
+      <div class="card-name">${escapeHtml(epic.name || "(unnamed)")}</div>
+      ${epic.description ? `<div class="card-meta" style="margin-top:6px;color:var(--fg-card-dim);font-size:11px;">${escapeHtml(truncate(epic.description, 80))}</div>` : ""}
+      <div class="progress" aria-label="progress">
+        <div class="bar" style="width:${pct}%; background:${color};"></div>
+      </div>
+      <div class="progress-label">
+        <span>${done} / ${total} tasks</span>
+        <span>${pct}%</span>
+      </div>
+    </div>
+  `;
+}
+
+// --- Render: task board for a specific epic ---
+function renderTaskBoard(epicId) {
+  currentEpic = epicId;
+  const epic = epicById.get(epicId);
+  if (!epic) return;
+  document.title = `Tasks · ${epic.name}`;
+
+  // Tasks belonging to this epic
+  const tasks = data.tasks.filter(t => t.epic === epicId);
+
+  // Group by status
+  const groups = new Map();
+  for (const s of TASK_COLUMN_ORDER) groups.set(s, []);
+  for (const t of tasks) {
+    const s = TASK_COLUMN_ORDER.includes(t.status) ? t.status : "pending";
+    groups.get(s).push(t);
+  }
+  // Sort each column: priority asc, then id asc
+  for (const arr of groups.values()) {
+    arr.sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99) || a.id.localeCompare(b.id));
+  }
+
+  // Hide empty columns *except* states that exist for tasks of this epic — keep
+  // the rendered ones consistent if a state is in TASK_COLUMN_ORDER but has 0 tasks.
+  // Show all columns for visual consistency (kanban convention).
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  for (const status of TASK_COLUMN_ORDER) {
+    const items = groups.get(status);
+    const col = document.createElement("div");
+    col.className = "column";
+    col.innerHTML = `
+      <div class="column-header">
+        <span class="state-dot" style="background:${STATE_COLORS[status] || "#6b7280"}"></span>
+        <span>${status.replace("_", " ")}</span>
+        <span class="count">${items.length}</span>
+      </div>
+      <div class="column-body">${
+        items.length === 0
+          ? '<div class="column-empty">no tasks</div>'
+          : items.map(t => renderTaskCard(t)).join("")
+      }</div>
+    `;
+    board.appendChild(col);
+  }
+
+  board.querySelectorAll("[data-task]").forEach(el => {
+    el.addEventListener("click", () => showTaskDetail(el.dataset.task));
+  });
+
+  renderBreadcrumb();
+  updateMeta();
+}
+
+function renderTaskCard(t) {
+  const epic = epicById.get(t.epic);
+  const ecolor = epicColor(t.epic);
+  const statusColor = STATE_COLORS[t.status] || "#6b7280";
+  const muted = t.status === "completed";
+  const blockedBy = taskBlockedBy(t);
+  const isBlocked = t.status === "pending" && blockedBy.length > 0;
+  return `
+    <div class="card ${muted ? "muted" : ""}"
+         data-task="${escapeAttr(t.id)}"
+         style="border-left-color:${statusColor};">
+      <div class="card-id">${escapeHtml(t.id)}</div>
+      <div class="card-name">${escapeHtml(t.name || "(unnamed)")}</div>
+      <div class="card-meta">
+        <span class="badge epic-badge"
+              style="--epic-color:${ecolor}; --epic-color-bg:${ecolor}22;">
+          ${escapeHtml(t.epic)}
+        </span>
+        ${t.category ? `<span class="badge">${escapeHtml(t.category)}</span>` : ""}
+        ${typeof t.priority === "number" ? `<span class="badge">P${t.priority}</span>` : ""}
+        ${(t.dependencies || []).length > 0 ?
+          `<span class="deps-mini"><span class="icon">↑</span>${t.dependencies.length}</span>`
+          : ""}
+      </div>
+      ${isBlocked
+        ? `<div class="blocked-by">blocked by ${blockedBy.join(", ")}</div>`
+        : ""}
+    </div>
+  `;
+}
+
+// --- Breadcrumb ---
+function renderBreadcrumb() {
+  const bc = document.getElementById("breadcrumb");
+  if (currentEpic) {
+    const epic = epicById.get(currentEpic);
+    bc.innerHTML = `
+      <a id="bc-epics">Epics</a>
+      <span class="sep">/</span>
+      <span class="current">${escapeHtml(epic ? epic.name : currentEpic)} (${escapeHtml(currentEpic)})</span>
+    `;
+    document.getElementById("bc-epics").addEventListener("click", renderEpicBoard);
+  } else {
+    bc.innerHTML = `<span class="current">Epics</span>`;
+  }
+}
+
+// --- Meta line in header ---
+function updateMeta() {
+  if (currentEpic) {
+    const tasks = data.tasks.filter(t => t.epic === currentEpic);
+    const done = tasks.filter(t => t.status === "completed" || t.status === "pr_pending").length;
+    document.getElementById("meta").textContent =
+      `${tasks.length} tasks · ${done} done · ${tasks.length - done} remaining`;
+  } else {
+    document.getElementById("meta").textContent =
+      `${data.epics.length} epics · ${data.tasks.length} tasks across all epics`;
+  }
+}
+
+// --- Task detail drawer ---
+function showTaskDetail(taskId) {
+  const t = taskById.get(taskId);
+  if (!t) return;
+  const epic = epicById.get(t.epic);
+  const blockedBy = taskBlockedBy(t);
+  const blocking = data.tasks
+    .filter(x => (x.dependencies || []).includes(t.id))
+    .map(x => x.id);
+
+  document.getElementById("drawer-body").innerHTML = `
+    <h2>${escapeHtml(t.id)}</h2>
+    <div class="drawer-name">${escapeHtml(t.name)}</div>
+
+    <div class="meta-row"><span class="label">Status</span>
+      <span class="value" style="color:${STATE_COLORS[t.status]};">${escapeHtml(t.status.replace("_", " "))}</span></div>
+    <div class="meta-row"><span class="label">Epic</span>
+      <span class="value">${escapeHtml(t.epic)} · ${escapeHtml(epic ? epic.name : "")}</span></div>
+    ${t.category ? `<div class="meta-row"><span class="label">Category</span><span class="value">${escapeHtml(t.category)}</span></div>` : ""}
+    ${typeof t.priority === "number" ? `<div class="meta-row"><span class="label">Priority</span><span class="value">${t.priority}</span></div>` : ""}
+    ${t.estimatedSize ? `<div class="meta-row"><span class="label">Size</span><span class="value">${escapeHtml(t.estimatedSize)}</span></div>` : ""}
+    ${t.file ? `<div class="meta-row"><span class="label">File</span><span class="value">${escapeHtml(t.file)}</span></div>` : ""}
+    ${t.lock ? `<div class="meta-row"><span class="label">Lock</span><span class="value">${escapeHtml(typeof t.lock === "object" ? (t.lock.session || JSON.stringify(t.lock)) : String(t.lock))}</span></div>` : ""}
+    ${t.scope && (t.scope.directories || []).length ? `<div class="meta-row"><span class="label">Scope dirs</span><span class="value">${t.scope.directories.map(escapeHtml).join("<br>")}</span></div>` : ""}
+    ${t.scope && (t.scope.files || []).length ? `<div class="meta-row"><span class="label">Scope files</span><span class="value">${t.scope.files.map(escapeHtml).join("<br>")}</span></div>` : ""}
+
+    <h3>Depends on (${(t.dependencies || []).length})</h3>
+    ${(t.dependencies || []).length
+      ? `<div class="pill-list">${t.dependencies.map(d => `<span class="pill" data-task="${escapeAttr(d)}">${escapeHtml(d)}</span>`).join("")}</div>`
+      : '<div style="color:var(--fg-dim);font-size:12px;">No dependencies.</div>'}
+
+    ${blockedBy.length ? `
+      <h3>Blocked by</h3>
+      <div class="pill-list">${blockedBy.map(d => `<span class="pill" data-task="${escapeAttr(d)}" style="color:#fca5a5;">${escapeHtml(d)}</span>`).join("")}</div>
+    ` : ""}
+
+    <h3>Blocks (${blocking.length})</h3>
+    ${blocking.length
+      ? `<div class="pill-list">${blocking.map(d => `<span class="pill" data-task="${escapeAttr(d)}">${escapeHtml(d)}</span>`).join("")}</div>`
+      : '<div style="color:var(--fg-dim);font-size:12px;">Blocks no other task.</div>'}
+  `;
+
+  document.querySelectorAll("#drawer-body [data-task]").forEach(el => {
+    el.addEventListener("click", () => showTaskDetail(el.dataset.task));
+  });
+
+  document.getElementById("drawer").classList.add("visible");
+  document.getElementById("backdrop").classList.add("visible");
+}
+function hideDrawer() {
+  document.getElementById("drawer").classList.remove("visible");
+  document.getElementById("backdrop").classList.remove("visible");
+}
+document.getElementById("drawer-close").addEventListener("click", hideDrawer);
+document.getElementById("backdrop").addEventListener("click", hideDrawer);
+
+// --- Copy as JSON ---
+document.getElementById("copy-json").addEventListener("click", () => {
+  let payload;
+  if (currentEpic) {
+    const tasks = data.tasks.filter(t => t.epic === currentEpic);
+    payload = {
+      view: "tasks",
+      epic: currentEpic,
+      tasks_by_status: Object.fromEntries(
+        TASK_COLUMN_ORDER.map(s => [s, tasks.filter(t => t.status === s).map(t => t.id)])
+      ),
+    };
+  } else {
+    payload = {
+      view: "epics",
+      epics_by_status: Object.fromEntries(
+        EPIC_COLUMN_ORDER.map(s => [s, data.epics.filter(e => e.status === s).map(e => e.id)])
+      ),
+    };
+  }
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+  const btn = document.getElementById("copy-json");
+  const orig = btn.textContent;
+  btn.textContent = "Copied ✓";
+  setTimeout(() => { btn.textContent = orig; }, 1200);
+});
+
+// --- Helpers ---
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+function truncate(s, n) {
+  s = String(s ?? "");
+  return s.length <= n ? s : s.slice(0, n - 1) + "…";
+}
+
+// --- Boot ---
+renderEpicBoard();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,22 @@
+# Test fixture — exercises the T496+ Compose-introspection rewrite path.
+# Canonical Compose-stack shape: Postgres on a non-default host port (5440),
+# Redis with a password. The introspector should:
+#   1. Rewrite `localhost:5432` → `localhost:5440` in env values.
+#   2. Replace empty `REDIS_PASSWORD` defaults with `${REDIS_PASSWORD:-}`.
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app_pw
+      POSTGRES_DB: app_test
+    ports:
+      - "127.0.0.1:5440:5432"
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--requirepass", "redis_pw"]
+    environment:
+      REDIS_PASSWORD: redis_pw
+    ports:
+      - "127.0.0.1:6390:6379"

@@ -1,0 +1,7 @@
+# Static-analysis floor. Deliberately narrow: real-defect classes only.
+# Widen (e.g. add "B", "UP") as a separate, considered change.
+target-version = "py310"
+line-length = 120
+
+[lint]
+select = ["E9", "F"]   # syntax errors + pyflakes (undefined names, unused imports...)

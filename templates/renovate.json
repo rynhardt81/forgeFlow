@@ -1,0 +1,27 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Forge Flow template — conservative dependency surveillance. Aligns with rules/dependencies.md: exact pins, publish cool-down, security first.",
+  "extends": ["config:recommended", ":pinAllExceptPeerDependencies"],
+  "minimumReleaseAge": "7 days",
+  "schedule": ["before 6am on monday"],
+  "prConcurrentLimit": 3,
+  "packageRules": [
+    {
+      "description": "Group non-major updates into one weekly PR",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "weekly non-major updates"
+    },
+    {
+      "description": "Major updates: one PR each, no auto-schedule pressure",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "minimumReleaseAge": "0 days",
+    "labels": ["security"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on the first day of the month"] }
+}

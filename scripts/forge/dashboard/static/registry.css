@@ -1,0 +1,153 @@
+/* Registry JSON tree — layered on dashboard.css + content.css */
+
+.registry-header { display: flex; align-items: baseline; gap: 16px; }
+.registry-meta-line {
+  color: var(--fg-dim);
+  font-size: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.registry-meta-line code {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  background: var(--bg-deep);
+  padding: 2px 7px;
+  border-radius: 3px;
+  color: var(--fg);
+}
+.registry-meta-sep { color: var(--border); }
+
+.reg-summary {
+  padding: 12px 32px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+.reg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  font-size: 11px;
+}
+.reg-chip-key {
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--fg-dim);
+}
+.reg-chip-val {
+  font-family: ui-monospace, monospace;
+  font-weight: 600;
+  color: var(--fg);
+}
+.reg-chip.task-completed   .reg-chip-key { color: #16a34a; }
+.reg-chip.task-in_progress .reg-chip-key { color: #d97706; }
+.reg-chip.task-ready       .reg-chip-key { color: #0ea5e9; }
+.reg-chip.task-pending     .reg-chip-key { color: #6b7280; }
+.reg-chip.task-blocked     .reg-chip-key { color: #dc2626; }
+.reg-chip.task-pr_pending  .reg-chip-key { color: #9333ea; }
+
+/* ---- JSON tree ---- */
+
+.registry-tree-frame {
+  padding: 24px 32px 80px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  max-width: 1100px;
+}
+.registry-tree {
+  color: var(--fg);
+}
+
+.json-block {
+  /* No native disclosure triangle — we draw our own */
+}
+.json-block > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 1px 4px;
+  margin-left: -4px;
+  border-radius: 3px;
+  outline: none;
+}
+.json-block > summary::-webkit-details-marker { display: none; }
+.json-block > summary:hover {
+  background: var(--bg-elev);
+}
+.json-toggle::before {
+  content: "▸";
+  color: var(--fg-dim);
+  font-size: 10px;
+  display: inline-block;
+  width: 12px;
+  transition: transform 120ms;
+}
+.json-block[open] > summary .json-toggle::before {
+  content: "▾";
+}
+
+.json-brace, .json-bracket {
+  color: var(--fg-dim);
+}
+.json-preview {
+  color: var(--fg-dim);
+  font-style: italic;
+  font-size: 11px;
+  opacity: 0.7;
+}
+.json-block[open] > summary .json-preview { opacity: 0; width: 0; overflow: hidden; }
+/* When the block is open the preview text is meaningless — collapse it */
+
+.json-body {
+  border-left: 1px dashed var(--border);
+  margin-left: 6px;
+  padding-left: 14px;
+}
+.json-item {
+  padding: 1px 0;
+}
+.json-key {
+  color: #93c5fd;        /* sky-300 — keys */
+}
+.json-index {
+  color: var(--fg-dim);
+  font-size: 11px;
+}
+.json-colon {
+  color: var(--fg-dim);
+}
+.json-string {
+  color: #86efac;        /* green — strings */
+  overflow-wrap: anywhere;
+}
+.json-number {
+  color: #fcd34d;        /* amber — numbers */
+}
+.json-bool {
+  color: #c4b5fd;        /* purple — bools */
+  font-weight: 600;
+}
+.json-null {
+  color: #6b7280;        /* grey — null */
+  font-style: italic;
+}
+.json-empty {
+  color: var(--fg-dim);
+  font-style: italic;
+}
+.json-list-inline {
+  color: var(--fg-dim);
+}

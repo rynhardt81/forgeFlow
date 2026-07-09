@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Code Map · /visualize</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-elev: #1e293b;
+    --bg-deep: #020617;
+    --fg: #e2e8f0;
+    --fg-dim: #94a3b8;
+    --border: #334155;
+    --accent: #38bdf8;
+    --api: #60a5fa;
+    --frontend: #f472b6;
+    --database: #34d399;
+    --config: #fbbf24;
+    --tests: #a78bfa;
+    --other: #9ca3af;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    overflow: hidden;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    height: 56px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+  }
+  header .meta {
+    color: var(--fg-dim);
+    font-size: 12px;
+  }
+  header .search {
+    margin-left: auto;
+    width: 260px;
+    padding: 6px 10px;
+    background: var(--bg-deep);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  header .copy-json {
+    padding: 6px 12px;
+    background: var(--accent);
+    color: var(--bg-deep);
+    border: none;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  main {
+    display: flex;
+    height: calc(100% - 56px);
+  }
+  #sidebar {
+    width: 280px;
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 16px;
+  }
+  #sidebar h2 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    letter-spacing: 0.05em;
+  }
+  .role-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .role-chip input { margin: 0; }
+  .role-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .role-count {
+    margin-left: auto;
+    color: var(--fg-dim);
+    font-size: 11px;
+  }
+  #content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .breadcrumb {
+    padding: 10px 20px;
+    background: var(--bg-elev);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--fg-dim);
+  }
+  .breadcrumb a {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .breadcrumb a:hover { text-decoration: underline; }
+  #view {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+  #cy {
+    width: 100%;
+    height: 100%;
+  }
+  #table-view, #symbol-view {
+    display: none;
+    height: 100%;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--fg-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    user-select: none;
+  }
+  td.path {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  td.path:hover { text-decoration: underline; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .symbol-section {
+    margin-bottom: 24px;
+  }
+  .symbol-section h3 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+    letter-spacing: 0.05em;
+  }
+  .symbol-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .symbol-pill {
+    padding: 3px 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    transition: background 120ms, border-color 120ms;
+  }
+  .symbol-pill.symbol-clickable {
+    cursor: pointer;
+  }
+  .symbol-pill.symbol-clickable:hover {
+    background: #0c2233;
+    border-color: var(--accent);
+  }
+  .symbol-pill.symbol-active {
+    background: #0c2233;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .symbol-pill .ref-count {
+    color: var(--fg-dim);
+    font-size: 10px;
+    margin-left: 4px;
+  }
+  .symbol-pill.highlight-incoming {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+  .lineage-banner {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--fg);
+    display: none;
+  }
+  .lineage-banner.visible { display: block; }
+  .lineage-banner code {
+    color: var(--accent);
+    background: rgba(56, 189, 248, 0.12);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  .lineage-banner .clear {
+    margin-left: 8px;
+    color: var(--fg-dim);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  #mini-graph {
+    width: 100%;
+    height: 360px;
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .file-meta {
+    color: var(--fg-dim);
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+  .file-meta strong { color: var(--fg); }
+  .empty {
+    color: var(--fg-dim);
+    font-style: italic;
+    padding: 40px 20px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Code Map</h1>
+  <span class="meta" id="meta"></span>
+  <input class="search" id="search" type="text" placeholder="Search files or symbols…" />
+  <button class="copy-json" id="copy-json">Copy current view as JSON</button>
+</header>
+
+<main>
+  <aside id="sidebar">
+    <h2>Roles</h2>
+    <div id="role-filter"></div>
+    <h2 style="margin-top: 20px;">Stats</h2>
+    <div id="stats" style="font-size: 12px; color: var(--fg-dim); line-height: 1.6;"></div>
+  </aside>
+
+  <div id="content">
+    <nav class="breadcrumb" id="breadcrumb"></nav>
+    <div id="view">
+      <div id="cy"></div>
+      <div id="table-view"></div>
+      <div id="symbol-view"></div>
+    </div>
+  </div>
+</main>
+
+<script id="data" type="application/json">__DATA_JSON__</script>
+
+<script>__CYTOSCAPE_JS__</script>
+<script>__DAGRE_JS__</script>
+<script>__CYTOSCAPE_DAGRE_JS__</script>
+
+<script>
+"use strict";
+
+const data = JSON.parse(document.getElementById("data").textContent);
+const ROLE_COLORS = data.role_colors;
+const ROLES = Object.keys(ROLE_COLORS);
+
+let activeRoles = new Set(ROLES);
+let currentLayer = "modules";  // "modules" | "files" | "symbols"
+let currentRole = null;
+let currentFile = null;
+
+// --- Sidebar: role filter + stats ---
+const roleFilterEl = document.getElementById("role-filter");
+ROLES.forEach(role => {
+  const count = data.files.filter(f => f.role === role).length;
+  const label = document.createElement("label");
+  label.className = "role-chip";
+  label.innerHTML = `
+    <input type="checkbox" checked data-role="${role}">
+    <span class="role-dot" style="background:${ROLE_COLORS[role]}"></span>
+    <span>${role}</span>
+    <span class="role-count">${count}</span>
+  `;
+  roleFilterEl.appendChild(label);
+});
+roleFilterEl.addEventListener("change", (e) => {
+  const cb = e.target;
+  if (cb.dataset.role) {
+    if (cb.checked) activeRoles.add(cb.dataset.role);
+    else activeRoles.delete(cb.dataset.role);
+    rerender();
+  }
+});
+
+document.getElementById("meta").textContent =
+  `${data.totals.files} files · ${data.totals.loc.toLocaleString()} LOC · ${data.file_edges.length} resolved edges`;
+
+document.getElementById("stats").innerHTML = Object.entries(data.totals.by_language)
+  .map(([lang, t]) => `<div><strong style="color:var(--fg);">${lang}</strong>: ${t.files} files / ${t.loc.toLocaleString()} LOC</div>`)
+  .join("");
+
+// --- Cytoscape: module-level graph (Layer 1) ---
+const cyEl = document.getElementById("cy");
+
+function moduleGraphElements() {
+  // Group files by first path segment
+  const groups = new Map();  // group -> {files, role->count, loc}
+  for (const f of data.files) {
+    if (!activeRoles.has(f.role)) continue;
+    const group = f.path.split("/")[0] || "(root)";
+    if (!groups.has(group)) groups.set(group, { files: [], roles: {}, loc: 0 });
+    const g = groups.get(group);
+    g.files.push(f);
+    g.roles[f.role] = (g.roles[f.role] || 0) + 1;
+    g.loc += f.loc;
+  }
+
+  // Build edges between groups. Two sources, in order of preference:
+  //  1. Resolved file_edges aggregated to module level (most accurate).
+  //  2. Raw `imports` strings mapped to known top-level dirs — catches
+  //     module-level dependencies that file resolution couldn't pin
+  //     down (e.g. `from scripts.memory.config import …` from outside
+  //     scripts/, or any TS/Go/Rust import that doesn't resolve).
+  const edgeCounts = new Map();  // "src::tgt" -> count
+  const knownGroups = new Set(groups.keys());
+
+  for (const e of data.file_edges) {
+    const src = e.source.split("/")[0];
+    const tgt = e.target.split("/")[0];
+    if (src === tgt || !knownGroups.has(src) || !knownGroups.has(tgt)) continue;
+    const key = src + "::" + tgt;
+    edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
+  }
+
+  // Fallback / supplement: scan raw imports for matches to known groups.
+  for (const f of data.files) {
+    if (!activeRoles.has(f.role)) continue;
+    const src = f.path.split("/")[0];
+    if (!knownGroups.has(src)) continue;
+    for (const imp of f.imports) {
+      // Try to map import string to a known top-level dir.
+      // Python: "scripts.memory.config" → "scripts"
+      // TS/JS: "./foo" or "../foo" already handled by file_edges; "react" → no match
+      // Go/Rust: package paths often don't match — best-effort
+      const head = imp.replace(/^\.+\/?/, "").split(/[/.]/)[0];
+      if (head && knownGroups.has(head) && head !== src) {
+        const key = src + "::" + head;
+        edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
+      }
+    }
+  }
+
+  // Stable per-group color from a curated palette — gives each top-level dir
+  // its own identity. Falls back to role color if group not seen before.
+  const GROUP_PALETTE = [
+    "#60a5fa", "#f472b6", "#34d399", "#fbbf24", "#a78bfa",
+    "#fb923c", "#22d3ee", "#f87171", "#facc15", "#c084fc",
+    "#4ade80", "#fb7185", "#38bdf8", "#fcd34d", "#a3e635",
+  ];
+  function groupColor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return GROUP_PALETTE[h % GROUP_PALETTE.length];
+  }
+
+  // Count intra-module edges per group — useful to show on the node even when
+  // there are no cross-module edges (the common case in well-factored code).
+  const intraCounts = new Map();
+  for (const e of data.file_edges) {
+    const src = e.source.split("/")[0];
+    const tgt = e.target.split("/")[0];
+    if (src === tgt && knownGroups.has(src)) {
+      intraCounts.set(src, (intraCounts.get(src) || 0) + 1);
+    }
+  }
+
+  const nodes = [];
+  for (const [group, g] of groups) {
+    const dominant = Object.entries(g.roles).sort((a, b) => b[1] - a[1])[0][0];
+    const intra = intraCounts.get(group) || 0;
+    const intraLabel = intra > 0 ? ` (${intra}↺)` : "";
+    nodes.push({
+      data: {
+        id: group,
+        label: `${group} · ${g.files.length} files${intraLabel}\n${g.loc.toLocaleString()} LOC`,
+        role: dominant,
+        color: groupColor(group),
+        size: Math.max(70, Math.min(160, 40 + Math.sqrt(g.loc) * 1.2)),
+      }
+    });
+  }
+  const edges = [];
+  for (const [key, count] of edgeCounts) {
+    const [src, tgt] = key.split("::");
+    edges.push({ data: { id: key, source: src, target: tgt, weight: count, label: String(count) } });
+  }
+  return [...nodes, ...edges];
+}
+
+function fileGraphElements(role) {
+  const files = data.files.filter(f => f.role === role);
+  const filePaths = new Set(files.map(f => f.path));
+  const nodes = files.map(f => ({
+    data: {
+      id: f.path,
+      label: f.path.split("/").pop(),
+      role: f.role,
+      color: ROLE_COLORS[f.role],
+      size: Math.max(20, Math.min(60, Math.sqrt(f.loc))),
+    }
+  }));
+  const edges = data.file_edges
+    .filter(e => filePaths.has(e.source) && filePaths.has(e.target))
+    .map(e => ({ data: { id: e.source + "::" + e.target, source: e.source, target: e.target } }));
+  return [...nodes, ...edges];
+}
+
+let cy = null;
+function renderGraph(elements, layoutName) {
+  if (cy) { cy.destroy(); cy = null; }
+  cy = window.cy = cytoscape({
+    container: cyEl,
+    elements,
+    style: [
+      { selector: "node", style: {
+        "background-color": "data(color)",
+        "label": "data(label)",
+        "text-valign": "bottom",
+        "text-halign": "center",
+        "text-margin-y": 8,
+        "color": "#e2e8f0",
+        "font-size": 13,
+        "font-weight": 600,
+        "width": "data(size)",
+        "height": "data(size)",
+        "text-wrap": "wrap",
+        "text-max-width": 180,
+        "border-width": 3,
+        "border-color": "#0f172a",
+        "text-background-color": "#0f172a",
+        "text-background-opacity": 0.85,
+        "text-background-padding": 4,
+        "text-background-shape": "round-rectangle",
+      }},
+      { selector: "edge", style: {
+        "width": "mapData(weight, 1, 20, 2, 8)",
+        "line-color": "#64748b",
+        "target-arrow-color": "#64748b",
+        "target-arrow-shape": "triangle",
+        "curve-style": "bezier",
+        "label": "data(label)",
+        "font-size": 10,
+        "color": "#cbd5e1",
+        "text-background-color": "#0f172a",
+        "text-background-opacity": 0.85,
+        "text-background-padding": 3,
+        "text-background-shape": "round-rectangle",
+        "arrow-scale": 1.5,
+      }},
+      { selector: "node:active", style: {
+        "overlay-color": "#38bdf8",
+        "overlay-padding": 8,
+        "overlay-opacity": 0.3,
+      }},
+      { selector: "node:selected", style: {
+        "border-color": "#38bdf8",
+        "border-width": 5,
+      }},
+      // Obsidian-style hover-fade: dim non-neighborhood when hovering a node
+      { selector: ".faded", style: {
+        "opacity": 0.15,
+        "transition-property": "opacity",
+        "transition-duration": "180ms",
+      }},
+      { selector: "node.hover-focus", style: {
+        "border-color": "#0ea5e9",
+        "border-width": 5,
+      }},
+    ],
+    // Obsidian-style force-directed: animated settle, draggable, springback.
+    layout: layoutName === "cose"
+      ? { name: "cose", animate: true, animationDuration: 800,
+          animationEasing: "ease-out", padding: 60,
+          nodeRepulsion: 12000, idealEdgeLength: 180,
+          nodeOverlap: 30, gravity: 0.15, randomize: false,
+          componentSpacing: 120, numIter: 1500, fit: true }
+      : { name: layoutName, animate: true, animationDuration: 600, padding: 40 },
+    wheelSensitivity: 0.2,
+  });
+
+  cy.on("tap", "node", (evt) => {
+    const id = evt.target.id();
+    if (currentLayer === "modules") {
+      enterFiles(id);
+    } else if (currentLayer === "files") {
+      enterSymbols(id);
+    }
+  });
+
+  // Hover focus: dim non-neighborhood elements
+  cy.on("mouseover", "node", (evt) => {
+    const node = evt.target;
+    const neighborhood = node.closedNeighborhood();
+    cy.elements().not(neighborhood).addClass("faded");
+    node.addClass("hover-focus");
+  });
+  cy.on("mouseout", "node", (evt) => {
+    cy.elements().removeClass("faded");
+    evt.target.removeClass("hover-focus");
+  });
+
+  // Spring-back: re-balance neighborhood when a dragged node is released
+  cy.on("dragfreeon", "node", (evt) => {
+    const released = evt.target;
+    const neighborhood = released.closedNeighborhood();
+    neighborhood.layout({
+      name: "cose",
+      animate: true,
+      animationDuration: 400,
+      randomize: false,
+      fit: false,
+      idealEdgeLength: 150,
+      nodeRepulsion: 8000,
+      numIter: 400,
+    }).run();
+  });
+}
+
+// --- Layer 2: file table ---
+function renderFileTable(group) {
+  const files = data.files.filter(f => f.path.split("/")[0] === group && activeRoles.has(f.role));
+  files.sort((a, b) => b.loc - a.loc);
+
+  // import-in / import-out counts per file
+  const inCount = new Map(), outCount = new Map();
+  for (const e of data.file_edges) {
+    outCount.set(e.source, (outCount.get(e.source) || 0) + 1);
+    inCount.set(e.target, (inCount.get(e.target) || 0) + 1);
+  }
+
+  const tbody = files.map(f => `
+    <tr>
+      <td class="path" data-file="${escapeAttr(f.path)}">${escapeHtml(f.path)}</td>
+      <td><span class="role-dot" style="display:inline-block;background:${ROLE_COLORS[f.role]};vertical-align:middle;"></span> ${f.role}</td>
+      <td>${f.lang}</td>
+      <td class="num">${f.loc.toLocaleString()}</td>
+      <td class="num">${f.classes.length}</td>
+      <td class="num">${f.functions.length}</td>
+      <td class="num">${inCount.get(f.path) || 0}</td>
+      <td class="num">${outCount.get(f.path) || 0}</td>
+    </tr>
+  `).join("");
+
+  const tv = document.getElementById("table-view");
+  tv.innerHTML = `
+    <h2 style="margin-top:0;">${escapeHtml(group)} — ${files.length} files</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Path</th><th>Role</th><th>Lang</th>
+          <th>LOC</th><th>Classes</th><th>Functions</th>
+          <th>Imported by</th><th>Imports</th>
+        </tr>
+      </thead>
+      <tbody>${tbody || '<tr><td colspan="8" class="empty">No files match current role filter.</td></tr>'}</tbody>
+    </table>
+  `;
+  tv.querySelectorAll("td.path").forEach(td => {
+    td.addEventListener("click", () => enterSymbols(td.dataset.file));
+  });
+}
+
+// --- Layer 3: symbol view + mini-graph ---
+function renderSymbolView(filePath) {
+  const f = data.files.find(x => x.path === filePath);
+  if (!f) return;
+
+  const incoming = data.file_edges.filter(e => e.target === filePath);
+  const outgoing = data.file_edges.filter(e => e.source === filePath);
+
+  const incomingCount = incoming.length;
+  const refHint = incomingCount === 0
+    ? ""
+    : `<span class="ref-count">(in ${incomingCount} file${incomingCount === 1 ? "" : "s"})</span>`;
+
+  const sv = document.getElementById("symbol-view");
+  sv.innerHTML = `
+    <h2 style="margin-top:0;">${escapeHtml(f.path)}</h2>
+    <div class="file-meta">
+      <strong>${f.lang}</strong> · ${f.loc.toLocaleString()} LOC ·
+      role <span class="role-dot" style="display:inline-block;background:${ROLE_COLORS[f.role]};vertical-align:middle;"></span> ${f.role}
+    </div>
+
+    <div class="lineage-banner" id="lineage-banner"></div>
+
+    ${f.classes.length ? `
+      <div class="symbol-section">
+        <h3>Classes (${f.classes.length})</h3>
+        <div class="symbol-list">${f.classes.map(c => `<span class="symbol-pill symbol-clickable" data-symbol="${escapeAttr(c)}" data-kind="class">${escapeHtml(c)}${refHint}</span>`).join("")}</div>
+      </div>` : ""}
+
+    ${f.functions.length ? `
+      <div class="symbol-section">
+        <h3>Functions (${f.functions.length})</h3>
+        <div class="symbol-list">${f.functions.map(fn => `<span class="symbol-pill symbol-clickable" data-symbol="${escapeAttr(fn)}" data-kind="function">${escapeHtml(fn)}${refHint}</span>`).join("")}</div>
+      </div>` : ""}
+
+    <div class="symbol-section">
+      <h3>Imports (${outgoing.length} resolved, ${f.imports.length} total raw)</h3>
+      ${outgoing.length ? `<div class="symbol-list">${outgoing.map(e => `<span class="symbol-pill symbol-clickable" data-file="${escapeAttr(e.target)}" style="color:var(--accent);">${escapeHtml(e.target)}</span>`).join("")}</div>` : '<div style="color:var(--fg-dim);font-size:12px;">No resolved internal imports.</div>'}
+    </div>
+
+    <div class="symbol-section">
+      <h3>Imported by (${incoming.length})</h3>
+      ${incoming.length ? `<div class="symbol-list" id="incoming-list">${incoming.map(e => `<span class="symbol-pill symbol-clickable incoming-pill" data-file="${escapeAttr(e.source)}" style="color:var(--accent);">${escapeHtml(e.source)}</span>`).join("")}</div>` : '<div style="color:var(--fg-dim);font-size:12px;">Not imported by any other tracked file.</div>'}
+    </div>
+
+    <div class="symbol-section">
+      <h3>Adjacency mini-graph</h3>
+      <div id="mini-graph"></div>
+    </div>
+  `;
+
+  // File-path pills (in Imports / Imported by) → navigate
+  sv.querySelectorAll("[data-file]").forEach(el => {
+    el.addEventListener("click", () => enterSymbols(el.dataset.file));
+  });
+
+  // Class / function pills → enter "lineage mode": highlight the files that
+  // import this file (and therefore could be using this symbol).
+  // Honest caveat: this is import-linkage, not true symbol-usage. The banner
+  // says so. Option (b) — AST/grep symbol-usage scanning — is a future v2.
+  let activeSymbol = null;
+  const banner = sv.querySelector("#lineage-banner");
+
+  function clearLineage() {
+    activeSymbol = null;
+    banner.classList.remove("visible");
+    banner.innerHTML = "";
+    sv.querySelectorAll(".symbol-pill.symbol-active").forEach(el => el.classList.remove("symbol-active"));
+    sv.querySelectorAll(".incoming-pill.highlight-incoming").forEach(el => el.classList.remove("highlight-incoming"));
+  }
+
+  sv.querySelectorAll("[data-symbol]").forEach(el => {
+    el.addEventListener("click", () => {
+      const sym = el.dataset.symbol;
+      const kind = el.dataset.kind;
+      if (activeSymbol === sym) {
+        clearLineage();
+        return;
+      }
+      clearLineage();
+      activeSymbol = sym;
+      el.classList.add("symbol-active");
+
+      // Highlight all incoming-by pills — these are the files that import
+      // this file and may reference the symbol.
+      const incomingPills = sv.querySelectorAll(".incoming-pill");
+      incomingPills.forEach(p => p.classList.add("highlight-incoming"));
+
+      const n = incoming.length;
+      if (n === 0) {
+        banner.innerHTML = `<code>${escapeHtml(sym)}</code> (${kind}) is defined here, but no other tracked file imports this file — so no candidate references in the project.`;
+      } else {
+        banner.innerHTML =
+          `<code>${escapeHtml(sym)}</code> (${kind}) lives in this file. ` +
+          `${n} file${n === 1 ? "" : "s"} import${n === 1 ? "s" : ""} this file ` +
+          `(highlighted below) — <code>${escapeHtml(sym)}</code> may be referenced in any of them. ` +
+          `<span style="color:var(--fg-dim);">Note: this is import-linkage, not true symbol-usage. ` +
+          `For exact reference scanning, a future enhancement will grep / AST-parse symbol references.</span>` +
+          `<span class="clear" id="clear-lineage">clear</span>`;
+      }
+      banner.classList.add("visible");
+      const clearBtn = banner.querySelector("#clear-lineage");
+      if (clearBtn) clearBtn.addEventListener("click", clearLineage);
+    });
+  });
+
+  // Mini-graph: this file + its 1-hop neighbors
+  const neighborPaths = new Set([
+    f.path,
+    ...incoming.map(e => e.source),
+    ...outgoing.map(e => e.target),
+  ]);
+  const miniNodes = data.files
+    .filter(x => neighborPaths.has(x.path))
+    .map(x => ({
+      data: {
+        id: x.path,
+        label: x.path.split("/").pop(),
+        color: ROLE_COLORS[x.role],
+        size: x.path === filePath ? 50 : 30,
+      }
+    }));
+  const miniEdges = data.file_edges
+    .filter(e => neighborPaths.has(e.source) && neighborPaths.has(e.target))
+    .map(e => ({ data: { id: e.source + "::" + e.target, source: e.source, target: e.target } }));
+
+  const mini = cytoscape({
+    container: document.getElementById("mini-graph"),
+    elements: [...miniNodes, ...miniEdges],
+    style: [
+      { selector: "node", style: {
+        "background-color": "data(color)",
+        "label": "data(label)",
+        "text-valign": "bottom",
+        "text-halign": "center",
+        "text-margin-y": 6,
+        "color": "#e2e8f0",
+        "font-size": 11,
+        "font-weight": 600,
+        "width": "data(size)",
+        "height": "data(size)",
+        "text-wrap": "wrap",
+        "text-max-width": 160,
+        "border-width": 2,
+        "border-color": "#0f172a",
+        "text-background-color": "#0f172a",
+        "text-background-opacity": 0.85,
+        "text-background-padding": 3,
+        "text-background-shape": "round-rectangle",
+      }},
+      { selector: "node.focus", style: {
+        "border-color": "#38bdf8",
+        "border-width": 4,
+      }},
+      { selector: "edge", style: {
+        "width": 2,
+        "line-color": "#64748b",
+        "target-arrow-color": "#64748b",
+        "target-arrow-shape": "triangle",
+        "curve-style": "bezier",
+        "arrow-scale": 1.3,
+      }},
+    ],
+    layout: { name: "concentric", animate: false, padding: 30,
+              minNodeSpacing: 60,
+              concentric: (n) => n.id() === filePath ? 10 : 1,
+              levelWidth: () => 1 },
+    wheelSensitivity: 0.2,
+  });
+  // Mark the focal node visually
+  const focal = mini.getElementById(filePath);
+  if (focal) focal.addClass("focus");
+  mini.on("tap", "node", (evt) => {
+    const id = evt.target.id();
+    if (id !== filePath) enterSymbols(id);
+  });
+}
+
+// --- Navigation ---
+function setBreadcrumb() {
+  const bc = document.getElementById("breadcrumb");
+  const parts = [`<a data-nav="modules">Modules</a>`];
+  if (currentLayer === "files" || currentLayer === "symbols") {
+    parts.push(` › <a data-nav="files">${escapeHtml(currentRole)}</a>`);
+  }
+  if (currentLayer === "symbols") {
+    parts.push(` › <span>${escapeHtml(currentFile)}</span>`);
+  }
+  bc.innerHTML = parts.join("");
+  bc.querySelectorAll("[data-nav]").forEach(el => {
+    el.addEventListener("click", () => {
+      const target = el.dataset.nav;
+      if (target === "modules") enterModules();
+      else if (target === "files" && currentRole) enterFiles(currentRole);
+    });
+  });
+}
+
+function showOnly(which) {
+  document.getElementById("cy").style.display = which === "graph" ? "block" : "none";
+  document.getElementById("table-view").style.display = which === "table" ? "block" : "none";
+  document.getElementById("symbol-view").style.display = which === "symbols" ? "block" : "none";
+  // Empty-state hint only belongs on the module graph.
+  if (which !== "graph") {
+    const h = document.getElementById("graph-hint");
+    if (h) h.remove();
+  }
+}
+
+function enterModules() {
+  currentLayer = "modules";
+  currentRole = null;
+  currentFile = null;
+  setBreadcrumb();
+  showOnly("graph");
+  const els = moduleGraphElements();
+  const nodes = els.filter(e => !e.data.source);
+  const edges = els.filter(e => e.data.source);
+  // Sparse module graphs look better with `circle` than force-directed.
+  const layout = nodes.length <= 8 ? "circle" : "cose";
+  renderGraph(els, layout);
+
+  // Empty-state hint when no cross-module dependencies exist.
+  const hint = document.getElementById("graph-hint");
+  if (hint) hint.remove();
+  if (edges.length === 0 && nodes.length > 0) {
+    const div = document.createElement("div");
+    div.id = "graph-hint";
+    div.style.cssText =
+      "position:absolute;top:20px;right:20px;max-width:340px;padding:12px 14px;" +
+      "background:rgba(15,23,42,0.85);border:1px solid var(--border);" +
+      "border-radius:6px;color:var(--fg-dim);font-size:12px;line-height:1.5;z-index:10;";
+    div.innerHTML =
+      "<strong style='color:var(--fg);'>No cross-module edges</strong><br>" +
+      "Each top-level dir is self-contained. The <code>↺</code> badge shows " +
+      "intra-module edges. Click a node to drill into its files.";
+    document.getElementById("view").appendChild(div);
+  }
+}
+
+function enterFiles(group) {
+  currentLayer = "files";
+  currentRole = group;
+  currentFile = null;
+  setBreadcrumb();
+  showOnly("table");
+  renderFileTable(group);
+}
+
+function enterSymbols(filePath) {
+  currentLayer = "symbols";
+  currentFile = filePath;
+  // Set role from file's group so the breadcrumb works
+  const f = data.files.find(x => x.path === filePath);
+  if (f) currentRole = f.path.split("/")[0];
+  setBreadcrumb();
+  showOnly("symbols");
+  renderSymbolView(filePath);
+}
+
+function rerender() {
+  if (currentLayer === "modules") enterModules();
+  else if (currentLayer === "files") enterFiles(currentRole);
+  else if (currentLayer === "symbols") enterSymbols(currentFile);
+}
+
+// --- Search ---
+document.getElementById("search").addEventListener("input", (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  if (!q) return;
+  // Find best match: file path > symbol
+  const fileHit = data.files.find(f => f.path.toLowerCase().includes(q));
+  if (fileHit) {
+    enterSymbols(fileHit.path);
+    return;
+  }
+  // Symbol search
+  for (const f of data.files) {
+    if (f.classes.some(c => c.toLowerCase().includes(q)) ||
+        f.functions.some(fn => fn.toLowerCase().includes(q))) {
+      enterSymbols(f.path);
+      return;
+    }
+  }
+});
+
+// --- Copy current view as JSON ---
+document.getElementById("copy-json").addEventListener("click", () => {
+  let payload;
+  if (currentLayer === "modules") {
+    payload = { layer: "modules", filters: { roles: [...activeRoles] } };
+  } else if (currentLayer === "files") {
+    payload = {
+      layer: "files",
+      group: currentRole,
+      files: data.files.filter(f => f.path.split("/")[0] === currentRole && activeRoles.has(f.role)),
+    };
+  } else {
+    const f = data.files.find(x => x.path === currentFile);
+    const incoming = data.file_edges.filter(e => e.target === currentFile);
+    const outgoing = data.file_edges.filter(e => e.source === currentFile);
+    payload = { layer: "symbols", file: f, incoming, outgoing };
+  }
+  navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+  const btn = document.getElementById("copy-json");
+  const orig = btn.textContent;
+  btn.textContent = "Copied ✓";
+  setTimeout(() => { btn.textContent = orig; }, 1200);
+});
+
+// --- Helpers ---
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+// --- Init ---
+enterModules();
+</script>
+
+</body>
+</html>

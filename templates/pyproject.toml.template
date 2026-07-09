@@ -1,0 +1,70 @@
+# pyproject.toml — Forge Flow Python starter (uv)
+#
+# REQUIRES uv >= 0.10 (add-bounds was stabilized in 0.10.0).
+# Check with: uv --version
+# Upgrade:    brew upgrade uv  (or your installer's equivalent)
+#
+# Drop-in template for new Python projects. Embeds the four supply-chain
+# practices from rules/dependencies.md:
+#   1. Pin exact versions       → tool.uv.add-bounds = "exact"
+#   2. Publish cool-down window → tool.uv.exclude-newer = "7 days"
+#   3. Lockfile-strict in CI    → run `uv sync --locked` (see CI section below)
+#   4. Earn its place           → CLAUDE.md agent rule (separate)
+#
+# Copy this file to `pyproject.toml` in the project root, then fill in
+# project metadata. Commit pyproject.toml AND uv.lock together.
+#
+# Verified end-to-end on uv 0.11.16:
+#   - `uv add pydantic` → writes `pydantic==2.13.4` (exact pin fires)
+#   - `uv sync --locked` → rc=0 in sync, rc=1 on drift (gate works)
+
+[project]
+name = "your-project-name"
+version = "0.1.0"
+description = "TODO: one-line description"
+# readme = "README.md"   # uncomment once README.md exists
+requires-python = ">=3.11"
+dependencies = []
+
+# Library mode? Uncomment the build-system block below and add a hatch target.
+# Application mode (the default) does not need a build-system.
+#
+# [build-system]
+# requires = ["hatchling"]
+# build-backend = "hatchling.build"
+#
+# [tool.hatch.build.targets.wheel]
+# packages = ["src/your_package"]
+
+# ---------------------------------------------------------------------------
+# Supply-chain defaults — DO NOT REMOVE without reading rules/dependencies.md
+# ---------------------------------------------------------------------------
+
+[tool.uv]
+# Every `uv add pkg` writes `pkg = "==X.Y.Z"`, not `>=X.Y.Z`.
+# Tomorrow's compromised release will not auto-install on next sync.
+add-bounds = "exact"
+
+# Resolver refuses any package version published in the last 7 days.
+# Most compromised releases are detected and yanked within 24-48 hours.
+# Tune: 14 days for projects holding real secrets, 3 days for throwaway work.
+exclude-newer = "7 days"
+
+# Optional dev-only dependency group
+# [tool.uv]
+# dev-dependencies = [
+#     "pytest>=8",
+#     "ruff>=0.6",
+# ]
+
+# ---------------------------------------------------------------------------
+# CI gate (not part of this file — for reference)
+# ---------------------------------------------------------------------------
+# In every CI pipeline, run:
+#
+#     uv sync --locked
+#
+# This asserts that pyproject.toml and uv.lock have not diverged. Fails
+# loudly if anything in this file would update the lockfile — which is the
+# attack vector where an agent edits the manifest and the lockfile silently
+# follows. With --locked, that divergence breaks the build.

@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_note": "Claude Forge v4 \u2014 session context, task-registry consistency, and advisory validators. Never blocks. No hook spawns an LLM subprocess.",
+  "_deny_note": "Block explicit Read/cat/head/grep on paths that waste context: build outputs, caches, generated code, minified bundles. .gitignored paths are already excluded by built-in search; these deny rules cover paths that show up in greps when checked in OR when an explicit cat/head fires. Recursive searches still match inside these paths \u2014 deny only blocks explicit file opens.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session/session-context.py\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/forge/consistency-banner.py\" --fix --summary",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session/session-context.py\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/forge/consistency-banner.py\" --fix --summary",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session/session-context.py\"",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/forge/consistency-banner.py\" --fix --summary",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/context/user-prompt-submit.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/validation/pr-skill-reminder.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/validation/validate-edit.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/forge/consistency-banner.py\" --fix --json",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/forge/isa-reflection-emit.py\"",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/forge/checkpoint-nudge.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/session/session-end-cleanup.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [],
+    "Stop": []
+  },
+  "permissions": {
+    "allow": [
+      "Read(.claude/**)",
+      "Edit(.claude/**)",
+      "Write(.claude/**)",
+      "Read(docs/tasks/**)",
+      "Edit(docs/tasks/**)",
+      "Write(docs/tasks/**)",
+      "Read(docs/epics/**)",
+      "Read(docs/project-memory/**)",
+      "Edit(docs/project-memory/**)",
+      "Write(docs/project-memory/**)",
+      "Read(daily/**)",
+      "Write(daily/**)"
+    ],
+    "deny": [
+      "Read(./**/dist/**)",
+      "Read(./**/build/**)",
+      "Read(./**/.next/**)",
+      "Read(./**/.nuxt/**)",
+      "Read(./**/.turbo/**)",
+      "Read(./**/.parcel-cache/**)",
+      "Read(./**/.vite/**)",
+      "Read(./**/.svelte-kit/**)",
+      "Read(./**/.angular/**)",
+      "Read(./**/__pycache__/**)",
+      "Read(./**/.pytest_cache/**)",
+      "Read(./**/.mypy_cache/**)",
+      "Read(./**/.ruff_cache/**)",
+      "Read(./**/.tox/**)",
+      "Read(./**/.venv/**)",
+      "Read(./**/venv/**)",
+      "Read(./**/htmlcov/**)",
+      "Read(./**/coverage/**)",
+      "Read(./**/*.generated.*)",
+      "Read(./**/*.min.js)",
+      "Read(./**/*.min.css)",
+      "Read(./**/*.map)"
+    ]
+  },
+  "_precompact_stop_note": "PreCompact/Stop are deliberately EMPTY arrays, not absent: the installer's per-event merge overwrites consumer settings per event, so these clear the v3 memory-capture/claude-md-reflect wiring on upgrade. Do not remove."
+}

@@ -1,0 +1,147 @@
+/* Burndown view — chart + summary + table */
+
+.burndown-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev);
+}
+
+.bd-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 14px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 110px;
+}
+.bd-chip-key {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.bd-chip-val {
+  font-family: ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.bd-chip-soft .bd-chip-val { font-size: 12px; color: var(--fg-dim); }
+
+.bd-delta-pos  { color: #16a34a; }
+.bd-delta-neg  { color: #dc2626; }
+.bd-delta-zero { color: var(--fg-dim); }
+
+/* ---- Chart panel ---- */
+
+.burndown-chart {
+  padding: 24px 32px 8px;
+}
+.burndown-svg {
+  width: 100%;
+  max-width: 920px;
+  height: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+}
+
+.burndown-svg .axis text {
+  fill: var(--fg-dim);
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+}
+.burndown-svg .panel-label {
+  fill: var(--fg-dim);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.burndown-svg .baseline {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.burndown-svg .x-label {
+  fill: var(--fg-dim);
+  font-size: 9px;
+  font-family: ui-monospace, monospace;
+}
+
+.burndown-svg .bar-positive {
+  fill: #0ea5e9;
+  transition: fill 120ms;
+}
+.burndown-svg .bar-positive:hover { fill: #38bdf8; }
+.burndown-svg .bar-negative {
+  fill: #dc2626;
+}
+.burndown-svg .bar-empty {
+  fill: var(--border);
+}
+
+.burndown-svg .cum-line {
+  fill: none;
+  stroke: #86efac;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.burndown-svg .cum-area {
+  fill: rgba(134, 239, 172, 0.10);
+  stroke: none;
+}
+.burndown-svg .cum-dot {
+  fill: #86efac;
+  stroke: var(--bg-elev);
+  stroke-width: 1.5;
+  transition: r 120ms;
+}
+.burndown-svg .cum-dot:hover { fill: #bbf7d0; }
+
+/* ---- Recent-days table ---- */
+
+.burndown-table-wrap {
+  padding: 8px 32px 80px;
+  max-width: 920px;
+}
+.burndown-table-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 28px 0 10px;
+}
+.burndown-table {
+  width: 100%;
+  max-width: 460px;
+  border-collapse: collapse;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.burndown-table thead th {
+  text-align: left;
+  padding: 6px 12px;
+  font-weight: 600;
+  color: var(--fg-dim);
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.burndown-table tbody td {
+  padding: 5px 12px;
+  border-bottom: 1px solid rgba(42, 46, 54, 0.5);
+}
+.burndown-table .bd-day  { color: var(--fg-dim); }
+.burndown-table .bd-cum  { color: var(--fg); font-weight: 600; }
+.burndown-table .bd-delta { font-weight: 600; }

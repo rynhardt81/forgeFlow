@@ -1,0 +1,131 @@
+# Claude Forge Framework .gitignore
+.claude/
+
+# Session files (transient, may contain sensitive context)
+memories/sessions/active/session-*.md
+memories/sessions/completed/session-*.md
+
+# Dated audit reports — per-run artifacts, not shipped framework code
+memories/rules-audit-*.md
+
+# Skill evaluation workspaces
+*-workspace/
+
+# Daily conversation logs (generated per-user, not shared)
+daily/
+
+# test files
+test/
+
+# Local archive of pre-v3 framework state (kept on disk only, never published)
+_archive/
+
+# Framework dev planning docs — internal build/design history, never published
+plans/
+
+# Memory pipeline state (generated, per-user)
+scripts/memory/state.json
+scripts/memory/last-flush.json
+.claude/tmp/
+
+# Temporary files
+memories/.session-skills
+memories/.reflect-status
+memories/.reflect-config.json
+memories/.dispatch-config.json
+
+# Project docs directory (created per-project, not part of framework)
+# Comment out if you want to keep the project docs in your projects
+docs/plans/
+framework-docs/
+
+# Framework-internal docs that stay on disk for the framework's own use but
+# are NOT in the public-facing repo. These are framework dev artifacts
+# (planning history, debug audits, internal task ISAs, orphan reference
+# docs that haven't found their proper home in reference/). The rsync layer
+# in install.sh already excludes ALL of docs/ from consumer .claude/ — these
+# .gitignore entries additionally keep them out of the framework's own
+# public git history.
+docs/debug/
+docs/forge-flow/
+docs/permission-profiles.md
+docs/rules-system.md
+docs/tasks/F-*/
+docs/tasks/T*/
+# Dated internal audit artifacts must not re-leak into the public Tier-3 slot.
+# docs/processed/ itself stays (a real tier slot, kept via .gitkeep); these don't.
+docs/processed/*-audit-*.md
+
+# Generated code-map JSON artifact (regenerated on every SessionStart via
+# the audit-code-map skill's --ensure-fresh path; opt-in companion to the
+# committed docs/code-map.md). Consumed by the forge-code-map MCP server.
+docs/code-map.json
+
+# /visualize skill output (also covered later in this file) lives under
+# docs/visualizations/ — generated, never committed.
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Node modules (if any MCP servers use npm)
+node_modules/
+
+# Python (if any scripts use Python)
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Personal Claude preferences (not committed)
+# In framework repo: root-level CLAUDE.local.md
+# In target projects: .claude/CLAUDE.local.md
+CLAUDE.local.md
+.claude/CLAUDE.local.md
+.remember/
+
+# /visualize skill output — derived, personal, never source of truth
+docs/visualizations/
+
+# Consumer-project state — registry.json is per-project task state belonging
+# to the project that USES this framework, never to the framework itself.
+docs/tasks/registry.json
+
+# Registry mutation lock sidecar — zero-byte, machine-local, never committed
+# (see registry_ops.registry_write_lock docstring: intentionally never deleted).
+docs/tasks/.registry.lock
+
+# Local dogfood state — framework repo only; consumers commit their epics
+# (this file lands as .claude/.gitignore there, not governing their project root).
+docs/epics/
+
+# Nested git repos — defensive guard against consumer repos cloned inside
+# framework for testing being accidentally tracked
+**/.git/
+
+# Advisory reports written by /vet-idea and similar skills — personal context, never published
+memories/
+
+# Superpowers plugin session state — session ephemera, never framework content
+.superpowers/

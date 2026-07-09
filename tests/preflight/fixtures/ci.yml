@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  NODE_ENV: test
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: npm ci
+      - name: Type check
+        run: npm run type-check
+  test:
+    runs-on: ubuntu-latest
+    env:
+      COVERAGE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - run: npm test
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci
+      - run: npm run lint

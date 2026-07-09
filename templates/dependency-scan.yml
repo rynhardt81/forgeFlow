@@ -1,0 +1,52 @@
+# Forge Flow template — scheduled dependency vulnerability scan.
+# Copy to .github/workflows/dependency-scan.yml in the consumer project.
+# Complements renovate.json (which updates deps) by WATCHING already-installed
+# deps for newly-published CVEs between updates. See rules/dependencies.md.
+name: dependency-scan
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # weekly, Monday 04:00 UTC
+  push:
+    paths:
+      - "**/package-lock.json"
+      - "**/bun.lock"
+      - "**/bun.lockb"
+      - "**/pnpm-lock.yaml"
+      - "**/yarn.lock"
+      - "**/uv.lock"
+      - "**/requirements*.txt"
+      - "**/Cargo.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  osv-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run OSV-Scanner (all lockfiles)
+        uses: google/osv-scanner-action/osv-scanner-action@v2
+        with:
+          scan-args: |-
+            --recursive
+            --skip-git
+            ./
+        # OSV covers npm/bun (npm registry), PyPI, crates.io, Go, and more
+        # from lockfiles alone — no install step, no runtime needed.
+
+  audit-js:
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('**/bun.lock', '**/bun.lockb', '**/package-lock.json') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        if: ${{ hashFiles('**/bun.lock', '**/bun.lockb') != '' }}
+      - name: bun audit
+        if: ${{ hashFiles('**/bun.lock', '**/bun.lockb') != '' }}
+        run: bun audit
+      - name: npm audit (fallback for npm lockfiles)
+        if: ${{ hashFiles('**/bun.lock', '**/bun.lockb') == '' }}
+        run: npm audit --audit-level=high

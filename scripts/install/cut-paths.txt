@@ -1,0 +1,117 @@
+# Forge Flow cut-paths manifest — permanent retired-paths ledger
+#
+# This is the permanent ledger of paths the framework has retired. Every
+# refresh (`install.sh --mode refresh-framework`, `install.sh --mode
+# refresh-v3`, and their install.ps1 equivalents) removes these paths from
+# consumers — not just the one-time v3 upgrade. Append an entry whenever a
+# path is `git rm`ed from the framework so it gets swept off consumer
+# machines on their next routine refresh.
+#
+# Format:
+#   - One path per line
+#   - Lines starting with `#` are comments
+#   - Blank lines are ignored
+#   - Trailing slash optional; both files and directories are removed
+#   - NO absolute paths (rejected at install-time)
+#   - NO entries under agents/specialists/, docs/tasks/, docs/project-memory/,
+#     daily/ — those are user-owned and rejected by the anti-clobber denylist
+#
+# See scripts/install/README.md for instructions on how to add an entry when
+# you `git rm` a path from the framework.
+
+# 2026-05-26 — commit 4e8a55e consolidated skills/design/ into
+# skills/frontend-design/interventions/. The old directory persists in
+# consumers after additive rsync refresh; this entry retires it.
+skills/design/
+
+# 2026-07-03 — v4.0.0 subtractive release. These paths were removed from
+# the framework (see CHANGELOG v4.0.0 / MIGRATION-GUIDE v3→v4). Additive
+# rsync leaves them on upgraded consumers; these entries retire them.
+# CRITICAL subset: the memory/LLM-spawn pipeline and dead security pipeline
+# must not remain wired on consumer machines.
+agents/summaries/
+hooks/config/pipelines.yaml
+hooks/context/pre-compact.py
+hooks/session/claude-md-reflect.py
+hooks/session/memory-capture.py
+hooks/validation/security-check.py
+hooks/validators/skills/release_changelog.py
+reference/11-intelligent-dispatch.md
+reference/12-session-protocol.md
+reference/15-skill-invocation.md
+reference/16-skill-session-contract.md
+reference/17-agent-session-contract.md
+reference/18-project-memory.md
+reference/19-task-delegation-templates.md
+reference/protocols/
+rules/agents.md
+rules/performance.md
+rules/phased-hardening.md
+scripts/helpers/
+scripts/memory/
+security/
+skills/build/BEST-PRACTICES.md
+skills/build/CHECKPOINTS.md
+skills/build/CI-TEMPLATES.md
+skills/build/PHASES.md
+skills/build/TARGETS.md
+skills/build/TEMPLATES.md
+skills/create-pr/BRANCH-RULES.md
+skills/create-pr/CHECKPOINTS.md
+skills/create-pr/CHECKS.md
+skills/fix-bug/CHECKPOINTS.md
+skills/fix-bug/DEBUG-TEMPLATE.md
+skills/fix-bug/PHASES.md
+skills/fix-bug/SEVERITY-RULES.md
+skills/fix-bug/config/
+skills/frontend-design/interventions/
+skills/frontend-design/reference/
+skills/implement-features/
+skills/migrate/CHECKPOINTS.md
+skills/migrate/MERGE-RULES.md
+skills/migrate/PHASES.md
+skills/new-feature/CHECKPOINTS.md
+skills/new-feature/SCOPE-RULES.md
+skills/new-project/FEATURE-CATEGORIES.md
+skills/new-project/PHASES.md
+skills/new-project/TESTING-MODES.md
+skills/pdf/
+skills/permissions/
+skills/post-implementation-check/
+skills/refactor/CHECKPOINTS.md
+skills/refactor/PHASES.md
+skills/refactor/SCOPE-TEMPLATE.md
+skills/refactor/TYPE-RULES.md
+skills/reflect/CHECKPOINTS.md
+skills/reflect/README.md
+skills/reflect/SESSION-TEMPLATE.md
+skills/reflect/SIGNALS.md
+skills/reflect/UPDATE-RULES.md
+skills/reflect/dispatch/
+skills/release/CHANGELOG-FORMAT.md
+skills/release/CHECKPOINTS.md
+skills/release/CHECKS.md
+skills/release/COMMIT-PARSING.md
+skills/release/VERSION-DETECTION.md
+skills/remember/ARCHIVE.md
+skills/remember/CATEGORIES.md
+skills/remember/EXTRACTION.md
+skills/ui-ux-pro-max/install/
+skills/visualize/SKILL.md
+tests/dispatch/
+ALGORITHM/v1.0.0.md
+ALGORITHM/v1.1.0.md
+
+# 2026-07-07 — pre-exclusion-era installer relics. Before scripts/install/
+# was excluded from the framework's own rsync copy (install.sh now excludes
+# the whole directory and ships only cut-paths.txt back via
+# install_cut_paths_manifest), early-2026 installs vendored these installer
+# scripts verbatim into consumers. They are dead weight on disk — real
+# consumers never invoke them (install.sh/install.ps1 own the install/
+# refresh flow now) — and doctor's orphans check must sweep them.
+scripts/install/add-project-memory.ps1
+scripts/install/add-project-memory.sh
+scripts/install/migrate.ps1
+scripts/install/migrate.sh
+scripts/install/upgrade-template.sh
+scripts/install/versions/
