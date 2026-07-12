@@ -26,6 +26,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+# Non-blocking stdin read (a plain json.load(sys.stdin) hangs forever on an
+# open, idle pipe).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _hooklib import read_stdin_input  # noqa: E402
+
 
 def get_project_root():
     """Get the project root directory."""
@@ -81,11 +86,9 @@ def main():
     project_root = get_project_root()
     claude_dir = get_claude_dir(project_root)
 
-    # Read input from stdin (JSON with session end info)
-    try:
-        input_data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        input_data = {}
+    # Read input from stdin (JSON with session end info); non-blocking so a
+    # manual / open-pipe invocation can't hang the SessionEnd hook.
+    input_data = read_stdin_input()
 
     reason = input_data.get('reason', 'unknown')
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')

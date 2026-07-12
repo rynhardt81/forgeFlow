@@ -14,8 +14,13 @@ Exit codes:
 - 0: Always (Claude Forge v2 never blocks)
 """
 
-import json
+import os.path
 import sys
+
+# Non-blocking stdin read (a plain json.load(sys.stdin) hangs forever on an
+# open, idle pipe).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _hooklib import read_stdin_input  # noqa: E402
 
 
 # Sensitive file patterns to warn about
@@ -32,11 +37,8 @@ SENSITIVE_PATTERNS = [
 
 
 def main():
-    # Read JSON input from stdin
-    try:
-        input_data = json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        input_data = {}
+    # Read JSON input from stdin (non-blocking; {} when no envelope).
+    input_data = read_stdin_input()
 
     # Extract file path from tool input
     file_path = input_data.get('tool_input', {}).get('file_path', '')

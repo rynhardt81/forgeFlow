@@ -16,8 +16,13 @@ All guidance is advisory — but advisory only works if the model receives it.
 """
 
 import json
+import os.path
 import sys
 from abc import ABC, abstractmethod
+
+# Non-blocking stdin read (a plain read() hangs forever on an open, idle pipe).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _hooklib import read_stdin_input  # noqa: E402
 
 
 class ValidationResult:
@@ -75,15 +80,8 @@ class BaseValidator(ABC):
         Claude Forge v2: Always returns 0 (never blocks).
         Warnings are printed to stderr for informational purposes.
         """
-        # Parse JSON from stdin
-        try:
-            stdin_content = sys.stdin.read()
-            if stdin_content.strip():
-                self.input_data = json.loads(stdin_content)
-        except json.JSONDecodeError:
-            return 0
-        except Exception:
-            return 0
+        # Parse JSON from stdin (non-blocking; {} when no envelope).
+        self.input_data = read_stdin_input()
 
         # Run validation
         try:

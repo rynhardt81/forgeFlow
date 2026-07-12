@@ -15,12 +15,16 @@ NOTE: When deployed to a target project, this script lives at:
   {project}/.claude/hooks/context/user-prompt-submit.py
 """
 
-import json
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+# Non-blocking stdin read (a plain json.load(sys.stdin) hangs forever on an
+# open, idle pipe).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _hooklib import read_stdin_input  # noqa: E402
 
 
 def get_project_root():
@@ -86,12 +90,10 @@ def main():
     project_root = get_project_root()
     claude_dir = get_claude_dir(project_root)
 
-    # Read input from stdin (JSON with prompt info) — value is unused,
-    # but consuming stdin is part of the hook contract.
-    try:
-        json.load(sys.stdin)
-    except (json.JSONDecodeError, EOFError):
-        pass
+    # Read input from stdin (JSON with prompt info) — value is unused, but
+    # consuming stdin is part of the hook contract. Non-blocking so a manual /
+    # open-pipe invocation can't hang here.
+    read_stdin_input()
 
     context_parts = []
 

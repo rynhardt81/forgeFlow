@@ -27,14 +27,9 @@ REFLECTION_TIERS = {"E2", "E3", "E4"}
 PROJECT_ROOT_ENV = "CLAUDE_PROJECT_DIR"
 
 
-def _read_stdin_json() -> dict | None:
-    try:
-        raw = sys.stdin.read()
-        if not raw.strip():
-            return None
-        return json.loads(raw)
-    except Exception:
-        return None
+# Non-blocking stdin read (a plain read() hangs forever on an open, idle pipe).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _hooklib import read_stdin_input as _read_stdin_json  # noqa: E402
 
 
 def _parse_frontmatter(text: str) -> dict | None:

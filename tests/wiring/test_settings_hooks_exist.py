@@ -16,6 +16,10 @@ SETTINGS = REPO_ROOT / "hooks" / "settings.json"
 # agent/skill frontmatter `hooks:` blocks instead.
 FRONTMATTER_BOUND_DIRS = {"validators"}
 
+# Shared library modules imported by hooks — not themselves hooks, so never
+# wired in settings.json.
+SHARED_LIBS = {"_hooklib.py"}
+
 
 def _wired_scripts():
     data = json.loads(SETTINGS.read_text())
@@ -54,6 +58,8 @@ def test_every_hook_on_disk_is_wired_or_frontmatter_bound():
     for py in (REPO_ROOT / "hooks").rglob("*.py"):
         rel = str(py.relative_to(REPO_ROOT))
         if "__pycache__" in rel:
+            continue
+        if py.name in SHARED_LIBS:
             continue
         top = py.relative_to(REPO_ROOT / "hooks").parts[0]
         if top in FRONTMATTER_BOUND_DIRS:

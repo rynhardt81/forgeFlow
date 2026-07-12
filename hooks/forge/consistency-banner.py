@@ -29,7 +29,6 @@ The checker it invokes lives at:
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import subprocess
@@ -54,17 +53,11 @@ def get_project_root() -> Path:
         return Path.cwd()
 
 
-def read_stdin_input() -> dict:
-    """Hook protocol passes a JSON envelope on stdin. Return {} on no input."""
-    if sys.stdin.isatty():
-        return {}
-    try:
-        raw = sys.stdin.read()
-        if not raw.strip():
-            return {}
-        return json.loads(raw)
-    except (json.JSONDecodeError, OSError):
-        return {}
+# Non-blocking stdin read lives in the shared hook lib so every hook inherits
+# the same guard (a plain read() hangs forever on an open, idle pipe — e.g. a
+# manual `--summary` run or /reflect).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _hooklib import read_stdin_input  # noqa: E402
 
 
 def should_run_post(input_data: dict) -> bool:

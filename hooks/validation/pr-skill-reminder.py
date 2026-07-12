@@ -36,7 +36,6 @@ Hook protocol:
 
 from __future__ import annotations
 
-import json
 import sys
 
 
@@ -65,16 +64,10 @@ REMINDERS: dict[str, str] = {
 }
 
 
-def read_stdin_input() -> dict:
-    if sys.stdin.isatty():
-        return {}
-    try:
-        raw = sys.stdin.read()
-        if not raw.strip():
-            return {}
-        return json.loads(raw)
-    except (json.JSONDecodeError, OSError):
-        return {}
+# Non-blocking stdin read (a plain read() hangs forever on an open, idle pipe).
+import os.path  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from _hooklib import read_stdin_input  # noqa: E402
 
 
 def detect_pr_subcommand(command: str) -> str | None:

@@ -30,6 +30,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Non-blocking stdin read (a plain sys.stdin.read() hangs forever on an open,
+# idle pipe).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _hooklib import read_stdin_input  # noqa: E402
+
 
 def _truthy(val: str | None) -> bool:
     return val is not None and val.strip().lower() in {"1", "true", "yes", "on"}
@@ -95,11 +100,9 @@ def _write_state(state_file: Path, state: dict) -> None:
 
 
 def main() -> int:
-    # Always swallow stdin per Claude Code hook contract
-    try:
-        sys.stdin.read()
-    except Exception:
-        pass
+    # Always swallow stdin per Claude Code hook contract. Non-blocking so a
+    # manual / open-pipe invocation can't hang here.
+    read_stdin_input()
 
     if _truthy(os.environ.get("CHECKPOINT_NUDGE_DISABLED")):
         return 0
