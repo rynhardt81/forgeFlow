@@ -430,6 +430,7 @@ install_framework_fresh() {
     mkdir -p "$PROJECT_DIR/.claude"
     rsync_visual \
         --exclude='.git' \
+        --exclude='.claude' \
         --exclude='.github' \
         --exclude='scripts/install' \
         --exclude='daily' \
@@ -517,6 +518,7 @@ install_framework_refresh() {
     fi
     rsync_visual \
         --exclude='.git' \
+        --exclude='.claude' \
         --exclude='.github' \
         --exclude='scripts/install' \
         --exclude='scripts/preflight/_local_shims.sh' \
@@ -1379,6 +1381,7 @@ install_v3_framework_files() {
     # widening the exclude.
     rsync_visual \
         --exclude='.git' \
+        --exclude='.claude' \
         --exclude='.github' \
         --exclude='.gitignore' \
         --exclude='_archive' \

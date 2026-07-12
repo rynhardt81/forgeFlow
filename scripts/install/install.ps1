@@ -303,7 +303,7 @@ function Install-FrameworkFresh {
     # plus caches/artifacts that must never land in a consumer's .claude/.
     # scripts/ is descended into so we can skip install/
     $topLevelExcludes = @(
-        ".git", ".github", "daily",
+        ".git", ".claude", ".github", "daily",
         ".venv", ".pytest_cache", "__pycache__", "_archive",
         ".DS_Store", ".remember", ".forge", ".superpowers", ".vscode"
     )
@@ -391,7 +391,7 @@ function Install-FrameworkRefresh {
     )
 
     $topLevelExcludes = @(
-        ".git", ".github", "daily",
+        ".git", ".claude", ".github", "daily",
         ".venv", ".pytest_cache", "__pycache__", "_archive",
         ".DS_Store", ".remember", ".forge", ".superpowers", ".vscode"
     )
@@ -841,7 +841,7 @@ function Install-V3FrameworkFiles {
     # Matches install.sh rsync --exclude semantics: each entry is a path relative
     # to the framework root. A directory exclude also blocks all of its contents.
     $excludePaths = @(
-        '.git', '.github', '.gitignore', '_archive', 'daily',
+        '.git', '.claude', '.github', '.gitignore', '_archive', 'daily',
         'ISA.md',                                  # framework's own ISA, not consumers'
         'scripts\install',                         # the installer itself
         'scripts\preflight\_local_shims.sh',      # user-extended shim
