@@ -26,6 +26,18 @@ Before declaring a fix complete:
 - **A passing local test on the change-in-focus is not completeness evidence.** It proves the change you were looking at. It says nothing about the callers you didn't run. Run the sibling paths, or the broader suite, before you claim done.
 - Prefer the root-cause fix at the shared choke point over N copies of a guard at each caller — it's a smaller diff AND it can't leave a sibling behind.
 
+## Caller-sweep finds the entry points. Sibling-sweep finds the class.
+
+Grepping callers traces the path *into* the function you changed. It does not cover the functions *beside* it — the sibling methods on the same class or module that share the same invariant and were written with the same blind spot. A bug is rarely one method's private mistake; it's the author's mental model applied uniformly, so the same flaw sits in every sibling that touched the same assumption.
+
+When you fix a method, before declaring done:
+
+- **Enumerate its siblings** — the other methods on the same class / in the same module that operate on the same state or enforce the same invariant (e.g. you fixed `deactivate`, look at `activate`, `delete`, `get`, `update` — the whole CRUD family, not just the one reported).
+- **Ask of each: does the bug I just fixed exist here too?** Self-deactivation guard missing on `deactivate` → is it missing on every state-transition method? A tombstone check missing on `get` → missing on `list`, `count`, `exists`? A clobber on one writer → present on every writer?
+- **The report names one symptom; the class shares one cause.** Sibling misses are invisible to a caller-sweep — no caller of `deactivate` will ever exercise `delete`. Only walking the sibling set surfaces them.
+
+Caller-sweep and sibling-sweep are orthogonal and both required: callers find who reaches the code, siblings find who shares the mistake.
+
 ## The check, restated
 
-Ground-truth the claim → read the real diff → grep every caller → run the sibling paths → *then* declare. Skip any step and "done" is a guess wearing a verdict.
+Ground-truth the claim → read the real diff → grep every caller → sweep every sibling → run the sibling paths → *then* declare. Skip any step and "done" is a guess wearing a verdict.
