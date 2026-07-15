@@ -112,11 +112,12 @@ Catches review-class issues *before* the push instead of burning CI minutes on f
 **Plugin presence check first:**
 
 ```bash
-test -f ~/.claude/plugins/installed_plugins.json && \
-  grep -q '"pr-review-toolkit"' ~/.claude/plugins/installed_plugins.json
+python3 -c "import json,sys,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); sys.exit(0 if any(k.split('@',1)[0]=='pr-review-toolkit' for k in d.get('plugins',{})) else 1)" 2>/dev/null
 ```
 
-Plugin absent → emit `Specialist review skipped (pr-review-toolkit not installed)` and continue to Step 3.5. **Do not block** — bare installs proceed on Step 3 checks + CI.
+Matches the plugin by its name-portion regardless of `@marketplace` suffix — the `installed_plugins.json` (schema v2) key is `pr-review-toolkit@claude-plugins-official`, never the bare name, so a `grep '"pr-review-toolkit"'` would never match. Missing file / bad JSON → non-zero exit → treated as absent (safe default).
+
+Plugin absent → **cross-check before trusting it** (agent-verification.md: an "already-correct / nothing-to-do" verdict — which "absent, skip review" is — earns *more* scrutiny). If a `pr-review-toolkit:code-reviewer` agent is actually available, the check is wrong; run the review. Otherwise emit `Specialist review skipped (pr-review-toolkit not installed)` and continue to Step 3.5. **Do not block** — bare installs proceed on Step 3 checks + CI.
 
 **Agent selection** (deterministic — walk once against the changed files, accumulate matches):
 
