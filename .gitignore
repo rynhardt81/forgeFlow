@@ -124,7 +124,14 @@ docs/epics/
 # framework for testing being accidentally tracked
 **/.git/
 
-# Advisory reports written by /vet-idea and similar skills — personal context, never published
+# Local-only agent state — the WHOLE directory, deliberately:
+#   /vet-idea + /security-review advisory reports (personal context; security
+#   findings reach the work queue as tasks, not as committed reports)
+#   /reflect session files under memories/sessions/ (per-session ephemera)
+#   phase3-progress.json and similar per-machine progress state
+# Do NOT narrow this to a filename glob — that would start tracking session
+# churn and vulnerability reports. Durable project knowledge does not live
+# here: /remember writes to docs/project-memory/, which IS tracked.
 memories/
 
 # Superpowers plugin session state — session ephemera, never framework content
