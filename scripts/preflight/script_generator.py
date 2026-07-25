@@ -239,6 +239,14 @@ def render_script(
     # do not leak into the next step — GitHub Actions runs each step in a
     # fresh shell, and the local mirror must match that isolation or steps
     # 2+ start in the cwd of step 1.
+    #
+    # GitHub Actions applies `defaults.run.working-directory` (workflow or job
+    # level) to every `run` step, and a step's own `working-directory` wins
+    # over that. Without this, a job that declares `working-directory: backend`
+    # runs `run:` commands from the repo root locally — e.g. `ruff check app/`
+    # fails with "No such file or directory" because app/ lives under backend/.
+    # The path is relative to the repo root (where the mirror is invoked), so a
+    # relative `cd` at the top of each subshell reproduces GHA's cwd exactly.
     for i, step in enumerate(job.steps):
         label = step.name or step.uses or f"step-{i}"
         if step.run is None:
@@ -246,6 +254,9 @@ def render_script(
             continue
         lines.append(f"# Step: {label}")
         lines.append("(")
+        workdir = step.working_directory or job.working_directory
+        if workdir:
+            lines.append(f'  cd {shlex.quote(workdir)}')
         for k, v in step.env.items():
             lines.append(_render_env_export(k, str(v), indent="  "))
         for run_line in _rewrite_actions_templates(step.run).splitlines():

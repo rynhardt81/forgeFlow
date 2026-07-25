@@ -35,6 +35,7 @@ class Step:
     uses: str | None = None
     name: str | None = None
     env: dict[str, str] = field(default_factory=dict)
+    working_directory: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "Step":
@@ -49,7 +50,12 @@ class Step:
             uses = str(uses)
         if name is not None and not isinstance(name, str):
             name = str(name)
-        return cls(run=run, uses=uses, name=name, env=dict(raw.get("env") or {}))
+        wd = raw.get("working-directory")
+        wd = str(wd) if wd is not None else None
+        return cls(
+            run=run, uses=uses, name=name,
+            env=dict(raw.get("env") or {}), working_directory=wd,
+        )
 
 
 @dataclass
@@ -59,6 +65,7 @@ class Job:
     runs_on: str
     env: dict[str, str] = field(default_factory=dict)
     steps: list[Step] = field(default_factory=list)
+    working_directory: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -66,8 +73,12 @@ class Job:
             "file": self.file,
             "runs_on": self.runs_on,
             "env": self.env,
+            "working_directory": self.working_directory,
             "steps": [
-                {"name": s.name, "run": s.run, "uses": s.uses, "env": s.env}
+                {
+                    "name": s.name, "run": s.run, "uses": s.uses,
+                    "env": s.env, "working_directory": s.working_directory,
+                }
                 for s in self.steps
             ],
         }
@@ -88,9 +99,11 @@ def _trigger_targets_branch(trigger: Any, default_branch: str) -> bool:
     if isinstance(trigger, list):
         return "pull_request" in trigger
     if isinstance(trigger, dict):
-        pr = trigger.get("pull_request")
-        if pr is None:
+        if "pull_request" not in trigger:
             return False
+        pr = trigger["pull_request"]
+        # Bare `pull_request:` (no value) deserializes to None — the most
+        # common form; means "all branches" → gating.
         if pr is True or pr == {} or pr is None:
             return True
         if isinstance(pr, dict):
@@ -126,6 +139,9 @@ def parse_workflow_file(path: Path) -> list[Job]:
 
     workflow_env = dict(raw.get("env") or {})
     jobs_raw = raw.get("jobs") or {}
+    # Workflow-level defaults.run.working-directory applies to every job that
+    # doesn't override it (GitHub Actions inheritance: workflow → job → step).
+    wf_defaults_wd = _defaults_working_directory(raw.get("defaults"))
     out: list[Job] = []
     for name, body in jobs_raw.items():
         if not isinstance(body, dict):
@@ -134,6 +150,7 @@ def parse_workflow_file(path: Path) -> list[Job]:
         steps = [Step.from_dict(s) for s in steps_raw if isinstance(s, dict)]
         merged_env = dict(workflow_env)
         merged_env.update(body.get("env") or {})
+        job_wd = _defaults_working_directory(body.get("defaults"))
         out.append(
             Job(
                 name=name,
@@ -141,9 +158,26 @@ def parse_workflow_file(path: Path) -> list[Job]:
                 runs_on=str(body.get("runs-on") or ""),
                 env=merged_env,
                 steps=steps,
+                working_directory=job_wd or wf_defaults_wd,
             )
         )
     return out
+
+
+def _defaults_working_directory(defaults: Any) -> str | None:
+    """Extract `defaults.run.working-directory` from a defaults block, or None.
+
+    GitHub Actions lets both a workflow and a job declare
+    `defaults: {run: {working-directory: <path>}}`; the job value wins over
+    the workflow value, and a step's own `working-directory` wins over both.
+    """
+    if not isinstance(defaults, dict):
+        return None
+    run = defaults.get("run")
+    if not isinstance(run, dict):
+        return None
+    wd = run.get("working-directory")
+    return str(wd) if wd is not None else None
 
 
 def derive_gating_jobs(
