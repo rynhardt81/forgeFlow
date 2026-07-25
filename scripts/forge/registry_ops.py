@@ -115,6 +115,14 @@ LEGAL_TRANSITIONS: dict[str, frozenset[str]] = {
     "completed": frozenset(),  # terminal
 }
 
+# Task statuses that count as terminal for the purpose of rolling an epic up
+# to `completed`. `completed` is the CLI-set terminal; `superseded`/`closed`
+# are data-only tombstones the audit sweep applies (never set by a CLI
+# transition, but nothing resumes from them). `continuation` is deliberately
+# EXCLUDED — it is resumable (continuation → in_progress), so an epic with a
+# continuation task still has live work.
+EPIC_TERMINAL_TASK_STATES = frozenset({"completed", "superseded", "closed"})
+
 
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*(?:\n|$)", re.DOTALL)
 # `[ \t]*` (not `\s*`) at end so we don't consume the closing newline
@@ -1093,6 +1101,67 @@ def pr_task(
         save_registry(registry_path, registry)
         mirror_status_to_file(project_root, task, "pr_pending")
     return task, unblocked
+
+
+def complete_epic(
+    registry_path: Path,
+    project_root: Path,
+    epic_id: str,
+    *,
+    now: str | None = None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Mark an epic completed in the registry. Returns (epic, non_terminal_task_ids).
+
+    The sanctioned epic-status transition path (T622): `epic add` set the
+    status at creation, but nothing could move it afterward, so an epic stayed
+    `in_progress` in registry.json even after every task under it went terminal
+    (E33 drift). Registry can only be mutated through this module, so this is
+    the only correct fix.
+
+    Guard (the Anti criterion): refuse unless every task under the epic is in
+    EPIC_TERMINAL_TASK_STATES. Raises IllegalTransition listing the offenders.
+    An epic with no tasks is allowed (nothing keeps it open).
+
+    Idempotent: an already-`completed` epic returns cleanly (no-op).
+
+    Registry-only. The epic FILE frontmatter/header is reconciled by
+    `/audit-task-status` (Req 3) — this does not rewrite the epic body.
+    """
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        epic = find_epic(registry, epic_id)
+        if epic is None:
+            raise EpicNotFound(f"Epic {epic_id} not found in registry")
+
+        non_terminal = [
+            t["id"]
+            for t in registry.get("tasks", [])
+            if t.get("epic") == epic_id
+            and t.get("status") not in EPIC_TERMINAL_TASK_STATES
+        ]
+
+        # Guard runs BEFORE the idempotent-return so a *completed* epic that
+        # has since gained a live task (reopened/new — real drift) surfaces as
+        # IllegalTransition rather than being silently re-affirmed as done.
+        # (codex P2, PR #527.) A clean already-completed epic (non_terminal
+        # empty) still hits the no-op below — idempotency preserved.
+        if non_terminal:
+            raise IllegalTransition(
+                f"Cannot complete epic {epic_id}: "
+                f"{len(non_terminal)} non-terminal task(s): "
+                f"{', '.join(sorted(non_terminal))}. "
+                f"Terminal states: {', '.join(sorted(EPIC_TERMINAL_TASK_STATES))}."
+            )
+
+        if epic.get("status") == "completed":
+            return epic, non_terminal  # idempotent no-op (all tasks terminal)
+
+        epic["status"] = "completed"
+        epic["completedAt"] = now or utcnow()
+
+        recompute_stats(registry)
+        save_registry(registry_path, registry)
+    return epic, non_terminal
 
 
 def rename_task(

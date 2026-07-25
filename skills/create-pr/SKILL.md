@@ -208,3 +208,18 @@ Use the Task tool:
 - After review feedback, push fixes to the SAME PR (never close-and-recreate); re-mention the bot in a comment to retrigger its review.
 - Always include the Claude Code attribution; extract and link related issues.
 - For multi-PR sequences, present a merge order; never auto-merge without explicit instruction.
+
+## Learned Preferences
+
+- **2026-07-16 — Poll ALL THREE codex surfaces, not just issue-comments.** Codex
+  (`chatgpt-codex-connector[bot]`, match `'codex' in login` case-insensitively)
+  files findings across three endpoints in the same PR: top-level issue-comments
+  (`issues/{n}/comments`), formal reviews (`pulls/{n}/reviews`, sometimes
+  `state:COMMENTED` with an EMPTY body), AND inline review comments
+  (`pulls/{n}/comments`, with P-badges). A poll that checks only one endpoint will
+  miss a real P2 (happened this session — the finding was under inline comments
+  while the top-level comment list was empty). Fetch all three.
+- **2026-07-16 — On re-push, codex re-anchors an old inline finding's line# AND
+  `commit_id` to the new head commit** — so the stale P2 and the fresh "clean"
+  verdict can both show the same commit/line. Sort by `created_at` and read the
+  NEWEST entry for the current verdict; do not judge by line proximity or commit id.

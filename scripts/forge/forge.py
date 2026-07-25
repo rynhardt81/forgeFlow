@@ -216,6 +216,35 @@ def cmd_epic_add(args, project_root: Path) -> int:
     return 0
 
 
+def cmd_epic_complete(args, project_root: Path) -> int:
+    """Transition an epic's registry status to completed (T622).
+
+    Guarded: refuses unless every task under the epic is terminal.
+    Registry-only; the epic file header is reconciled by /audit-task-status.
+    """
+    try:
+        epic, non_terminal = ops.complete_epic(
+            _registry_path(project_root),
+            project_root,
+            args.id,
+        )
+    except ops.EpicNotFound as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.IllegalTransition as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.RegistryLockTimeout as e:
+        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(dict(epic), indent=2))
+    else:
+        print(f"completed {epic['id']}: {epic['name']} (status={epic['status']})")
+    return 0
+
+
 def cmd_reconcile_files(args, project_root: Path) -> int:
     """Create stub body files for registry-tracked tasks missing on disk."""
     result = ops.reconcile_task_files(
@@ -1025,6 +1054,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ea.add_argument("--json", action="store_true")
     ea.set_defaults(func=cmd_epic_add)
+
+    ec = epic.add_parser(
+        "complete",
+        help=(
+            "Transition an epic's registry status to completed. Refuses unless "
+            "every task under it is terminal (completed/superseded/closed). "
+            "Registry-only — the epic file header is reconciled by "
+            "/audit-task-status."
+        ),
+    )
+    ec.add_argument("id", help="Epic ID, e.g. E33")
+    ec.add_argument("--json", action="store_true")
+    ec.set_defaults(func=cmd_epic_complete)
 
     # agent
     agent = sub.add_parser(

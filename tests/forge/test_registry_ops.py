@@ -636,3 +636,137 @@ def test_reconcile_skips_already_registered(tmp_path):
     seeded = ops.reconcile_orphan_files(_registry_path(repo), repo)
     assert seeded == []
     assert _read(repo)["tasks"][0]["name"] == "Registry Wins"
+
+
+
+
+# --- complete_epic (T622) -------------------------------------------------
+
+
+def test_complete_epic_when_all_tasks_terminal(tmp_path):
+    # E33 drift fix: an epic whose every task is terminal transitions to
+    # completed and stats recompute.
+    repo = make_repo(tmp_path, base_registry(
+        tasks=[
+            {"id": "T1", "epic": "E1", "status": "completed", "dependencies": []},
+            {"id": "T2", "epic": "E1", "status": "superseded", "dependencies": []},
+            {"id": "T3", "epic": "E1", "status": "closed", "dependencies": []},
+        ],
+        epics=[{"id": "E1", "status": "in_progress", "tasks": ["T1", "T2", "T3"]}],
+    ))
+    epic, non_terminal = ops.complete_epic(_registry_path(repo), repo, "E1")
+    assert epic["status"] == "completed"
+    assert "completedAt" in epic
+    assert non_terminal == []
+    out = _read(repo)
+    assert next(e for e in out["epics"] if e["id"] == "E1")["status"] == "completed"
+    assert out["stats"]["epics"]["completed"] == 1
+    assert out["stats"]["epics"]["in_progress"] == 0
+
+
+def test_complete_epic_refuses_when_task_nonterminal(tmp_path):
+    # Anti: a still-ready/in_progress/continuation task blocks completion.
+    for live in ("ready", "in_progress", "pr_pending", "continuation", "pending"):
+        repo = make_repo(tmp_path / live, base_registry(
+            tasks=[
+                {"id": "T1", "epic": "E1", "status": "completed", "dependencies": []},
+                {"id": "T2", "epic": "E1", "status": live, "dependencies": []},
+            ],
+            epics=[{"id": "E1", "status": "in_progress", "tasks": ["T1", "T2"]}],
+        ))
+        with pytest.raises(ops.IllegalTransition) as exc:
+            ops.complete_epic(_registry_path(repo), repo, "E1")
+        # The message names the offender (the only user feedback) — and NOT
+        # the terminal task.
+        assert "T2" in str(exc.value)
+        assert "T1" not in str(exc.value)
+        # Registry unchanged — epic still in_progress.
+        assert _read(repo)["epics"][0]["status"] == "in_progress"
+
+
+def test_complete_epic_lists_only_nonterminal_offenders(tmp_path):
+    # The guard's list-comprehension must name exactly the live tasks, not the
+    # terminal ones (off-by-filter regression guard).
+    repo = make_repo(tmp_path, base_registry(
+        tasks=[
+            {"id": "T1", "epic": "E1", "status": "completed", "dependencies": []},
+            {"id": "T2", "epic": "E1", "status": "ready", "dependencies": []},
+            {"id": "T3", "epic": "E1", "status": "in_progress", "dependencies": []},
+        ],
+        epics=[{"id": "E1", "status": "in_progress", "tasks": ["T1", "T2", "T3"]}],
+    ))
+    with pytest.raises(ops.IllegalTransition) as exc:
+        ops.complete_epic(_registry_path(repo), repo, "E1")
+    msg = str(exc.value)
+    assert "T2" in msg and "T3" in msg
+    assert "T1" not in msg
+
+
+def test_complete_epic_scopes_to_its_own_tasks(tmp_path):
+    # The guard filters on epic == epic_id; a live task under a SIBLING epic
+    # must not block this epic (the E33 driver is a multi-epic registry).
+    repo = make_repo(tmp_path, base_registry(
+        tasks=[
+            {"id": "T1", "epic": "E1", "status": "completed", "dependencies": []},
+            {"id": "T2", "epic": "E2", "status": "in_progress", "dependencies": []},
+        ],
+        epics=[
+            {"id": "E1", "status": "in_progress", "tasks": ["T1"]},
+            {"id": "E2", "status": "in_progress", "tasks": ["T2"]},
+        ],
+    ))
+    epic, non_terminal = ops.complete_epic(_registry_path(repo), repo, "E1")
+    assert epic["status"] == "completed"
+    assert non_terminal == []
+    # Sibling E2 untouched.
+    assert next(e for e in _read(repo)["epics"] if e["id"] == "E2")["status"] == "in_progress"
+
+
+def test_complete_epic_with_no_tasks_is_allowed(tmp_path):
+    # Documented behaviour: an epic with zero tasks has nothing keeping it open.
+    repo = make_repo(tmp_path, base_registry(
+        epics=[{"id": "E1", "status": "in_progress", "tasks": []}],
+    ))
+    epic, non_terminal = ops.complete_epic(_registry_path(repo), repo, "E1")
+    assert epic["status"] == "completed"
+    assert non_terminal == []
+
+
+def test_complete_epic_idempotent_when_already_completed(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        tasks=[{"id": "T1", "epic": "E1", "status": "completed", "dependencies": []}],
+        epics=[{
+            "id": "E1", "status": "completed", "tasks": ["T1"],
+            "completedAt": "2020-01-01T00:00:00Z",
+        }],
+    ))
+    epic, non_terminal = ops.complete_epic(_registry_path(repo), repo, "E1")
+    assert epic["status"] == "completed"
+    assert non_terminal == []
+    # Idempotent: the original completedAt is NOT overwritten with a fresh one.
+    assert epic["completedAt"] == "2020-01-01T00:00:00Z"
+    assert _read(repo)["epics"][0]["completedAt"] == "2020-01-01T00:00:00Z"
+
+
+def test_complete_epic_completed_with_live_task_raises(tmp_path):
+    # Drift case (codex P2, PR #527): an already-completed epic that has since
+    # gained a live task must NOT silently no-op — the guard runs first and
+    # surfaces the drift as IllegalTransition rather than re-affirming "done".
+    repo = make_repo(tmp_path, base_registry(
+        tasks=[
+            {"id": "T1", "epic": "E1", "status": "completed", "dependencies": []},
+            {"id": "T2", "epic": "E1", "status": "in_progress", "dependencies": []},
+        ],
+        epics=[{"id": "E1", "status": "completed", "tasks": ["T1", "T2"]}],
+    ))
+    with pytest.raises(ops.IllegalTransition) as exc:
+        ops.complete_epic(_registry_path(repo), repo, "E1")
+    assert "T2" in str(exc.value)
+
+
+def test_complete_epic_missing_raises(tmp_path):
+    repo = make_repo(tmp_path, base_registry())
+    with pytest.raises(ops.EpicNotFound):
+        ops.complete_epic(_registry_path(repo), repo, "E99")
+
+
