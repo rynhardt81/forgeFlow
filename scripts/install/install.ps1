@@ -334,6 +334,9 @@ function Install-FrameworkFresh {
 
     # Clean up stray dirs from prior installs that put daily/ under .claude/
     Remove-Item -Path (Join-Path $target "daily") -Recurse -Force -ErrorAction SilentlyContinue
+    # Framework-repo-only source of hook wiring; a stale consumer copy shadows
+    # the real .claude/settings.json in forge doctor. Mirror of install.sh.
+    Remove-Item -Path (Join-Path $target "hooks\settings.json") -Force -ErrorAction SilentlyContinue
 
     Install-CutPathsManifest
     Say-Ok "Framework copied to .claude/"
@@ -433,6 +436,9 @@ function Install-FrameworkRefresh {
     }
     # Clean up stray dirs from prior installs
     Remove-Item -Path (Join-Path $target "daily") -Recurse -Force -ErrorAction SilentlyContinue
+    # Framework-repo-only source of hook wiring; a stale consumer copy shadows
+    # the real .claude/settings.json in forge doctor. Mirror of install.sh.
+    Remove-Item -Path (Join-Path $target "hooks\settings.json") -Force -ErrorAction SilentlyContinue
     Install-CutPathsManifest
     Say-Ok "Framework files refreshed (settings.json preserved — merge step runs next)"
 }
@@ -884,6 +890,11 @@ function Install-V3FrameworkFiles {
 
     # Belt-and-suspenders: stray legacy paths under .claude/.
     Remove-Item -Path (Join-Path $target "daily") -Recurse -Force -ErrorAction SilentlyContinue
+    # Framework-repo-only source of hook wiring; a stale consumer copy shadows
+    # the real .claude/settings.json in forge doctor. Mirror of install.sh.
+    Remove-Item -Path (Join-Path $target "hooks\settings.json") -Force -ErrorAction SilentlyContinue
+
+    Install-CutPathsManifest
 
     Say-Ok "v3 framework files in place"
 }

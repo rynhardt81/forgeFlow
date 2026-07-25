@@ -455,9 +455,17 @@ install_framework_fresh() {
     #
     # Heal past leaks: older installs rsynced the framework dev repo's docs/
     # into .claude/docs/ — wipe any of those that may still be present.
+    # hooks/settings.json is framework-repo-only — it is the SOURCE that
+    # install_settings merges into the consumer's live .claude/settings.json.
+    # The rsync excludes settings.json by basename so current installers never
+    # ship it, but pre-v4 ones did, and forge doctor's _wiring_source() prefers
+    # that stale copy over the real .claude/settings.json — reporting phantom
+    # "wired but not on disk" hooks for v3-era paths. Not a cut-paths entry:
+    # the file is not retired, it just never belongs in a consumer.
     rm -rf \
         "$PROJECT_DIR/.claude/daily" \
         "$PROJECT_DIR/.claude/docs" \
+        "$PROJECT_DIR/.claude/hooks/settings.json" \
         2>/dev/null || true
     install_cut_paths_manifest
     ok "Framework copied to .claude/"
@@ -547,9 +555,17 @@ install_framework_refresh() {
     # PROJECT root (one level up). The framework's own docs/ tree is dev-repo
     # state (self-documentation + planning) and never belongs in consumer
     # .claude/. Heal past leaks here. See rules/framework-vs-project-root.md.
+    # hooks/settings.json is framework-repo-only — it is the SOURCE that
+    # install_settings merges into the consumer's live .claude/settings.json.
+    # The rsync excludes settings.json by basename so current installers never
+    # ship it, but pre-v4 ones did, and forge doctor's _wiring_source() prefers
+    # that stale copy over the real .claude/settings.json — reporting phantom
+    # "wired but not on disk" hooks for v3-era paths. Not a cut-paths entry:
+    # the file is not retired, it just never belongs in a consumer.
     rm -rf \
         "$PROJECT_DIR/.claude/daily" \
         "$PROJECT_DIR/.claude/docs" \
+        "$PROJECT_DIR/.claude/hooks/settings.json" \
         2>/dev/null || true
     install_cut_paths_manifest
     ok "Framework files refreshed (settings.json preserved — merge step runs next)"
@@ -1428,12 +1444,21 @@ install_v3_framework_files() {
     #
     # Heal past leaks here in case older installs rsynced framework docs/ or
     # daily/ into .claude/ under prior exclude policies.
+    # hooks/settings.json is framework-repo-only — it is the SOURCE that
+    # install_settings merges into the consumer's live .claude/settings.json.
+    # The rsync excludes settings.json by basename so current installers never
+    # ship it, but pre-v4 ones did, and forge doctor's _wiring_source() prefers
+    # that stale copy over the real .claude/settings.json — reporting phantom
+    # "wired but not on disk" hooks for v3-era paths. Not a cut-paths entry:
+    # the file is not retired, it just never belongs in a consumer.
     rm -rf \
         "$PROJECT_DIR/.claude/daily" \
         "$PROJECT_DIR/.claude/docs" \
+        "$PROJECT_DIR/.claude/hooks/settings.json" \
         2>/dev/null || true
 
     seed_preflight_shim_if_missing "$PROJECT_DIR/.claude"
+    install_cut_paths_manifest
 
     ok "v3 framework files in place"
 }
