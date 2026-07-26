@@ -56,3 +56,7 @@ When active files grow stale: entries older than the cutoff (prompted, or `--bef
 ## Read path (for reference)
 
 `hooks/session/session-context.py` injects `index.md` + `key-facts.md` at every SessionStart; `bugs.md`/`decisions.md`/`patterns.md` are read on demand — `/fix-bug` greps `bugs.md` before investigating, and Algorithm LEARN routes `knowledge`-type insights here through this skill.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

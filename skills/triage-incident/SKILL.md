@@ -55,3 +55,7 @@ Write `docs/debug/incident-YYYY-MM-DD-<slug>.md` (≤1 page): timeline, impact (
 - No fix without reproduction or an explicitly-marked unconfirmed hypothesis + instrumentation.
 - Production verification is a probe, not a deploy log.
 - Every incident produces exactly one postmortem file and ≥0 prevention tasks — an incident with zero learnings is a claim, not an outcome.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

@@ -188,3 +188,7 @@ Append to `.claude/memories/progress-notes.md`:
 | Project memory | `docs/project-memory/` |
 
 **Note:** Architecture, development standards, and framework docs are in `.claude/reference/`, NOT in a separate `docs/` directory.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

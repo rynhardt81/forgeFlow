@@ -19,3 +19,7 @@ This is a routing card, not a vendored design course. Anthropic's full `frontend
 ## Catalog lookups
 
 For concrete style references, palettes, and font pairings, use `/ui-ux-pro-max` — a searchable local database, no network needed.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

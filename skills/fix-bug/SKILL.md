@@ -117,3 +117,7 @@ If the bug pattern is novel and worth remembering, offer `/remember bug "<title>
 - Regression test always; it asserts on the failure path, not just the happy path.
 - Fix only this bug — discovered work becomes follow-up tasks.
 - Confirm with the user at exactly two points: reproduction confirmed, and before the PR.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

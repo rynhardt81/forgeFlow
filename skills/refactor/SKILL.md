@@ -62,3 +62,7 @@ Present the deferred-improvements list at the end — the user decides what beco
 - **Scope boundaries** — without one, a refactor expands until it's a rewrite; log the temptation, defer it, keep moving.
 - **Incremental with test runs** — catch the break at the change that caused it.
 - **No new functionality** — mixing refactor and feature makes both harder to review and revert.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

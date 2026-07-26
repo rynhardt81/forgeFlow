@@ -76,6 +76,21 @@ Top-level files like `CHANGELOG.md`, `CHEATSHEET.md`, `README.md`, `LICENSE`, `M
 
 **Sidecar `rules/*.local.md` files are project DATA, not framework CODE.** Framework rule files (`rules/patterns.md`, `rules/testing.md`, etc.) are framework-owned discipline — `install.sh` rsync overwrites them on every refresh. Consumer-specific examples, exceptions, and conventions belong in sidecar `rules/<name>.local.md` files alongside the framework rule. These are rsync-excluded (`--exclude='rules/*.local.md'` in both refresh paths) so they survive `install.sh --mode refresh-v3`. The pattern lets consumers extend framework rules without forking them — the framework keeps shipping its improvements to `<name>.md`, the consumer keeps owning `<name>.local.md`. Auto-load behaviour is unchanged: the `rules/*.md` glob picks up both.
 
+**Sidecar `skills/<name>/SKILL.local.md` files are the same pattern for skills.** A framework skill is framework-owned; the rsync overwrites `SKILL.md` on every refresh. Project-specific guidance for that skill belongs in `SKILL.local.md` beside it, which is rsync-excluded and survives refresh.
+
+Skills need their own sidecar because neither existing mechanism reaches them:
+
+- `rules/<name>.local.md` auto-loads via the `rules/*.md` glob, but most skills never read `rules/` at all (`/create-pr` doesn't), so skill-specific guidance parked in a rule sidecar is never seen at the moment it applies.
+- `skills/<name>.local/` is a *separate* skill, not an extension — it can't add a step to `/create-pr`.
+
+Nothing globs skill files, so **the pointer line at the end of each framework `SKILL.md` IS the discovery mechanism** — the agent reads it while following the skill and loads the sidecar. Keep that line when editing a skill.
+
+Precedence: **the sidecar wins on conflict.** The project owns its own policy. One obligation attaches — a sidecar that *relaxes a gate* the framework skill defines must state how to prove the gate is wrong in that case, so the relaxation is falsifiable rather than a silent opt-out. The pattern that motivated this rule did it unprompted:
+
+> Before overriding, PROVE it's the wrong gate: `git diff --name-only origin/main...HEAD | grep -iE '\.github/workflows/|frontend/'` — if that matches, do NOT skip.
+
+Why this exists: a consumer added project-specific push policy directly to the framework's `create-pr/SKILL.md` — the only place it would reliably be read — and a routine refresh correctly overwrote it. Framework files are framework-owned; the sidecar is where that content survives.
+
 ## And the public-repo discriminator
 
 When the framework repo itself goes public, an additional filter applies to what's tracked in git:

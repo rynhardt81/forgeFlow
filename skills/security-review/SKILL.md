@@ -89,3 +89,7 @@ Write the findings to `memories/security-review-{date}.md` (or `--output`). For 
 - `hooks/validators/agents/security_secrets.py` + `hooks/config/secret-patterns.yaml` — the secrets scan + its (now live) pattern config
 - `rules/security.md` — the authn-vs-authz distinction + when to invoke `@security-boss`
 - `skills/audit-rules/SKILL.md` / `skills/vet-idea/SKILL.md` — sibling advisory, non-mutating, report-only skills this mirrors
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

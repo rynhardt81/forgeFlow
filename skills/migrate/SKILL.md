@@ -71,3 +71,7 @@ Then start Claude Code in the project and run `/migrate`.
 - v4 removed the automatic memory pipeline — old `daily/` extraction output and `memories/` content merge into `docs/project-memory/` (manual `/remember` is the only capture path going forward).
 - Skills removed in v4 (e.g. post-implementation-check, implement-features) have no merge target; references to them in old project docs are flagged in `migration-report.md`, not silently rewritten.
 - The task registry format is stable; `forge task reconcile-files` after migration catches registry/body drift.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

@@ -74,3 +74,7 @@ Required regardless of size: **≥1 `Anti:` ISC** — what must NOT happen, maki
 - `.claude/ALGORITHM/v1.2.0.md` — phase doctrine that drives ISA usage (LATEST)
 - `.claude/reference/06-architecture-decisions.md` — where significant Decisions land long-term as ADRs
 - `.claude/scripts/forge/forge.py task add --isa "..."` — auto-creates the task ISA
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

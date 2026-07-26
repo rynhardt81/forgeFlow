@@ -87,3 +87,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 - **Classification is judgment, asked once.** Classify each task as bug/feature/refactor from its name + body. When genuinely ambiguous, pause and ask once; cache the answer for similar tasks in the run.
 - **`/create-pr` may itself surface follow-up work** (DRY hotspots, review findings) — those land in the same epic under the same auto-file rules.
 - **Code-map staleness is the silent killer.** A map older than the newest commit routes fixes to outdated locations. Do not relax the Step 0 gate.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

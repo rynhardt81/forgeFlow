@@ -134,3 +134,7 @@ The skill does **not** apply, commit, or push the fix. The user reads the plan a
 - `gh run view --log-failed` output is large for matrix builds. If it exceeds ~500 lines, send the specialist the head + tail and a grep for the failure marker, not the full log.
 - `gh run list --status failure` returns only completed-with-failure runs. In-progress failing runs need `--status in_progress` + log polling — out of scope here; rerun the skill once the run completes.
 - The bot login that posts the codex review may differ from `@codex` — see `/create-pr` Step 6 for the canonical detection. This skill does not read codex output.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

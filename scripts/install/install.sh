@@ -565,6 +565,7 @@ install_framework_refresh() {
         --exclude='settings.json' \
         --exclude='settings.local.json' \
         --exclude='rules/*.local.md' \
+        --exclude='skills/*/SKILL.local.md' \
         --exclude='.venv' \
         --exclude='.pytest_cache' \
         --exclude='__pycache__' \
@@ -1444,6 +1445,7 @@ install_v3_framework_files() {
         --exclude='knowledge/**' \
         --exclude='worktrees/**' \
         --exclude='rules/*.local.md' \
+        --exclude='skills/*/SKILL.local.md' \
         --exclude='skills/*.local/' \
         --exclude='skills/*.local/***' \
         --exclude='**/__pycache__' \

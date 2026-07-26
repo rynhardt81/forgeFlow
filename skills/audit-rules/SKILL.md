@@ -160,3 +160,7 @@ Print a one-paragraph summary to the session: how many findings of each kind, wh
 - `skills/refresh-project-context/SKILL.md` — refresh the *content* of CLAUDE.md; this skill audits the *quality* of its rules.
 - `skills/audit-code-map/SKILL.md` — pairs naturally: audit the rules, then regenerate the code map so the rules and codebase reality are both fresh.
 - Anthropic, "How Claude Code works in large codebases" — the source advice for the 3–6 month config refresh cadence.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

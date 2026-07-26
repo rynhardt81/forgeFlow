@@ -124,3 +124,7 @@ Write the full council report to `memories/vet-idea-{slug}-{date}.md` (or `--out
 - `skills/ISA/Workflows/Interview.md` — the *HOW* gate (design-decision dependency resolution). Run this AFTER a GO verdict.
 - `skills/audit-rules/SKILL.md` — the other advisory, non-mutating, report-only skill; `/vet-idea` mirrors its shape.
 - `ALGORITHM/v1.2.0.md` — OBSERVE mentions `/vet-idea` as optional; THINK owns premortem (a different concern).
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

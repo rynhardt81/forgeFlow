@@ -191,3 +191,7 @@ Bypass: `FORGE_SKIP_PREFLIGHT=1 git push` (rare, for emergencies).
 - **macOS vs Ubuntu runner.** `bash`, `coreutils`, locale, and `sed` differ. False greens are possible; treat preflight as "very likely green on CI", not "guaranteed green".
 - **First run requires `--regenerate` implicitly.** If `.forge/preflight/drift.lock` is absent, the skill writes scripts + lockfile then executes — no second invocation needed.
 - **GitHub Actions templates are rewritten to env vars.** `${{ secrets.X }}`, `${{ env.X }}`, `${{ vars.X }}`, `${{ inputs.X }}` are emitted as `${X:-}` so generated scripts are valid bash and don't ship the literal `${{ secrets.* }}` pattern that gitleaks fires on. Export the corresponding env vars locally (or rely on the empty default) before invoking. Other contexts (`${{ github.* }}`, `${{ matrix.* }}`, `${{ steps.*.outputs.* }}`, function calls) pass through untouched — those steps will fail locally and need per-project handling.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

@@ -88,3 +88,7 @@ Where release-prep commits are reviewed before shipping, invoke `Skill("create-p
 - Annotated tags only; CHANGELOG updated before tagging.
 - Two gates: before tag, before publish. No other confirmation stops.
 - The release isn't done until the post-release probe passes with shown output.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

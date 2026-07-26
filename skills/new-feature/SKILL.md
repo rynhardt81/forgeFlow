@@ -97,3 +97,7 @@ If the user has explicitly asked for no PR (rare; usually a local-only experimen
 - Always check for project-level agents before falling back to built-in
 - Never skip verification phase
 - Never use raw `gh pr create` — always route the PR through `/create-pr`
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.
