@@ -770,3 +770,82 @@ def test_complete_epic_missing_raises(tmp_path):
         ops.complete_epic(_registry_path(repo), repo, "E99")
 
 
+
+
+# --- set_preflight (T483: post-hoc preflight_required mutator) ------------
+
+
+def _pf_repo(tmp_path, *, scope=None, preflight=True):
+    """Single-task repo with a known scope + preflight_required for the
+    set_preflight tests."""
+    return make_repo(tmp_path, base_registry(tasks=[
+        {"id": "T1", "epic": "E1", "status": "ready", "name": "X",
+         "dependencies": [], "lock": None, "preflight_required": preflight,
+         "scope": scope or {"directories": [], "files": []}},
+    ]), task_files={"E1/T1": {"id": "T1", "status": "ready", "name": "X"}})
+
+
+def test_set_preflight_skip_forces_false(tmp_path):
+    repo = _pf_repo(tmp_path, preflight=True)
+    task = ops.set_preflight(_registry_path(repo), repo, "T1", "skip")
+    assert task["preflight_required"] is False
+    assert _read(repo)["tasks"][0]["preflight_required"] is False
+
+
+def test_set_preflight_required_forces_true(tmp_path):
+    repo = _pf_repo(tmp_path, scope={"directories": ["docs/"], "files": []},
+                    preflight=False)
+    task = ops.set_preflight(_registry_path(repo), repo, "T1", "required")
+    assert task["preflight_required"] is True
+    assert _read(repo)["tasks"][0]["preflight_required"] is True
+
+
+def test_set_preflight_auto_doc_only_scope_derives_false(tmp_path):
+    """auto re-derives from scope: a doc-only scope ⇒ False."""
+    repo = _pf_repo(tmp_path, scope={"directories": ["docs/"], "files": ["README.md"]},
+                    preflight=True)
+    task = ops.set_preflight(_registry_path(repo), repo, "T1", "auto")
+    assert task["preflight_required"] is False
+
+
+def test_set_preflight_auto_code_scope_derives_true(tmp_path):
+    """auto re-derives from scope: any code path ⇒ True."""
+    repo = _pf_repo(tmp_path, scope={"directories": ["app/"], "files": []},
+                    preflight=False)
+    task = ops.set_preflight(_registry_path(repo), repo, "T1", "auto")
+    assert task["preflight_required"] is True
+
+
+def test_set_preflight_auto_empty_scope_derives_true(tmp_path):
+    """auto on empty scope ⇒ True (unknown scope is code-touching by default —
+    this is exactly why T483 was mis-flagged; `skip` is the correct fix, not
+    `auto`)."""
+    repo = _pf_repo(tmp_path, scope={"directories": [], "files": []},
+                    preflight=False)
+    task = ops.set_preflight(_registry_path(repo), repo, "T1", "auto")
+    assert task["preflight_required"] is True
+
+
+def test_set_preflight_invalid_mode_rejected(tmp_path):
+    repo = _pf_repo(tmp_path)
+    with pytest.raises(ValueError):
+        ops.set_preflight(_registry_path(repo), repo, "T1", "bogus")
+
+
+def test_set_preflight_not_found(tmp_path):
+    repo = make_repo(tmp_path, base_registry())
+    with pytest.raises(ops.TaskNotFound):
+        ops.set_preflight(_registry_path(repo), repo, "T999", "skip")
+
+
+def test_set_preflight_touches_only_the_flag(tmp_path):
+    """Regression guard: id, epic, status, scope unchanged — only the flag flips."""
+    repo = _pf_repo(tmp_path, scope={"directories": ["app/"], "files": []},
+                    preflight=True)
+    before = _read(repo)["tasks"][0].copy()
+    ops.set_preflight(_registry_path(repo), repo, "T1", "skip")
+    after = _read(repo)["tasks"][0]
+    diff_keys = [k for k in after if after.get(k) != before.get(k)]
+    assert diff_keys == ["preflight_required"]
+
+

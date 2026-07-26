@@ -467,6 +467,28 @@ def cmd_rename(args, project_root: Path) -> int:
     return 0
 
 
+def cmd_set_preflight(args, project_root: Path) -> int:
+    try:
+        task = ops.set_preflight(
+            _registry_path(project_root), project_root, args.id, args.mode,
+        )
+    except ops.TaskNotFound as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.RegistryLockTimeout as e:
+        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(task, indent=2))
+    else:
+        flag = "yes" if task.get("preflight_required") else "no"
+        print(f'set {task["id"]} preflight_required -> {flag} (mode={args.mode})')
+    return 0
+
+
 def cmd_set_file(args, project_root: Path) -> int:
     try:
         task = ops.set_task_file(
@@ -998,6 +1020,22 @@ def build_parser() -> argparse.ArgumentParser:
     rn.add_argument("name", help="New task name (one line)")
     rn.add_argument("--json", action="store_true")
     rn.set_defaults(func=cmd_rename)
+
+    spf = task.add_parser(
+        "set-preflight",
+        help=(
+            "Retune a task's preflight_required flag after creation "
+            "(auto re-derives from scope; required/skip force it)"
+        ),
+    )
+    spf.add_argument("id", help="Task ID, e.g. T015")
+    spf.add_argument(
+        "mode",
+        choices=("auto", "required", "skip"),
+        help="auto: re-derive from scope | required: force on | skip: force off",
+    )
+    spf.add_argument("--json", action="store_true")
+    spf.set_defaults(func=cmd_set_preflight)
 
     sf = task.add_parser(
         "set-file",

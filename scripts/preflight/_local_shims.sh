@@ -20,4 +20,41 @@
 #      shells, which is what preflight scripts run under).
 #   3. This file is project-local and survives `install.sh --mode refresh-v3`
 #      (the framework will not overwrite an existing copy).
+
+# --- pg reachability -------------------------------------------------------
+# Used by the generated preflight guard for DB-dependent jobs: when the compose
+# postgres is down, the job skips cleanly (exit 0) instead of ERRORing every DB
+# test on a bad connection. The generator emits FORGE_PG_HOST/FORGE_PG_PORT
+# (extracted from the Compose-rewritten DATABASE_URL) because DATABASE_URL is
+# exported per-step inside subshells, after the guard runs.
+#
+# NOTE: this file is seeded only-if-missing, so installs predating this helper
+# will not have it. The generated guard checks `declare -F` first and treats an
+# absent helper as "run the job" — never as a silent skip.
+_forge_pg_reachable() {
+  local _host _port
+  if [ -n "${FORGE_PG_HOST:-}" ] || [ -n "${FORGE_PG_PORT:-}" ]; then
+    _host="${FORGE_PG_HOST:-localhost}"
+    _port="${FORGE_PG_PORT:-5432}"
+  elif [ -n "${DATABASE_URL:-}" ]; then
+    local _hp="${DATABASE_URL#*@}"       # strip through the '@'
+    _hp="${_hp%%/*}"                     # drop path
+    if [ -n "$_hp" ] && [ "$_hp" != "$DATABASE_URL" ]; then
+      _host="${_hp%%:*}"
+      case "$_hp" in *:*) _port="${_hp##*:}";; esac
+    fi
+    _host="${_host:-localhost}"
+    _port="${_port:-5432}"
+  else
+    _host="localhost"
+    _port="5432"
+  fi
+  # No pg_isready on this machine -> cannot prove it's down; assume reachable
+  # so the job RUNS. Skipping on missing tooling would hide real failures.
+  if ! command -v pg_isready >/dev/null 2>&1; then
+    return 0
+  fi
+  pg_isready -h "$_host" -p "$_port" >/dev/null 2>&1
+}
+export -f _forge_pg_reachable 2>/dev/null || true
 :

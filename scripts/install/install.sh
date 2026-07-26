@@ -431,6 +431,7 @@ install_framework_fresh() {
     rsync_visual \
         --exclude='.git' \
         --exclude='.claude' \
+        --exclude='tests' \
         --exclude='.github' \
         --exclude='scripts/install' \
         --exclude='daily' \
@@ -467,8 +468,31 @@ install_framework_fresh() {
         "$PROJECT_DIR/.claude/docs" \
         "$PROJECT_DIR/.claude/hooks/settings.json" \
         2>/dev/null || true
+    heal_vendored_tests
     install_cut_paths_manifest
     ok "Framework copied to .claude/"
+}
+
+heal_vendored_tests() {
+    # The framework's own suite used to ship into consumers (no `tests` exclude
+    # on the rsync). Seven of those tests assert the framework-DEV-repo layout
+    # and can never pass once vendored, leaving every consumer with a
+    # permanently-red suite it cannot fix locally. Worse, a shipped test can be
+    # deleted by a later refresh together with the code it guards — which is
+    # exactly how a preflight guard was lost silently.
+    #
+    # MOVE, don't delete: `.claude/` is framework code by doctrine, but a
+    # consumer may have written its own tests there, and a refresh must not
+    # destroy them without a copy.
+    local vendored="$PROJECT_DIR/.claude/tests"
+    [ -d "$vendored" ] || return 0
+    local dest; dest="$(backup_path)/vendored-tests"
+    mkdir -p "$(dirname "$dest")"
+    if mv "$vendored" "$dest" 2>/dev/null; then
+        ok "Moved vendored .claude/tests/ -> ${dest#"$PROJECT_DIR/"} (framework self-tests do not ship)"
+    else
+        warn "Could not move $vendored — leaving it in place"
+    fi
 }
 
 install_cut_paths_manifest() {
@@ -527,6 +551,7 @@ install_framework_refresh() {
     rsync_visual \
         --exclude='.git' \
         --exclude='.claude' \
+        --exclude='tests' \
         --exclude='.github' \
         --exclude='scripts/install' \
         --exclude='scripts/preflight/_local_shims.sh' \
@@ -567,6 +592,7 @@ install_framework_refresh() {
         "$PROJECT_DIR/.claude/docs" \
         "$PROJECT_DIR/.claude/hooks/settings.json" \
         2>/dev/null || true
+    heal_vendored_tests
     install_cut_paths_manifest
     ok "Framework files refreshed (settings.json preserved — merge step runs next)"
 }
@@ -1398,6 +1424,7 @@ install_v3_framework_files() {
     rsync_visual \
         --exclude='.git' \
         --exclude='.claude' \
+        --exclude='tests' \
         --exclude='.github' \
         --exclude='.gitignore' \
         --exclude='_archive' \
@@ -1458,6 +1485,7 @@ install_v3_framework_files() {
         2>/dev/null || true
 
     seed_preflight_shim_if_missing "$PROJECT_DIR/.claude"
+    heal_vendored_tests
     install_cut_paths_manifest
 
     ok "v3 framework files in place"

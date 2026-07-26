@@ -1208,6 +1208,51 @@ def set_task_isa(
     return task
 
 
+def set_preflight(
+    registry_path: Path,
+    project_root: Path,
+    task_id: str,
+    mode: str,
+) -> dict[str, Any]:
+    """Set a task's ``preflight_required`` flag after creation.
+
+    The flag is otherwise only ever written at ``task add`` time (auto-derived
+    from scope by ``detect_preflight_required``), so there was no sanctioned way
+    to retune it on an existing task without hand-editing ``registry.json``
+    (forbidden). This is that path.
+
+    ``mode`` mirrors ``task add``'s ``--preflight``:
+
+    - ``required`` → force ``preflight_required = True``
+    - ``skip``     → force ``preflight_required = False``
+    - ``auto``     → re-derive from the task's current scope via
+      ``detect_preflight_required`` (doc-only scope ⇒ False; any code path or
+      empty scope ⇒ True)
+
+    Registry-only field — not mirrored to task-file frontmatter (the flag has no
+    frontmatter representation). Atomic save under the write lock, like
+    ``rename_task`` and ``set_task_isa``.
+    """
+    if mode not in ("auto", "required", "skip"):
+        raise ValueError(
+            f"set_preflight: invalid mode {mode!r} (expected auto|required|skip)"
+        )
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        task = find_task(registry, task_id)
+        if mode == "required":
+            task["preflight_required"] = True
+        elif mode == "skip":
+            task["preflight_required"] = False
+        else:  # auto
+            scope = task.get("scope") or {}
+            task["preflight_required"] = detect_preflight_required(
+                scope.get("directories"), scope.get("files")
+            )
+        save_registry(registry_path, registry)
+    return task
+
+
 def set_task_file(
     registry_path: Path,
     project_root: Path,

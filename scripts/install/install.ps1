@@ -303,7 +303,7 @@ function Install-FrameworkFresh {
     # plus caches/artifacts that must never land in a consumer's .claude/.
     # scripts/ is descended into so we can skip install/
     $topLevelExcludes = @(
-        ".git", ".claude", ".github", "daily",
+        ".git", ".claude", ".github", "daily", "tests",
         ".venv", ".pytest_cache", "__pycache__", "_archive",
         ".DS_Store", ".remember", ".forge", ".superpowers", ".vscode"
     )
@@ -338,8 +338,27 @@ function Install-FrameworkFresh {
     # the real .claude/settings.json in forge doctor. Mirror of install.sh.
     Remove-Item -Path (Join-Path $target "hooks\settings.json") -Force -ErrorAction SilentlyContinue
 
+    Repair-VendoredTests
     Install-CutPathsManifest
     Say-Ok "Framework copied to .claude/"
+}
+
+function Repair-VendoredTests {
+    # Mirror of install.sh:heal_vendored_tests. The framework's own suite used
+    # to ship into consumers; 7 of those tests assert the framework-DEV-repo
+    # layout and can never pass once vendored. MOVE rather than delete — a
+    # consumer may have written its own tests there.
+    $vendored = Join-Path $script:PROJECT_DIR ".claude\tests"
+    if (-not (Test-Path $vendored)) { return }
+    $dest = Join-Path (Get-BackupRoot) "vendored-tests"
+    $parent = Split-Path -Parent $dest
+    if (-not (Test-Path $parent)) { New-Item -Path $parent -ItemType Directory -Force | Out-Null }
+    try {
+        Move-Item -Path $vendored -Destination $dest -Force -ErrorAction Stop
+        Say-Ok "Moved vendored .claude\tests\ -> $dest (framework self-tests do not ship)"
+    } catch {
+        Say-Warn "Could not move $vendored - leaving it in place"
+    }
 }
 
 function Install-CutPathsManifest {
@@ -394,7 +413,7 @@ function Install-FrameworkRefresh {
     )
 
     $topLevelExcludes = @(
-        ".git", ".claude", ".github", "daily",
+        ".git", ".claude", ".github", "daily", "tests",
         ".venv", ".pytest_cache", "__pycache__", "_archive",
         ".DS_Store", ".remember", ".forge", ".superpowers", ".vscode"
     )
@@ -439,6 +458,7 @@ function Install-FrameworkRefresh {
     # Framework-repo-only source of hook wiring; a stale consumer copy shadows
     # the real .claude/settings.json in forge doctor. Mirror of install.sh.
     Remove-Item -Path (Join-Path $target "hooks\settings.json") -Force -ErrorAction SilentlyContinue
+    Repair-VendoredTests
     Install-CutPathsManifest
     Say-Ok "Framework files refreshed (settings.json preserved — merge step runs next)"
 }
@@ -848,6 +868,7 @@ function Install-V3FrameworkFiles {
     # to the framework root. A directory exclude also blocks all of its contents.
     $excludePaths = @(
         '.git', '.claude', '.github', '.gitignore', '_archive', 'daily',
+        'tests',                                   # framework self-tests; 7 assert the dev-repo layout
         'ISA.md',                                  # framework's own ISA, not consumers'
         'scripts\install',                         # the installer itself
         'scripts\preflight\_local_shims.sh',      # user-extended shim
@@ -894,6 +915,7 @@ function Install-V3FrameworkFiles {
     # the real .claude/settings.json in forge doctor. Mirror of install.sh.
     Remove-Item -Path (Join-Path $target "hooks\settings.json") -Force -ErrorAction SilentlyContinue
 
+    Repair-VendoredTests
     Install-CutPathsManifest
 
     Say-Ok "v3 framework files in place"

@@ -139,6 +139,66 @@ def _render_env_export(key: str, value: str, indent: str) -> str:
     return f'{indent}export {key}="{escaped}"'
 
 
+def _job_needs_postgres(job: Job) -> bool:
+    """True when the job's env or any step references DATABASE_URL.
+
+    Used to decide whether to emit the pg-reachability guard. A job that never
+    touches DATABASE_URL (lint, changelog, frontend-only test steps) must NOT
+    be gated on postgres — only jobs that would ERROR at a DB fixture when the
+    stack is absent get the clean-skip guard.
+    """
+    if any("DATABASE_URL" in str(k) for k in job.env):
+        return True
+    for step in job.steps:
+        if any("DATABASE_URL" in str(k) for k in step.env):
+            return True
+        if step.run and "DATABASE_URL" in step.run:
+            return True
+    return False
+
+
+# postgresql://user:pw@HOST:PORT/db — capture HOST and optional :PORT.
+_DB_HOST_PORT_RE = re.compile(r"@(?P<host>[^@/:\s]+)(?::(?P<port>\d+))?/")
+
+
+def _job_db_host_port(job: Job) -> tuple[str, str] | None:
+    """Extract (host, port) from the first resolved DATABASE_URL in the job.
+
+    The Compose introspector has already rewritten DATABASE_URL's port to the
+    dev's host-port mapping by the time render_script runs, so the value here
+    carries the ground-truth host:port the DB steps will actually use. Emitting
+    it as FORGE_PG_HOST/FORGE_PG_PORT lets the runtime probe reach the RIGHT
+    server without depending on DATABASE_URL being in scope at guard time (it
+    is exported per-step, inside subshells, AFTER the guard).
+
+    Returns None when no literal DATABASE_URL value is found (e.g. a pure
+    `${VAR}` ref) — the runtime helper then keeps its default. Port defaults to
+    "5432" when the URL omits it.
+
+    Scans job env, step env, AND step `run:` bodies — the last because a step
+    may inline `export DATABASE_URL=postgresql://…`, and _job_needs_postgres()
+    marks such a job DB-dependent, so the extractor must cover the same surface
+    or the guard emits no FORGE_PG_* and the probe falls back to its default.
+    """
+    candidates: list[str] = []
+    for k, v in job.env.items():
+        if "DATABASE_URL" in str(k):
+            candidates.append(str(v))
+    for step in job.steps:
+        for k, v in step.env.items():
+            if "DATABASE_URL" in str(k):
+                candidates.append(str(v))
+        # Only mine the run body when it actually references DATABASE_URL, so an
+        # unrelated postgresql:// URL elsewhere isn't mistaken for the DB target.
+        if step.run and "DATABASE_URL" in step.run:
+            candidates.append(step.run)
+    for value in candidates:
+        m = _DB_HOST_PORT_RE.search(value)
+        if m:
+            return m.group("host"), (m.group("port") or "5432")
+    return None
+
+
 def render_script(
     job: Job,
     workflow_file: Path,
@@ -234,6 +294,40 @@ def render_script(
         for k, v in job.env.items():
             lines.append(_render_env_export(k, str(v), indent=""))
         lines.append("")
+
+    # pg-reachability guard. Jobs referencing DATABASE_URL ERROR at the DB
+    # fixture when the compose stack is absent (a cred-cascade that reads as
+    # test debt but is pure env). Mirror the integration-lane self-skip
+    # discipline: probe postgres and, if unreachable, skip the whole job with a
+    # clear reason (exit 0) instead of running pytest into a wall of connection
+    # ERRORs. CI always has its service up, so the guard is a no-op there.
+    if _job_needs_postgres(job):
+        lines.extend([
+            "# Skip cleanly when the compose postgres is unreachable (stack",
+            "# absent) rather than ERRORing every DB test on a bad connection.",
+        ])
+        # Feed the probe the host:port the DB steps will actually use. Steps
+        # export DATABASE_URL per-step INSIDE their subshells (after this
+        # guard), so the helper can't read it at guard time; extract it at
+        # generation time (Compose-rewritten value = ground truth).
+        hp = _job_db_host_port(job)
+        if hp is not None:
+            host, port = hp
+            lines.append(f'export FORGE_PG_HOST="{host}" FORGE_PG_PORT="{port}"')
+        # `declare -F` first: _local_shims.sh is seeded only-if-missing, so an
+        # install predating the helper still has a shim without it. An
+        # unguarded call would exit 127 -> `!` -> true -> silently skip EVERY
+        # DB job. Absent helper must mean "run", never "skip".
+        lines.extend([
+            "if declare -F _forge_pg_reachable >/dev/null && "
+            "! _forge_pg_reachable; then",
+            '  echo "SKIP: postgres not reachable (compose stack down) — '
+            'skipping ${0##*/} (DB-dependent job). Bring the stack up '
+            '(docker compose up -d) to run it." >&2',
+            "  exit 0",
+            "fi",
+            "",
+        ])
 
     # Each step runs in its own subshell `( ... )` so side-effects like `cd`
     # do not leak into the next step — GitHub Actions runs each step in a

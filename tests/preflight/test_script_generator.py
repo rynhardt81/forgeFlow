@@ -21,7 +21,13 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preflight"))
 
-from script_generator import _rewrite_actions_templates, generate_scripts  # noqa: E402
+from script_generator import (  # noqa: E402
+    _job_db_host_port,
+    _job_needs_postgres,
+    _rewrite_actions_templates,
+    generate_scripts,
+    render_script,
+)
 from workflow_parser import Job, Step  # noqa: E402
 
 FIXTURE_COMPOSE = (
@@ -658,3 +664,213 @@ class TestGenerateScriptsComposeRewrite(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPostgresGuard(unittest.TestCase):
+    """T600: the pg-reachability guard is emitted ONLY for DB-dependent jobs."""
+
+    def _wf(self) -> Path:
+        return Path("/tmp/x/.github/workflows/ci.yml")
+
+    def _job(self, *, name="test", env=None, steps=None) -> Job:
+        return Job(
+            name=name,
+            file=str(self._wf()),
+            runs_on="ubuntu-latest",
+            env=env or {},
+            steps=steps or [],
+        )
+
+    def test_needs_postgres_true_when_job_env_has_database_url(self):
+        job = self._job(env={"DATABASE_URL": "postgresql://a:b@localhost:5440/t"})
+        self.assertTrue(_job_needs_postgres(job))
+
+    def test_needs_postgres_true_when_step_env_has_database_url(self):
+        step = Step(name="t", run="pytest", env={"DATABASE_URL": "x"})
+        job = self._job(steps=[step])
+        self.assertTrue(_job_needs_postgres(job))
+
+    def test_needs_postgres_true_when_step_run_references_database_url(self):
+        step = Step(name="t", run='export DATABASE_URL=x; pytest', env={})
+        job = self._job(steps=[step])
+        self.assertTrue(_job_needs_postgres(job))
+
+    def test_needs_postgres_false_for_frontend_only_job(self):
+        step = Step(name="vitest", run="cd frontend/portal && npm test", env={})
+        job = self._job(name="lint", steps=[step])
+        self.assertFalse(_job_needs_postgres(job))
+
+    def test_guard_emitted_for_db_job(self):
+        job = self._job(env={"DATABASE_URL": "postgresql://a:b@localhost:5440/t"})
+        body = render_script(job, self._wf())
+        self.assertIn("_forge_pg_reachable", body)
+        self.assertIn("SKIP: postgres not reachable", body)
+        # The guard must sit AFTER the shim source (which defines the helper)
+        # and BEFORE any step subshell.
+        self.assertLess(
+            body.index('source "$_shim_path"'), body.index("_forge_pg_reachable")
+        )
+        self.assertIn("exit 0", body)
+
+    def test_guard_exports_pg_host_port_before_probe(self):
+        # PR #509 review (P2): the probe must be told the host:port the DB
+        # steps use, because DATABASE_URL is exported per-step (in subshells,
+        # after the guard) and is NOT in scope at guard time. The generator
+        # extracts it from the (Compose-rewritten) URL and exports FORGE_PG_*
+        # right before the probe call.
+        job = self._job(
+            env={"DATABASE_URL": "postgresql://a:b@localhost:5440/t"}
+        )
+        body = render_script(job, self._wf())
+        self.assertIn('export FORGE_PG_HOST="localhost" FORGE_PG_PORT="5440"', body)
+        # ...and it must come BEFORE the probe call so the probe reads it.
+        self.assertLess(
+            body.index("FORGE_PG_PORT"), body.index("declare -F _forge_pg_reachable")
+        )
+
+    def test_guard_uses_step_level_db_url_port(self):
+        # DATABASE_URL commonly lives on the step, not the job. The extractor
+        # must still find the port (e.g. a non-5440 mapping) from step env.
+        step = Step(
+            name="test",
+            run="pytest",
+            env={"DATABASE_URL": "postgresql://a:b@localhost:6543/t"},
+        )
+        job = self._job(steps=[step])
+        body = render_script(job, self._wf())
+        self.assertIn('FORGE_PG_PORT="6543"', body)
+
+    def test_guard_absent_for_non_db_job(self):
+        step = Step(name="lint", run="ruff check .", env={})
+        job = self._job(name="lint", steps=[step])
+        body = render_script(job, self._wf())
+        self.assertNotIn("_forge_pg_reachable", body)
+        self.assertNotIn("SKIP: postgres not reachable", body)
+        self.assertNotIn("FORGE_PG_HOST", body)
+
+
+class TestJobDbHostPort(unittest.TestCase):
+    """PR #509 review: extract the DB host:port the probe should target."""
+
+    def _job(self, *, env=None, steps=None) -> Job:
+        return Job(
+            name="test",
+            file="/tmp/x/.github/workflows/ci.yml",
+            runs_on="ubuntu-latest",
+            env=env or {},
+            steps=steps or [],
+        )
+
+    def test_extracts_host_and_port_from_job_env(self):
+        job = self._job(env={"DATABASE_URL": "postgresql://u:p@db.host:5440/t"})
+        self.assertEqual(_job_db_host_port(job), ("db.host", "5440"))
+
+    def test_extracts_from_step_env_when_not_on_job(self):
+        step = Step(name="t", run="pytest",
+                    env={"DATABASE_URL": "postgresql://u:p@localhost:6543/t"})
+        job = self._job(steps=[step])
+        self.assertEqual(_job_db_host_port(job), ("localhost", "6543"))
+
+    def test_extracts_from_step_run_body(self):
+        # PR #509 review (2nd P2): a step may inline the URL in `run:`, which
+        # _job_needs_postgres() treats as DB-dependent — so the extractor MUST
+        # cover run bodies too, or the guard emits no FORGE_PG_* and the probe
+        # falls back to its hardcoded default.
+        step = Step(
+            name="test",
+            run="export DATABASE_URL=postgresql://a:b@localhost:6543/t\npytest",
+            env={},
+        )
+        job = self._job(steps=[step])
+        self.assertEqual(_job_db_host_port(job), ("localhost", "6543"))
+
+    def test_run_body_extraction_wires_into_generated_guard(self):
+        # End-to-end: the run-body case emits FORGE_PG_* into the script.
+        step = Step(
+            name="test",
+            run="export DATABASE_URL=postgresql://a:b@db.host:6543/t\npytest",
+            env={},
+        )
+        job = self._job(steps=[step])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        self.assertIn('export FORGE_PG_HOST="db.host" FORGE_PG_PORT="6543"', body)
+
+    def test_run_body_without_database_url_is_ignored(self):
+        # An unrelated postgresql:// URL in a run body that does NOT mention
+        # DATABASE_URL must not be mistaken for the DB target.
+        step = Step(
+            name="t",
+            run="psql postgresql://a:b@other:9999/x -c 'SELECT 1'",
+            env={},
+        )
+        job = self._job(steps=[step])
+        self.assertIsNone(_job_db_host_port(job))
+
+    def test_port_defaults_to_5432_when_url_omits_it(self):
+        job = self._job(env={"DATABASE_URL": "postgresql://u:p@localhost/t"})
+        self.assertEqual(_job_db_host_port(job), ("localhost", "5432"))
+
+    def test_none_when_no_literal_host(self):
+        # A pure env-ref URL with no literal host → None (helper keeps default).
+        job = self._job(env={"DATABASE_URL": "${DATABASE_URL:-}"})
+        self.assertIsNone(_job_db_host_port(job))
+
+    def test_none_when_no_database_url_at_all(self):
+        job = self._job(env={"REDIS_HOST": "localhost"})
+        self.assertIsNone(_job_db_host_port(job))
+
+
+
+class TestPostgresGuardDegradesSafely(unittest.TestCase):
+    """The guard must never skip a job just because the helper is absent.
+
+    `_local_shims.sh` is seeded only-if-missing, so an install predating
+    `_forge_pg_reachable` still has a shim without it. An unguarded
+    `if ! _forge_pg_reachable` would exit 127 -> `!` -> true -> silently SKIP
+    every DB job. Absent helper must mean "run".
+    """
+
+    def _db_job(self) -> Job:
+        return Job(
+            name="test",
+            file="/tmp/x/.github/workflows/ci.yml",
+            runs_on="ubuntu-latest",
+            env={"DATABASE_URL": "postgresql://a:b@localhost:5432/t"},
+            steps=[],
+        )
+
+    def _guard_snippet(self) -> str:
+        body = render_script(self._db_job(), Path("/tmp/x/.github/workflows/ci.yml"))
+        start = body.index("if declare -F _forge_pg_reachable")
+        return body[start:body.index("fi", start) + 2]
+
+    def test_guard_checks_declare_before_calling(self):
+        snippet = self._guard_snippet()
+        self.assertLess(
+            snippet.index("declare -F _forge_pg_reachable"),
+            snippet.index("! _forge_pg_reachable"),
+        )
+
+    def test_absent_helper_runs_job_instead_of_skipping(self):
+        # Behavioural: execute the guard in a shell with NO helper defined.
+        # It must fall through (no SKIP, exit 0 from the trailing marker).
+        import subprocess
+        script = self._guard_snippet() + '\necho REACHED_STEPS\n'
+        out = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+        self.assertIn("REACHED_STEPS", out.stdout)
+        self.assertNotIn("SKIP: postgres not reachable", out.stderr)
+
+    def test_present_helper_returning_false_does_skip(self):
+        # Falsifier: with the helper defined and reporting unreachable, the
+        # guard MUST skip — otherwise the test above would pass vacuously.
+        import subprocess
+        script = (
+            "_forge_pg_reachable() { return 1; }\n"
+            + self._guard_snippet()
+            + '\necho REACHED_STEPS\n'
+        )
+        out = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+        self.assertNotIn("REACHED_STEPS", out.stdout)
+        self.assertIn("SKIP: postgres not reachable", out.stderr)
+
+
