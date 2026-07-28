@@ -849,3 +849,56 @@ def test_set_preflight_touches_only_the_flag(tmp_path):
     assert diff_keys == ["preflight_required"]
 
 
+
+
+# --- set_scope ---------------------------------------------------------------
+# Scope was write-once at `task add` time, so a task filed against the wrong
+# paths could only be corrected by hand-editing registry.json (forbidden).
+# Beyond tidiness: `task lock` uses scope for file-conflict detection, so a
+# wrong scope silently fails to catch a real parallel-session conflict.
+
+
+def test_set_scope_replaces_files_and_leaves_dirs_untouched(tmp_path):
+    repo = _pf_repo(tmp_path, scope={"directories": ["keep/"], "files": ["old.py"]})
+    task = ops.set_scope(_registry_path(repo), repo, "T1", files="a.py,b.py")
+    assert task["scope"]["files"] == ["a.py", "b.py"]
+    assert task["scope"]["directories"] == ["keep/"]
+    assert _read(repo)["tasks"][0]["scope"]["files"] == ["a.py", "b.py"]
+
+
+def test_set_scope_empty_string_clears_that_half(tmp_path):
+    repo = _pf_repo(tmp_path, scope={"directories": ["gone/"], "files": ["x.py"]})
+    task = ops.set_scope(_registry_path(repo), repo, "T1", directories="")
+    assert task["scope"]["directories"] == []
+    assert task["scope"]["files"] == ["x.py"]
+
+
+def test_set_scope_rederives_preflight_from_new_scope(tmp_path):
+    # preflight_required is a function of scope; keeping a value derived from
+    # the OLD paths is exactly the drift this command exists to remove.
+    repo = _pf_repo(tmp_path, scope={"directories": ["app/"], "files": []},
+                    preflight=True)
+    task = ops.set_scope(_registry_path(repo), repo, "T1",
+                         directories="docs/", files="README.md")
+    assert task["preflight_required"] is False
+
+
+def test_set_scope_mirrors_into_task_file_frontmatter(tmp_path):
+    repo = _pf_repo(tmp_path, scope={"directories": ["old/"], "files": []})
+    ops.set_scope(_registry_path(repo), repo, "T1", files="new.py")
+    body = next((repo / "docs" / "epics").rglob("T1-fixture.md")).read_text()
+    assert "files: [new.py]" in body
+    # dirs half was not passed, so it must survive verbatim in the mirror too
+    assert "directories: [old/]" in body
+
+
+def test_set_scope_requires_at_least_one_argument(tmp_path):
+    repo = _pf_repo(tmp_path)
+    with pytest.raises(ValueError):
+        ops.set_scope(_registry_path(repo), repo, "T1")
+
+
+def test_set_scope_unknown_task_raises(tmp_path):
+    repo = _pf_repo(tmp_path)
+    with pytest.raises(ops.TaskNotFound):
+        ops.set_scope(_registry_path(repo), repo, "T999", files="a.py")

@@ -467,6 +467,36 @@ def cmd_rename(args, project_root: Path) -> int:
     return 0
 
 
+def cmd_set_scope(args, project_root: Path) -> int:
+    try:
+        task = ops.set_scope(
+            _registry_path(project_root),
+            project_root,
+            args.id,
+            directories=args.scope_dirs,
+            files=args.scope_files,
+        )
+    except ops.TaskNotFound as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.RegistryLockTimeout as e:
+        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(task, indent=2))
+    else:
+        scope = task.get("scope") or {}
+        flag = "yes" if task.get("preflight_required") else "no"
+        print(
+            f'set {task["id"]} scope -> dirs={scope.get("directories") or []} '
+            f'files={scope.get("files") or []} (preflight_required={flag})'
+        )
+    return 0
+
+
 def cmd_set_preflight(args, project_root: Path) -> int:
     try:
         task = ops.set_preflight(
@@ -1036,6 +1066,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     spf.add_argument("--json", action="store_true")
     spf.set_defaults(func=cmd_set_preflight)
+
+    ssc = task.add_parser(
+        "set-scope",
+        help=(
+            "Retune a task's scope after creation (re-derives preflight_required; "
+            "omitted half is left untouched, empty string clears it)"
+        ),
+    )
+    ssc.add_argument("id", help="Task ID, e.g. T015")
+    ssc.add_argument("--scope-dirs", help="Comma-separated directories the task touches")
+    ssc.add_argument("--scope-files", help="Comma-separated specific files the task touches")
+    ssc.add_argument("--json", action="store_true")
+    ssc.set_defaults(func=cmd_set_scope)
 
     sf = task.add_parser(
         "set-file",

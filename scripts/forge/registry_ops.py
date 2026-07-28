@@ -1253,6 +1253,107 @@ def set_preflight(
     return task
 
 
+def _mirror_scope_to_frontmatter(
+    project_root: Path, task: dict[str, Any], scope: dict[str, Any]
+) -> None:
+    """Best-effort frontmatter sync for scope; never fails the registry write.
+
+    The registry is the source of truth and has already been saved by the time
+    this runs — a missing or unparseable body file must not undo that.
+    """
+    # Same resolver as mirror_name_to_file: the registry `file:` field is
+    # unreliable (fixtures and older entries omit it), so fall back to disk
+    # discovery rather than silently skipping the mirror.
+    rel = task_file_path({}, task)
+    body: Path | None = (project_root / rel) if rel else None
+    if body is None or not body.exists():
+        body = _discover_task_file(project_root, task)
+    if body is None or not body.exists():
+        return
+    try:
+        text = body.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            return
+        end = text.index("\n---", 3)
+        head, rest = text[:end], text[end:]
+        block = [
+            "scope:",
+            f"  directories: [{', '.join(scope['directories'])}]",
+            f"  files: [{', '.join(scope['files'])}]",
+        ]
+        out, skipping, found = [], False, False
+        for line in head.splitlines():
+            if line.startswith("scope:"):
+                skipping, found = True, True
+                out.extend(block)
+                continue
+            if skipping:
+                # Consume the old block's indented children only.
+                if line.startswith(("  ", "\t")):
+                    continue
+                skipping = False
+            out.append(line)
+        if not found:
+            # No scope block yet (older task files, fixtures). Append rather
+            # than skip — frontmatter that omits scope is what let registry and
+            # file disagree silently in the first place.
+            out.extend(block)
+        body.write_text("\n".join(out) + rest)
+    except (OSError, ValueError):
+        return
+
+
+def set_scope(
+    registry_path: Path,
+    project_root: Path,
+    task_id: str,
+    *,
+    directories: str | None = None,
+    files: str | None = None,
+) -> dict[str, Any]:
+    """Retune a task's ``scope`` after creation.
+
+    Scope was write-once at ``task add`` time, so a task filed against the wrong
+    paths — easy when it is filed before the code is located — could only be
+    corrected by hand-editing ``registry.json``, which is forbidden. Siblings
+    already existed for every other post-hoc field (``rename_task``,
+    ``set_task_file``, ``set_preflight``); this closes the set.
+
+    It matters beyond tidiness: scope is what ``task lock`` uses to detect
+    file-level conflicts between parallel sessions, so a wrong scope means a
+    real conflict goes undetected.
+
+    Comma-separated strings, matching ``task add``'s ``--scope-dirs`` /
+    ``--scope-files``. An omitted argument leaves that half untouched; an empty
+    string clears it. ``preflight_required`` is re-derived, because it is a
+    function of scope and would otherwise keep a value computed from old paths.
+    """
+    if directories is None and files is None:
+        raise ValueError("set_scope: pass at least one of directories/files")
+
+    def _split(raw: str | None) -> list[str] | None:
+        return None if raw is None else [p.strip() for p in raw.split(",") if p.strip()]
+
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        task = find_task(registry, task_id)
+        scope = dict(task.get("scope") or {})
+        new_dirs, new_files = _split(directories), _split(files)
+        if new_dirs is not None:
+            scope["directories"] = new_dirs
+        if new_files is not None:
+            scope["files"] = new_files
+        scope.setdefault("directories", [])
+        scope.setdefault("files", [])
+        task["scope"] = scope
+        task["preflight_required"] = detect_preflight_required(
+            scope.get("directories"), scope.get("files")
+        )
+        save_registry(registry_path, registry)
+        _mirror_scope_to_frontmatter(project_root, task, scope)
+    return task
+
+
 def set_task_file(
     registry_path: Path,
     project_root: Path,
