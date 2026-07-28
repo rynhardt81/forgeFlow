@@ -39,6 +39,14 @@ from workflow_parser import derive_gating_jobs, load_protection_required  # noqa
 DEFAULT_WORKFLOWS_DIR = Path(".github/workflows")
 DEFAULT_OUT_DIR = Path(".forge/preflight")
 
+# A generated job can self-skip when an infra dependency is absent — the
+# pg-reachability guard exits 0 with this prefix on stderr when the compose
+# stack is down. Exit 0 is deliberate (an absent local stack must not block a
+# push), but exit 0 alone is indistinguishable from a pass: the run would print
+# a plain green while the job's coverage never executed. Detect the marker so
+# the skip is always visible in the summary.
+JOB_SKIP_MARKER = "SKIP: "
+
 
 @dataclass
 class JobResult:
@@ -51,6 +59,22 @@ class JobResult:
     @property
     def passed(self) -> bool:
         return self.exit_code == 0
+
+    @property
+    def skip_reason(self) -> str | None:
+        """Reason this job skipped itself, or None if it actually ran.
+
+        Only meaningful for a job that exited 0 — a failing job's stderr may
+        mention SKIP for unrelated reasons, and it is reported as a failure
+        regardless.
+        """
+        if not self.passed:
+            return None
+        for line in self.stderr_tail.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(JOB_SKIP_MARKER):
+                return stripped[len(JOB_SKIP_MARKER):].strip()
+        return None
 
 
 @dataclass
@@ -69,11 +93,17 @@ class PreflightReport:
     def all_green(self) -> bool:
         return bool(self.jobs_run) and all(j.passed for j in self.jobs_run)
 
+    @property
+    def jobs_skipped(self) -> list[JobResult]:
+        """Jobs that exited 0 by self-skipping — green, but they did not run."""
+        return [j for j in self.jobs_run if j.skip_reason is not None]
+
     def to_dict(self) -> dict[str, Any]:
         return {
             **{k: v for k, v in asdict(self).items() if k != "jobs_run"},
-            "jobs_run": [asdict(j) for j in self.jobs_run],
+            "jobs_run": [{**asdict(j), "skip_reason": j.skip_reason} for j in self.jobs_run],
             "all_green": self.all_green,
+            "jobs_skipped": [j.name for j in self.jobs_skipped],
         }
 
 
@@ -180,6 +210,10 @@ def format_human(report: PreflightReport) -> str:
         lines.append("   run: /preflight-ci --regenerate")
         return "\n".join(lines)
     for j in report.jobs_run:
+        if j.skip_reason is not None:
+            lines.append(f"⏭️  {j.name}  ({j.duration_seconds}s) — SKIPPED")
+            lines.append(f"   {j.skip_reason}")
+            continue
         mark = "✅" if j.passed else "❌"
         lines.append(f"{mark} {j.name}  ({j.duration_seconds}s)")
         if not j.passed:
@@ -187,7 +221,15 @@ def format_human(report: PreflightReport) -> str:
             lines.append("   " + j.stderr_tail.replace("\n", "\n   "))
     if report.all_green:
         lines.append("")
-        lines.append("✓ all gating jobs passed — safe to push")
+        skipped = report.jobs_skipped
+        if skipped:
+            names = ", ".join(j.name for j in skipped)
+            lines.append(
+                f"✓ no gating job failed — but {len(skipped)} SKIPPED ({names});"
+                " that coverage did NOT run"
+            )
+        else:
+            lines.append("✓ all gating jobs passed — safe to push")
     elif report.jobs_run:
         lines.append("")
         lines.append("✗ preflight failed — fix above before pushing")
@@ -227,7 +269,13 @@ def main(argv: list[str] | None = None) -> int:
     else:
         text = format_human(report)
         if args.quick and report.all_green:
-            print(f"✓ preflight green ({len(report.jobs_run)} jobs)")
+            skipped = report.jobs_skipped
+            suffix = (
+                f", {len(skipped)} SKIPPED: {', '.join(j.name for j in skipped)}"
+                if skipped
+                else ""
+            )
+            print(f"✓ preflight green ({len(report.jobs_run)} jobs{suffix})")
         else:
             print(text)
 

@@ -532,7 +532,12 @@ def _collect_workflow_hashes(workflows_dir: Path) -> dict[str, str]:
 def write_lockfile(workflows_dir: Path, lockfile: Path) -> None:
     hashes = _collect_workflow_hashes(workflows_dir)
     lockfile.parent.mkdir(parents=True, exist_ok=True)
-    lockfile.write_text(json.dumps({"workflow_hashes": hashes}, indent=2, sort_keys=True))
+    # Trailing newline: drift.lock is committed, so emitting it without one made
+    # every `--regenerate` produce a pure "\ No newline at end of file" diff on a
+    # tracked file.
+    lockfile.write_text(
+        json.dumps({"workflow_hashes": hashes}, indent=2, sort_keys=True) + "\n"
+    )
 
 
 def compute_drift(workflows_dir: Path, lockfile: Path) -> DriftReport:
