@@ -24,7 +24,10 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preflight"))
 
-from preflight import JobResult, PreflightReport, format_human  # noqa: E402
+from preflight import JOB_SKIP_MARKER, JobResult, PreflightReport, format_human  # noqa: E402
+from script_generator import render_script  # noqa: E402
+from script_generator import JOB_SKIP_MARKER as EMITTER_MARKER  # noqa: E402
+from workflow_parser import Job  # noqa: E402
 
 # The exact line the generated pg guard writes before `exit 0`.
 PG_SKIP = (
@@ -111,6 +114,50 @@ class TestSkipReporting(unittest.TestCase):
         payload = _report(_job("test", stderr=PG_SKIP)).to_dict()
         self.assertEqual(payload["jobs_skipped"], ["test"])
         self.assertIn("postgres not reachable", payload["jobs_run"][0]["skip_reason"])
+
+
+class TestEmitterRunnerContract(unittest.TestCase):
+    """The generator emits the marker; the runner sniffs for it. One literal.
+
+    These two live in different modules, and nothing but this test links them.
+    A reworded echo (`SKIP:` without the space, `[SKIP]`, an emoji) would break
+    detection silently and restore the exact bug this feature fixes: a job that
+    never ran reported as a plain green.
+    """
+
+    def test_runner_and_emitter_share_one_literal(self):
+        self.assertIs(JOB_SKIP_MARKER, EMITTER_MARKER)
+
+    def test_generated_guard_emits_the_marker_the_runner_detects(self):
+        job = Job(
+            name="test",
+            file="ci.yml",
+            runs_on="ubuntu-latest",
+            env={"DATABASE_URL": "postgresql://a:b@localhost:5440/t"},
+        )
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+
+        skip_echo = next(
+            line for line in body.splitlines() if JOB_SKIP_MARKER in line
+        )
+        # The guard must announce on stderr — the runner reads stderr only, so a
+        # guard echoing to stdout is undetected and renders as a plain green.
+        self.assertIn(">&2", skip_echo)
+
+        # End-to-end: feed the emitted line back through the runner's detector.
+        emitted = skip_echo.split('echo "', 1)[1].rsplit('"', 1)[0]
+        self.assertIsNotNone(_job("test", stderr=emitted).skip_reason)
+
+    def test_guard_exits_zero_so_a_skip_never_blocks_a_push(self):
+        job = Job(
+            name="test",
+            file="ci.yml",
+            runs_on="ubuntu-latest",
+            env={"DATABASE_URL": "postgresql://a:b@localhost:5440/t"},
+        )
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        guard = body[body.index(JOB_SKIP_MARKER):]
+        self.assertIn("exit 0", guard.split("fi", 1)[0])
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from script_generator import (  # noqa: E402
+    JOB_SKIP_MARKER,
     compute_drift,
     generate_scripts,
     write_lockfile,
@@ -38,14 +39,6 @@ from workflow_parser import derive_gating_jobs, load_protection_required  # noqa
 
 DEFAULT_WORKFLOWS_DIR = Path(".github/workflows")
 DEFAULT_OUT_DIR = Path(".forge/preflight")
-
-# A generated job can self-skip when an infra dependency is absent — the
-# pg-reachability guard exits 0 with this prefix on stderr when the compose
-# stack is down. Exit 0 is deliberate (an absent local stack must not block a
-# push), but exit 0 alone is indistinguishable from a pass: the run would print
-# a plain green while the job's coverage never executed. Detect the marker so
-# the skip is always visible in the summary.
-JOB_SKIP_MARKER = "SKIP: "
 
 
 @dataclass
@@ -62,11 +55,15 @@ class JobResult:
 
     @property
     def skip_reason(self) -> str | None:
-        """Reason this job skipped itself, or None if it actually ran.
+        """Reason this job skipped itself; None if it ran, and None if it failed.
 
         Only meaningful for a job that exited 0 — a failing job's stderr may
         mention SKIP for unrelated reasons, and it is reported as a failure
         regardless.
+
+        Detection is `JOB_SKIP_MARKER` at the start of a stderr line. That is a
+        convention, not a guarantee: a job that emits the marker and then does
+        real work reads as a full skip here. See JOB_SKIP_MARKER's contract.
         """
         if not self.passed:
             return None
@@ -95,7 +92,14 @@ class PreflightReport:
 
     @property
     def jobs_skipped(self) -> list[JobResult]:
-        """Jobs that exited 0 by self-skipping — green, but they did not run."""
+        """Jobs that exited 0 after announcing JOB_SKIP_MARKER on stderr.
+
+        The only emitter today is the pg-reachability guard, which exits before
+        any step runs — so these jobs contributed zero coverage, which is what
+        the summary tells the user. A future guard that skipped only *part* of a
+        job would be over-reported here as a whole-job skip; that direction is
+        deliberate (over-warn, never under-warn).
+        """
         return [j for j in self.jobs_run if j.skip_reason is not None]
 
     def to_dict(self) -> dict[str, Any]:
