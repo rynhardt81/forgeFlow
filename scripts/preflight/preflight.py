@@ -30,6 +30,7 @@ from typing import Any
 # own directory so sibling modules resolve under both forms.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from hook_installer import refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
     JOB_SKIP_MARKER,
     compute_drift,
@@ -188,7 +189,10 @@ def run_preflight(
         report.skipped_reason = "no gating jobs derived from workflows"
         return report
 
-    if regenerate or not (out / "drift.lock").exists():
+    # Regenerate on an explicit request, a missing lockfile, or a generator
+    # contract bump. The last one matters most: scripts built against an older
+    # contract still *run*, so without this the runner silently misreads them.
+    if regenerate or not (out / "drift.lock").exists() or drift.contract_stale:
         generate_scripts(jobs, out, project_root=project_root)
         write_lockfile(wf_dir, out / "drift.lock")
 
@@ -288,6 +292,18 @@ def main(argv: list[str] | None = None) -> int:
 
     only = [s.strip() for s in args.only.split(",")] if args.only else None
 
+    # The installed pre-push hook is a COPY of the template, so nothing else
+    # updates it when the template's contract changes. Heal it here — this is the
+    # one code path every hook invocation reaches. `hook_was_stale` matters for
+    # the exit code below: if we just refreshed, the hook running RIGHT NOW is
+    # still the old one, which blocks on any non-zero.
+    try:
+        hook_was_stale = refresh_if_stale(args.project_root)
+    except OSError:
+        # Read-only .git, permissions, exotic worktree layout — a hook we could
+        # not refresh must never take down the preflight run itself.
+        hook_was_stale = False
+
     report = run_preflight(
         args.project_root,
         workflows_dir=args.workflows_dir,
@@ -318,7 +334,21 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(text)
 
-    return exit_code_for(report)
+    code = exit_code_for(report)
+    if code == 5 and hook_was_stale:
+        # Backward compatibility, exactly once. The hook executing this run is
+        # the pre-refresh copy, whose catch-all branch blocks the push on ANY
+        # non-zero — so returning 5 here would break the documented "a skip never
+        # blocks a push" contract for the very users being migrated. The refresh
+        # above already landed, so the next push gets the real 5.
+        print(
+            "preflight: pre-push hook was out of date and has been refreshed; "
+            "treating this run's skip as non-blocking. Next push reports it "
+            "properly.",
+            file=sys.stderr,
+        )
+        return 0
+    return code
 
 
 if __name__ == "__main__":

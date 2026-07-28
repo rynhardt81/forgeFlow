@@ -23,7 +23,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from venv_manager import EnsureResult, ensure_venv  # noqa: E402
 
-SENTINEL = "FORGE_PREFLIGHT_HOOK_V1"
+# The installed hook is a COPY of the template, so a template change does not
+# reach anyone who already ran `enable-git-hook`. Version the sentinel and match
+# on the prefix: prefix => Forge-owned (safe to overwrite without --force), exact
+# => current. Bump SENTINEL whenever the template's contract with preflight.py
+# changes, so `refresh_if_stale()` can heal existing installs.
+SENTINEL_PREFIX = "FORGE_PREFLIGHT_HOOK_V"
+SENTINEL = f"{SENTINEL_PREFIX}2"
 HOOK_NAME = "pre-push"
 TEMPLATE_NAME = "pre-push.template.sh"
 
@@ -59,16 +65,19 @@ def install(repo_root: Path, *, force: bool = False) -> InstallResult:
 
     if target.exists():
         existing = target.read_text(errors="replace")
-        if SENTINEL not in existing and not force:
+        # Prefix match, not exact: an older Forge hook is still ours to replace.
+        # Matching exactly would treat every previous version as a foreign hook
+        # and refuse to upgrade it without --force.
+        if SENTINEL_PREFIX not in existing and not force:
             return InstallResult(
                 status="skipped-foreign-hook",
                 hook_path=target,
                 message=(
                     f"Existing {target} was not written by Forge "
-                    f"(no {SENTINEL} sentinel). Re-run with --force to overwrite."
+                    f"(no {SENTINEL_PREFIX}* sentinel). Re-run with --force to overwrite."
                 ),
             )
-        prior = "overwrote-forge" if SENTINEL in existing else "installed"
+        prior = "overwrote-forge" if SENTINEL_PREFIX in existing else "installed"
     else:
         prior = "installed"
 
@@ -89,6 +98,34 @@ def install(repo_root: Path, *, force: bool = False) -> InstallResult:
     )
 
 
+def installed_is_stale(repo_root: Path) -> bool:
+    """True when a Forge-owned hook is installed but predates the current SENTINEL.
+
+    False for no hook, a foreign hook (not ours to touch), or a current one.
+    """
+    target = _hooks_dir(repo_root) / HOOK_NAME
+    if not target.exists():
+        return False
+    existing = target.read_text(errors="replace")
+    return SENTINEL_PREFIX in existing and SENTINEL not in existing
+
+
+def refresh_if_stale(repo_root: Path) -> bool:
+    """Rewrite an out-of-date Forge-owned hook from the current template.
+
+    Returns True if a refresh happened. The installed hook is a snapshot, so
+    nothing else updates it — a user who ran `enable-git-hook` once would keep a
+    hook whose contract with preflight.py has since changed. Only touches hooks
+    carrying our sentinel; a hand-written hook is never rewritten.
+    """
+    if not installed_is_stale(repo_root):
+        return False
+    target = _hooks_dir(repo_root) / HOOK_NAME
+    shutil.copyfile(_template_path(), target)
+    target.chmod(0o755)
+    return True
+
+
 def uninstall(repo_root: Path) -> UninstallResult:
     target = _hooks_dir(repo_root) / HOOK_NAME
     if not target.exists():
@@ -96,12 +133,12 @@ def uninstall(repo_root: Path) -> UninstallResult:
             status="absent", hook_path=target, message=f"No hook at {target}"
         )
     existing = target.read_text(errors="replace")
-    if SENTINEL not in existing:
+    if SENTINEL_PREFIX not in existing:
         return UninstallResult(
             status="skipped-foreign-hook",
             hook_path=target,
             message=(
-                f"Hook at {target} is not Forge-owned (no {SENTINEL} sentinel) "
+                f"Hook at {target} is not Forge-owned (no {SENTINEL_PREFIX}* sentinel) "
                 f"— leaving it alone."
             ),
         )
