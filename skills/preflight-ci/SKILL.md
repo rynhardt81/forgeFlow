@@ -144,6 +144,8 @@ For any red job, classify the stderr tail against `skills/_shared/ci-failure-cla
 - ✅ typecheck (3.2s)
 - ❌ test (8.1s)
 - ⏭️ lint (skipped — fail-fast)
+- ⏭️ test (0.04s) — SKIPPED
+     postgres not reachable (compose stack down) — …
 
 #### Specialist diagnosis (only when red)
 <output from the matched pr-review-toolkit specialist>
@@ -154,6 +156,26 @@ Exit codes:
 - `2` — drift detected; refused to execute
 - `3` — at least one gating job failed
 - `4` — degraded (no workflows, missing classifier specialist, etc.)
+
+### Self-skipped jobs
+
+Distinct from the fail-fast skip above (a job never *started* because an earlier
+one failed). A **self-skip** is a job that ran, found its infra dependency
+absent, announced `SKIP: <reason>` on stderr and exited 0 — the pg-reachability
+guard is the built-in case.
+
+Exit 0 is deliberate: an absent local stack must not block a push, and CI runs
+the real thing. But exit 0 alone is indistinguishable from a pass, so the runner
+detects the marker and reports it explicitly:
+
+- `--quick` → `✓ preflight green (4 jobs, 1 SKIPPED: test)`
+- full → the `⏭️ … — SKIPPED` block above, and the summary line becomes
+  `✓ no gating job failed — but 1 SKIPPED (test); that coverage did NOT run`.
+  **The "safe to push" line is withheld whenever anything skipped.**
+- `--json` → `jobs_skipped: ["test"]`, plus `skip_reason` on each job entry.
+
+Exit code stays `0` — skips are visible, not blocking. To actually run a skipped
+job, bring its dependency up (`docker compose up -d`) and re-run.
 
 ## Integration points
 
