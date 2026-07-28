@@ -129,6 +129,12 @@ def run_one_script(script: Path, cwd: Path) -> JobResult:
         cwd=cwd,
         capture_output=True,
         text=True,
+        # A job's output is arbitrary bytes from arbitrary tools, and at least
+        # one (gitleaks) truncates a finding mid-character and emits invalid
+        # UTF-8. Without this the decode raises inside subprocess.run and takes
+        # down the whole preflight run with a traceback — turning "one job is
+        # red" into "the runner crashed", which is strictly less useful.
+        errors="replace",
         env={**os.environ, "FORGE_PREFLIGHT": "1"},
     )
     return JobResult(

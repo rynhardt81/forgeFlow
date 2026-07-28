@@ -34,6 +34,7 @@ from preflight import (  # noqa: E402
     _extract_skip_reason,
     exit_code_for,
     format_human,
+    run_one_script,
 )
 from hook_installer import SENTINEL, refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
@@ -206,6 +207,38 @@ class TestEmitterRunnerContract(unittest.TestCase):
         body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
         guard = body[body.index(JOB_SKIP_MARKER):]
         self.assertIn("exit 0", guard.split("fi", 1)[0])
+
+
+class TestNonUtf8JobOutput(unittest.TestCase):
+    """A job emitting invalid UTF-8 must be reported red, not crash the runner.
+
+    Real case: gitleaks truncates a finding mid-character and writes a lone
+    0xFA to stdout. Before `errors="replace"`, the decode raised inside
+    subprocess.run and the entire preflight run died with a traceback.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        self.root = Path(self._tmp)
+        self.addCleanup(shutil.rmtree, self._tmp, True)
+
+    def test_invalid_utf8_on_stdout_does_not_raise(self):
+        script = self.root / "noisy.sh"
+        script.write_text("#!/usr/bin/env bash\nprintf 'be\\xfagin\\n'\nexit 1\n")
+        result = run_one_script(script, cwd=self.root)
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("gin", result.stdout_tail)
+
+    def test_invalid_utf8_does_not_break_skip_detection(self):
+        script = self.root / "skippy.sh"
+        script.write_text(
+            "#!/usr/bin/env bash\n"
+            "printf 'junk\\xfa\\n'\n"
+            f'echo "{JOB_SKIP_MARKER}dependency absent" >&2\n'
+            "exit 0\n"
+        )
+        result = run_one_script(script, cwd=self.root)
+        self.assertEqual(result.skip_reason, "dependency absent")
 
 
 class TestMigrationOfExistingInstalls(unittest.TestCase):
