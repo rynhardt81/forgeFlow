@@ -7,6 +7,8 @@ Single entry point reused by `/preflight-ci`, the pre-push git hook, and
     2 — drift detected (refuses to execute until --regenerate)
     3 — at least one gating job red
     4 — degraded (e.g. no workflows found, pr-review-toolkit absent on red)
+    5 — nothing failed, but a job self-skipped: green is NOT the whole story,
+        that job's coverage did not run (see JOB_SKIP_MARKER)
 
 Outputs JSON when --json is passed; otherwise human-readable.
 """
@@ -41,6 +43,23 @@ DEFAULT_WORKFLOWS_DIR = Path(".github/workflows")
 DEFAULT_OUT_DIR = Path(".forge/preflight")
 
 
+def _extract_skip_reason(stderr: str) -> str | None:
+    """First `JOB_SKIP_MARKER` line in stderr, marker stripped, else None.
+
+    Takes FULL stderr, never `stderr_tail` — the tail keeps only the last 40
+    lines, so deriving this from the tail would lose the marker for any job that
+    self-skips and then emits more than 40 further stderr lines, silently
+    restoring the plain-green bug. The one built-in emitter exits immediately so
+    its marker is always last, but `JOB_SKIP_MARKER` is a published contract and
+    the next emitter need not.
+    """
+    for line in stderr.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(JOB_SKIP_MARKER):
+            return stripped[len(JOB_SKIP_MARKER):].strip()
+    return None
+
+
 @dataclass
 class JobResult:
     name: str
@@ -48,30 +67,14 @@ class JobResult:
     duration_seconds: float
     stdout_tail: str
     stderr_tail: str
+    # Set only for a job that exited 0 after announcing JOB_SKIP_MARKER. A
+    # failing job is reported as a failure regardless of what its stderr says,
+    # so this stays None there — failure is strictly louder than skip.
+    skip_reason: str | None = None
 
     @property
     def passed(self) -> bool:
         return self.exit_code == 0
-
-    @property
-    def skip_reason(self) -> str | None:
-        """Reason this job skipped itself; None if it ran, and None if it failed.
-
-        Only meaningful for a job that exited 0 — a failing job's stderr may
-        mention SKIP for unrelated reasons, and it is reported as a failure
-        regardless.
-
-        Detection is `JOB_SKIP_MARKER` at the start of a stderr line. That is a
-        convention, not a guarantee: a job that emits the marker and then does
-        real work reads as a full skip here. See JOB_SKIP_MARKER's contract.
-        """
-        if not self.passed:
-            return None
-        for line in self.stderr_tail.splitlines():
-            stripped = line.strip()
-            if stripped.startswith(JOB_SKIP_MARKER):
-                return stripped[len(JOB_SKIP_MARKER):].strip()
-        return None
 
 
 @dataclass
@@ -105,7 +108,7 @@ class PreflightReport:
     def to_dict(self) -> dict[str, Any]:
         return {
             **{k: v for k, v in asdict(self).items() if k != "jobs_run"},
-            "jobs_run": [{**asdict(j), "skip_reason": j.skip_reason} for j in self.jobs_run],
+            "jobs_run": [asdict(j) for j in self.jobs_run],
             "all_green": self.all_green,
             "jobs_skipped": [j.name for j in self.jobs_skipped],
         }
@@ -133,6 +136,10 @@ def run_one_script(script: Path, cwd: Path) -> JobResult:
         duration_seconds=round(time.monotonic() - start, 2),
         stdout_tail=_tail(proc.stdout),
         stderr_tail=_tail(proc.stderr),
+        # Derived from FULL stderr, before truncation — see _extract_skip_reason.
+        skip_reason=(
+            _extract_skip_reason(proc.stderr) if proc.returncode == 0 else None
+        ),
     )
 
 
@@ -241,6 +248,30 @@ def format_human(report: PreflightReport) -> str:
     return "\n".join(lines)
 
 
+def exit_code_for(report: PreflightReport) -> int:
+    """Map a report to the process exit code.
+
+    Load-bearing: the pre-push hook and `/create-pr --preflight` read ONLY this,
+    never the printed summary. Kept a pure function so the mapping is directly
+    testable rather than buried in main().
+    """
+    if report.skipped_reason:
+        return 4
+    if report.drift_detected:
+        return 2
+    if not report.all_green and report.jobs_run:
+        return 3
+    # Nothing failed, but a job self-skipped, so coverage is incomplete. Distinct
+    # from 0 because the machine consumers read only this value — collapsing it
+    # into 0 leaves them seeing the plain green this feature exists to remove.
+    # Deliberately NOT folded into 3 either: the pre-push hook must keep allowing
+    # the push (T600 — an absent local stack must not block one), so a skip needs
+    # its own code the hook can wave through while a PR gate blocks on it.
+    if report.jobs_skipped:
+        return 5
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="preflight")
     p.add_argument("--project-root", type=Path, default=Path.cwd())
@@ -274,22 +305,20 @@ def main(argv: list[str] | None = None) -> int:
         text = format_human(report)
         if args.quick and report.all_green:
             skipped = report.jobs_skipped
-            suffix = (
-                f", {len(skipped)} SKIPPED: {', '.join(j.name for j in skipped)}"
-                if skipped
-                else ""
-            )
-            print(f"✓ preflight green ({len(report.jobs_run)} jobs{suffix})")
+            if skipped:
+                # Deliberately NOT "✓ … green". This line scrolls past during a
+                # push; a green-shaped signal here is the bug this reports on.
+                names = ", ".join(j.name for j in skipped)
+                print(
+                    f"⚠️  preflight: {len(skipped)} job(s) DID NOT RUN ({names}); "
+                    f"{len(report.jobs_run) - len(skipped)} passed"
+                )
+            else:
+                print(f"✓ preflight green ({len(report.jobs_run)} jobs)")
         else:
             print(text)
 
-    if report.skipped_reason:
-        return 4
-    if report.drift_detected:
-        return 2
-    if not report.all_green and report.jobs_run:
-        return 3
-    return 0
+    return exit_code_for(report)
 
 
 if __name__ == "__main__":

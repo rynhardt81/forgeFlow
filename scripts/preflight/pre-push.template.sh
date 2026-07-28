@@ -79,9 +79,24 @@ if ! "${PYTHON_BIN}" -c "import yaml" >/dev/null 2>&1; then
 fi
 
 echo "preflight: running local CI mirror …" >&2
-if "${PYTHON_BIN}" "${PREFLIGHT_PY}" --project-root "${REPO_ROOT}" --quick; then
-  exit 0
-else
-  echo "preflight: ❌ blocked push (re-run /preflight-ci for full output, or set FORGE_SKIP_PREFLIGHT=1 to override)" >&2
-  exit 1
-fi
+# Capture rc explicitly: a bare `if cmd; then` collapses every non-zero code into
+# one else-branch, and exit 5 (a job self-skipped) must NOT block the push.
+_rc=0
+"${PYTHON_BIN}" "${PREFLIGHT_PY}" --project-root "${REPO_ROOT}" --quick || _rc=$?
+case "${_rc}" in
+  0)
+    exit 0
+    ;;
+  5)
+    # Green apart from a self-skipped job — usually the compose stack being down.
+    # Allowed through by design (T600: an absent local stack must not block a
+    # push; real CI still runs the job), but never silently: the push proceeds
+    # with that job's coverage missing.
+    echo "preflight: ⚠️  push allowed, but some jobs DID NOT RUN (see above) — CI will still run them" >&2
+    exit 0
+    ;;
+  *)
+    echo "preflight: ❌ blocked push (re-run /preflight-ci for full output, or set FORGE_SKIP_PREFLIGHT=1 to override)" >&2
+    exit 1
+    ;;
+esac

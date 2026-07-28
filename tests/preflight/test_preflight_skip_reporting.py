@@ -24,25 +24,35 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts" / "preflight"))
 
-from preflight import JOB_SKIP_MARKER, JobResult, PreflightReport, format_human  # noqa: E402
+from preflight import (  # noqa: E402
+    JOB_SKIP_MARKER,
+    JobResult,
+    PreflightReport,
+    _extract_skip_reason,
+    exit_code_for,
+    format_human,
+)
 from script_generator import render_script  # noqa: E402
 from script_generator import JOB_SKIP_MARKER as EMITTER_MARKER  # noqa: E402
 from workflow_parser import Job  # noqa: E402
 
 # The exact line the generated pg guard writes before `exit 0`.
 PG_SKIP = (
-    "SKIP: postgres not reachable (compose stack down) — skipping test.sh "
-    "(DB-dependent job). Bring the stack up (docker compose up -d) to run it."
+    f"{JOB_SKIP_MARKER}postgres not reachable (compose stack down) — skipping "
+    "test.sh (DB-dependent job). Bring the stack up (docker compose up -d) to "
+    "run it."
 )
 
 
 def _job(name: str, exit_code: int = 0, stderr: str = "") -> JobResult:
+    """Build a JobResult the way run_one_script does — same derivation path."""
     return JobResult(
         name=name,
         exit_code=exit_code,
         duration_seconds=0.1,
         stdout_tail="",
         stderr_tail=stderr,
+        skip_reason=_extract_skip_reason(stderr) if exit_code == 0 else None,
     )
 
 
@@ -114,6 +124,35 @@ class TestSkipReporting(unittest.TestCase):
         payload = _report(_job("test", stderr=PG_SKIP)).to_dict()
         self.assertEqual(payload["jobs_skipped"], ["test"])
         self.assertIn("postgres not reachable", payload["jobs_run"][0]["skip_reason"])
+
+
+class TestExitCode(unittest.TestCase):
+    """The machine contract. Consumers read this, never the printed summary."""
+
+    def test_skip_is_five_not_zero(self):
+        # 0 would leave /create-pr --preflight and the pre-push hook seeing the
+        # same plain green this whole feature exists to remove.
+        self.assertEqual(exit_code_for(_report(_job("lint"), _job("test", stderr=PG_SKIP))), 5)
+
+    def test_clean_run_is_zero(self):
+        self.assertEqual(exit_code_for(_report(_job("lint"), _job("test"))), 0)
+
+    def test_failure_outranks_skip(self):
+        report = _report(_job("lint", exit_code=1), _job("test", stderr=PG_SKIP))
+        self.assertEqual(exit_code_for(report), 3)
+
+    def test_drift_outranks_skip(self):
+        report = _report(_job("test", stderr=PG_SKIP))
+        report.drift_detected = True
+        self.assertEqual(exit_code_for(report), 2)
+
+
+class TestTailTruncation(unittest.TestCase):
+    def test_marker_survives_a_noisy_job(self):
+        # skip_reason is derived from FULL stderr; deriving it from stderr_tail
+        # (last 40 lines) would lose the marker here and silently report green.
+        noisy = PG_SKIP + "\n" + "\n".join(f"line {i}" for i in range(45))
+        self.assertIsNotNone(_extract_skip_reason(noisy))
 
 
 class TestEmitterRunnerContract(unittest.TestCase):

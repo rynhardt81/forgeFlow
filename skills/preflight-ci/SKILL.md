@@ -156,6 +156,7 @@ Exit codes:
 - `2` — drift detected; refused to execute
 - `3` — at least one gating job failed
 - `4` — degraded (no workflows, missing classifier specialist, etc.)
+- `5` — nothing failed, but a job self-skipped; that job's coverage did NOT run
 
 ### Self-skipped jobs
 
@@ -168,14 +169,25 @@ Exit 0 is deliberate: an absent local stack must not block a push, and CI runs
 the real thing. But exit 0 alone is indistinguishable from a pass, so the runner
 detects the marker and reports it explicitly:
 
-- `--quick` → `✓ preflight green (4 jobs, 1 SKIPPED: test)`
+- `--quick` → `⚠️  preflight: 1 job(s) DID NOT RUN (test); 3 passed` — never
+  "✓ … green", because this is the line that scrolls past during `git push`.
 - full → the `⏭️ … — SKIPPED` block above, and the summary line becomes
   `✓ no gating job failed — but 1 SKIPPED (test); that coverage did NOT run`.
   **The "safe to push" line is withheld whenever anything skipped.**
 - `--json` → `jobs_skipped: ["test"]`, plus `skip_reason` on each job entry.
+- **exit code `5`**, not `0` — the machine consumers (the pre-push hook,
+  `/create-pr --preflight`) read only the exit code, so folding this into `0`
+  would leave them seeing the plain green this mechanism exists to remove.
 
-Exit code stays `0` — skips are visible, not blocking. To actually run a skipped
-job, bring its dependency up (`docker compose up -d`) and re-run.
+Consumers differ deliberately: the **pre-push hook waves `5` through** with a
+warning (T600 — an absent local stack must not block a push, and CI still runs
+the job), while **`/create-pr` blocks on it** (a PR gate is cheap to re-run).
+
+To actually run a skipped job, bring its dependency up (`docker compose up -d`)
+and re-run.
+
+The marker is `FORGE_SKIP: `, namespaced so it cannot collide with the ordinary
+`SKIP:`/`SKIPPED` chatter that third-party tools write to stderr.
 
 ## Integration points
 

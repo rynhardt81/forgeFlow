@@ -102,6 +102,7 @@ python3 .claude/scripts/preflight/preflight.py --project-root . --regenerate
 | 2 (drift) | Exit with `error: workflow drift — run /preflight-ci --regenerate first` |
 | 3 (red) | **Block PR creation.** Per-job summary, route via `skills/_shared/ci-failure-classifier.md`; user fixes or passes `--skip-checks` |
 | 4 (degraded) | Warn `preflight degraded — continuing without local mirror`, continue |
+| 5 (skipped) | **Block PR creation.** A job self-skipped, so its coverage never ran — not a green. Name the jobs from `jobs_skipped`, tell the user to bring the dependency up (`docker compose up -d`) and re-run; `--skip-checks` overrides. Deliberately stricter than the pre-push hook, which waves 5 through so an absent local stack never blocks a push — a PR gate is cheap to re-run. |
 
 Opt-in flag because not every project has workflows.
 
