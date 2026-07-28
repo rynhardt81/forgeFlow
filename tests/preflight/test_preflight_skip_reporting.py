@@ -564,3 +564,39 @@ class TestUntranslatableStepsAreOmitted(unittest.TestCase):
         dropped = dropped_gating_steps(body)
         self.assertEqual(len(dropped), 1)
         self.assertIn("Commit generated configs", dropped[0])
+
+
+class TestUnresolvableBodyTemplates(unittest.TestCase):
+    """A step whose body needs a context the mirror lacks cannot run at all.
+
+    `_rewrite_actions_templates` maps secrets/env/vars/inputs onto shell
+    variables. `${{ steps.* }}` and `${{ github.* }}` have no local equivalent
+    and pass through verbatim, where bash rejects them as "bad substitution" —
+    so emitting the step makes the job permanently red for a reason the
+    developer cannot fix. Real case: build.sh line 59.
+    """
+
+    def _body(self, run):
+        job = Job(name="build", file="ci.yml", runs_on="ubuntu-latest",
+                  steps=[Step(name="Archive Artifacts", run=run)])
+        return render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+
+    def test_step_output_reference_is_not_emitted(self):
+        body = self._body('VERSION="${{ steps.version.outputs.version_number }}"')
+        self.assertNotIn("bad", body)
+        self.assertNotIn("${{", body)
+
+    def test_omission_names_the_unresolved_context(self):
+        body = self._body('VERSION="${{ steps.version.outputs.version_number }}"')
+        self.assertIn("steps.version.outputs.version_number", body)
+        self.assertIn("condition not evaluable locally", body)
+
+    def test_it_surfaces_as_dropped_work(self):
+        body = self._body('VERSION="${{ steps.version.outputs.version_number }}"')
+        self.assertEqual(len(dropped_gating_steps(body)), 1)
+
+    def test_rewritable_contexts_still_emit_normally(self):
+        # secrets/env/vars/inputs DO have a local mapping — must not regress.
+        body = self._body('TOKEN="${{ secrets.MY_TOKEN }}"')
+        self.assertIn("${MY_TOKEN:-}", body)
+        self.assertNotIn("Skipped step", body)

@@ -563,6 +563,22 @@ def render_script(
             )
             continue
 
+        # Body-level twin of the `if:` problem above. `_rewrite_actions_templates`
+        # only maps secrets/env/vars/inputs onto shell variables; `${{ steps.*
+        # }}` and `${{ github.* }}` have no local equivalent and pass through
+        # verbatim, where bash rejects them ("bad substitution") — so the step
+        # cannot run at all. Emitting it anyway makes the job permanently red
+        # for a reason the developer cannot fix.
+        body = _rewrite_actions_templates(step.run)
+        if "${{" in body:
+            unresolved = sorted(set(re.findall(r"\$\{\{\s*([^}]+?)\s*\}\}", body)))
+            lines.append(
+                f"# Skipped step: {label} "
+                f"(if: unresolved {', '.join(unresolved)}, "
+                f"condition not evaluable locally)"
+            )
+            continue
+
         header = f"# Step: {label}"
         if step.if_condition:
             header += f"  [if: {step.if_condition}]"
@@ -589,7 +605,7 @@ def render_script(
             lines.append(f'  cd {shlex.quote(workdir)}')
         for k, v in step.env.items():
             lines.append(_render_env_export(k, str(v), indent="  "))
-        for run_line in _rewrite_actions_templates(step.run).splitlines():
+        for run_line in body.splitlines():
             lines.append(f"  {run_line}")
         # `( … ) || flag=1` is exempt from `set -e` (it is the LHS of ||), which
         # is what lets the script continue. NOT `|| true`: that would swallow
