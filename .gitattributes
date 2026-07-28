@@ -1,0 +1,26 @@
+# Every text file is LF — in the repo and in every working tree.
+#
+# Pinned rather than left to each machine's core.autocrlf because this repo is
+# not just checked out, it is RSYNCED into consumer projects. Consumers run
+# pre-commit hooks that normalize line endings to LF, so any CRLF reaching this
+# repo reappears as drift in every consumer on every refresh, forever — the
+# files show as modified, get normalized, and drift again on the next refresh.
+#
+# 15 files under skills/ui-ux-pro-max/ did exactly that until 2026-07-28
+# (one, data/landing.csv, had genuinely mixed endings at 28/31 lines).
+#
+# Binary formats are matched explicitly below so `text=auto` never mangles them.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
