@@ -190,6 +190,36 @@ and re-run.
 The marker is `FORGE_SKIP: `, namespaced so it cannot collide with the ordinary
 `SKIP:`/`SKIPPED` chatter that third-party tools write to stderr.
 
+### Step `if:` conditions
+
+GitHub runs a step only when its `if:` holds. The mirror translates what it can
+and is explicit about the rest:
+
+| `if:` | Local behaviour |
+|---|---|
+| absent, `success()` | Runs while nothing has failed (GHA default) |
+| `always()`, `!cancelled()` (bare or `${{ … }}`) | Runs even after an earlier step failed |
+| `failure()` | Runs **only** when an earlier step failed |
+| change detection — `steps.<id>.outputs.*`, `hashFiles(…)` | Runs anyway, with a note. CI skips these as an optimisation, so running locally is a superset — slower, never wrong |
+| context selection — anything mentioning `github.` | **Not emitted.** Named in the summary as a dropped step |
+
+The last two rows are the same "can't evaluate this locally" problem split by
+which way guessing wrong hurts. Over-running a change-detection gate costs time;
+over-running a context gate does work meant for another context — one real
+workflow has a `git add` / `git commit` / `git push` step behind
+`github.event_name == 'push'`, which the mirror used to run unconditionally
+against whatever branch was checked out. A compound like
+`steps.x.outputs.y == 'true' && github.event_name == 'push'` is treated as
+context-gated: the `github.` half is the dangerous one.
+
+A job containing an `always()` or `failure()` step is emitted with an explicit
+`_forge_failed` flag instead of relying on `set -e`, because `set -e` cannot
+express GHA's semantics — a failed step must not abort the script (later
+conditional steps still need to run) while normal steps after it are still
+skipped and the job still ends red. Jobs without such steps keep the simpler
+shape and their scripts are unchanged. The flag is re-raised as the exit status;
+it is never `|| true`, which would turn a real gate into a no-op.
+
 ### Hollowed jobs (`INCOMPLETE`)
 
 The sibling case. `uses:` steps can't be mirrored locally, so they're emitted as

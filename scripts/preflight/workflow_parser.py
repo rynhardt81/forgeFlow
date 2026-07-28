@@ -36,12 +36,23 @@ class Step:
     name: str | None = None
     env: dict[str, str] = field(default_factory=dict)
     working_directory: str | None = None
+    # Raw `if:` expression, verbatim. Previously dropped here, which meant the
+    # generator could not see it and emitted every step unconditionally: steps
+    # gated on `failure()` ran on the success path, steps gated on a prior
+    # step's output ran with no such step, and `always()` cleanup was killed by
+    # `set -e` at exactly the moment it was meant to run. Kept as the raw string
+    # — script_generator owns interpretation.
+    if_condition: str | None = None
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "Step":
         run = raw.get("run")
         uses = raw.get("uses")
         name = raw.get("name")
+        cond = raw.get("if")
+        # YAML gives `if: always()` as str but `if: true` as bool.
+        if cond is not None and not isinstance(cond, str):
+            cond = "true" if cond is True else "false" if cond is False else str(cond)
         # YAML 1.1 deserializes `run: true` / `run: false` as Python bool —
         # coerce scalar non-strings to lowercase string so generated bash is valid.
         if run is not None and not isinstance(run, str):
@@ -55,6 +66,7 @@ class Step:
         return cls(
             run=run, uses=uses, name=name,
             env=dict(raw.get("env") or {}), working_directory=wd,
+            if_condition=cond.strip() if isinstance(cond, str) else cond,
         )
 
 

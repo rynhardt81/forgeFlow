@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -39,13 +40,18 @@ from preflight import (  # noqa: E402
 from hook_installer import SENTINEL, refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
     GENERATOR_CONTRACT,
+    STEP_ALWAYS,
+    STEP_NORMAL,
+    STEP_ON_FAILURE,
+    STEP_OVER_RUN,
+    classify_condition,
     compute_drift,
     dropped_gating_steps,
     render_script,
     write_lockfile,
 )
 from script_generator import JOB_SKIP_MARKER as EMITTER_MARKER  # noqa: E402
-from workflow_parser import Job  # noqa: E402
+from workflow_parser import Job, Step  # noqa: E402
 
 # The exact line the generated pg guard writes before `exit 0`.
 PG_SKIP = (
@@ -422,3 +428,139 @@ class TestIncompleteReporting(unittest.TestCase):
     def test_json_lists_incomplete_jobs(self):
         payload = _report(self._job_inc()).to_dict()
         self.assertEqual(payload["jobs_incomplete"], ["image-scan"])
+
+
+# --- T625: step-level `if:` --------------------------------------------------
+# The mirror dropped `if:` entirely, which was wrong in three directions at
+# once: always()/failure() cleanup was killed by `set -e` at the moment it
+# exists for, failure() steps ran on the success path, and steps gated on a
+# prior step's output ran with no such output — including a git commit/push
+# step gated on `github.event_name == 'push'`.
+
+class TestConditionClassification(unittest.TestCase):
+    def test_absent_condition_is_normal(self):
+        self.assertEqual(classify_condition(None), STEP_NORMAL)
+
+    def test_always_and_not_cancelled_both_mean_run_regardless(self):
+        for c in ("always()", "!cancelled()", "! cancelled()"):
+            self.assertEqual(classify_condition(c), STEP_ALWAYS, c)
+
+    def test_wrapped_expression_form_is_equivalent(self):
+        # `if: ${{ !cancelled() }}` and `if: '!cancelled()'` are the same thing.
+        self.assertEqual(classify_condition("${{ !cancelled() }}"), STEP_ALWAYS)
+        self.assertEqual(classify_condition("${{ always() }}"), STEP_ALWAYS)
+
+    def test_failure_is_its_own_mode(self):
+        self.assertEqual(classify_condition("failure()"), STEP_ON_FAILURE)
+
+    def test_success_is_the_default_mode(self):
+        self.assertEqual(classify_condition("success()"), STEP_NORMAL)
+
+    def test_change_detection_conditions_are_over_run_not_dropped(self):
+        # These gate on "did anything relevant change". CI skips the work as an
+        # optimisation; running it anyway locally is a superset, never wrong.
+        # Dropping them would remove working local coverage — the CHANGELOG and
+        # CORS drift checks live behind exactly these.
+        for c in (
+            "steps.filter.outputs.cors == 'true'",
+            "steps.filter.outputs.changelog == 'true'",
+            "hashFiles('docs/api/openapi.yaml') != ''",
+            "steps.npm-cache-tests.outputs.cache-hit != 'true'",
+        ):
+            self.assertEqual(classify_condition(c), STEP_OVER_RUN, c)
+
+    def test_github_context_conditions_are_dropped(self):
+        # These select an execution context rather than more work. Running them
+        # anyway does work meant for another context.
+        for c in (
+            "github.event_name == 'push'",
+            "startsWith(github.ref, 'refs/heads/x')",
+            "steps.a.outputs.b == 'true' && github.event_name == 'push'",
+        ):
+            self.assertIsNone(classify_condition(c), c)
+
+    def test_github_half_of_a_compound_wins(self):
+        # The git-push step is `steps.x.outputs.y == 'true' && github.event_name
+        # == 'push'`. The change-detection half must not rescue it.
+        self.assertIsNone(
+            classify_condition("steps.x.outputs.y == 'true' && github.event_name == 'push'")
+        )
+
+    def test_compound_containing_always_is_not_treated_as_always(self):
+        # `github.event_name == 'pull_request' && always()` is NOT always():
+        # matching loosely here would run PR-only work on every local run.
+        self.assertIsNone(
+            classify_condition("github.event_name == 'pull_request' && always()")
+        )
+
+
+class TestConditionalStepEmission(unittest.TestCase):
+    """End-to-end: generate a job, run it, observe which steps executed."""
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        self.root = Path(self._tmp)
+        self.addCleanup(shutil.rmtree, self._tmp, True)
+        (self.root / "_local_shims.sh").write_text(":\n")
+
+    def _run(self, first_fails: bool):
+        job = Job(name="demo", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="work", run="echo STEP1; false" if first_fails else "echo STEP1"),
+            Step(name="normal2", run="echo STEP2"),
+            Step(name="diag", run="echo DIAG", if_condition="failure()"),
+            Step(name="teardown", run="echo TEARDOWN", if_condition="always()"),
+        ])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        script = self.root / "demo.sh"
+        script.write_text(body)
+        proc = subprocess.run(["bash", str(script)], capture_output=True, text=True)
+        return proc.returncode, proc.stdout.split()
+
+    def test_success_path_matches_github(self):
+        rc, ran = self._run(first_fails=False)
+        self.assertEqual(rc, 0)
+        self.assertEqual(ran, ["STEP1", "STEP2", "TEARDOWN"])
+
+    def test_failure_path_matches_github(self):
+        rc, ran = self._run(first_fails=True)
+        # Normal step skipped after the failure; conditional steps still run;
+        # the job is still red.
+        self.assertEqual(rc, 1)
+        self.assertEqual(ran, ["STEP1", "DIAG", "TEARDOWN"])
+
+    def test_failure_is_not_swallowed(self):
+        # The `|| true` inversion: a broken gate that reports success is worse
+        # than the bug being fixed.
+        rc, _ = self._run(first_fails=True)
+        self.assertNotEqual(rc, 0)
+
+    def test_job_without_conditional_steps_keeps_the_simple_shape(self):
+        job = Job(name="plain", file="ci.yml", runs_on="ubuntu-latest",
+                  steps=[Step(name="a", run="echo A")])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        self.assertNotIn("_forge_failed", body)
+
+
+class TestUntranslatableStepsAreOmitted(unittest.TestCase):
+    def _body(self, condition):
+        job = Job(name="j", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="Commit generated configs", run="git push", if_condition=condition),
+        ])
+        return render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+
+    def test_untranslatable_step_body_is_not_emitted(self):
+        # The real hazard: this step commits and pushes in CI only on `push`.
+        body = self._body("steps.x.outputs.y == 'true' && github.event_name == 'push'")
+        self.assertNotIn("git push", body)
+
+    def test_omission_names_the_condition(self):
+        body = self._body("github.event_name == 'push'")
+        self.assertIn("condition not evaluable locally", body)
+        self.assertIn("github.event_name == 'push'", body)
+
+    def test_omitted_step_surfaces_as_dropped_work(self):
+        # Must reach the runner's INCOMPLETE channel, not vanish silently.
+        body = self._body("github.event_name == 'push'")
+        dropped = dropped_gating_steps(body)
+        self.assertEqual(len(dropped), 1)
+        self.assertIn("Commit generated configs", dropped[0])

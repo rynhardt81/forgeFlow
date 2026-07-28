@@ -84,7 +84,87 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 # the exact bug this machinery exists to prevent, reintroduced by the upgrade.
 # A mismatch here forces regeneration automatically (see run_preflight); it is
 # framework-internal, so it must not make the user run a command to recover.
-GENERATOR_CONTRACT = 2
+GENERATOR_CONTRACT = 3
+
+# --- step `if:` conditions ---------------------------------------------------
+# GitHub runs a step only when its `if:` holds, with an implicit `success()`
+# when absent. The mirror dropped the condition entirely, which was wrong in
+# three separate directions at once:
+#
+#   - `always()` / `!cancelled()` cleanup was killed by `set -e` at exactly the
+#     moment it exists for — a failed E2E run left the compose stack and its
+#     volumes up, and the "capture container state on failure" diagnostics that
+#     would explain the failure never printed.
+#   - `failure()` steps ran on the SUCCESS path, where CI never runs them.
+#   - Steps gated on a prior step's output ran with no such output — including,
+#     in one real workflow, a `git add` / `git commit` / `git push` step gated on
+#     `github.event_name == 'push'`. The local mirror would push to whatever
+#     branch the developer had checked out.
+#
+# Unrecognised conditions split by WHAT they gate on, because the two classes
+# fail in opposite directions:
+#
+#   - Change detection (`steps.<id>.outputs.*`, `hashFiles(...)`) is an
+#     optimisation: CI skips work when nothing relevant changed. Running it
+#     anyway locally is a superset — slower, never wrong — and these steps
+#     genuinely gate (the CHANGELOG and CORS drift checks live behind
+#     paths-filter outputs). Omitting them would take working local coverage
+#     away, so they are over-approximated to "always run".
+#   - Context selection (`github.*`) picks a different execution context, not
+#     more work. Running it anyway does work meant for another context — one
+#     such step runs `git add` / `git commit` / `git push` under
+#     `github.event_name == 'push'`, which would push the developer's branch.
+#     These are omitted, and named so the omission is visible.
+#
+# A condition mentioning `github.` anywhere is context-gated even if it also
+# mentions step outputs: `steps.x.outputs.y == 'true' && github.event_name ==
+# 'push'` is exactly the git-push step, and the github half is the dangerous one.
+_ALWAYS_CONDITIONS = frozenset({"always()", "!cancelled()", "! cancelled()"})
+_FAILURE_CONDITIONS = frozenset({"failure()"})
+_SUCCESS_CONDITIONS = frozenset({"success()"})
+
+# Marks a condition as selecting an execution context rather than detecting a
+# change. Deliberately a substring test on the context name — `github.ref`,
+# `github.event_name`, `github.actor` all qualify, and a new one nobody
+# anticipated still lands on the safe side.
+_CONTEXT_MARKER = "github."
+
+# `${{ ... }}` wrapping the whole expression is equivalent to the bare form.
+_WRAPPED_EXPR_RE = re.compile(r"^\$\{\{\s*(?P<inner>.*?)\s*\}\}$", re.DOTALL)
+
+# How a step's condition maps onto the generated script.
+STEP_NORMAL = "normal"          # run only while nothing has failed (GHA default)
+STEP_ALWAYS = "always"          # run even after an earlier step failed
+STEP_ON_FAILURE = "on-failure"  # run only when an earlier step failed
+STEP_OVER_RUN = "over-run"      # can't evaluate, but running anyway is a superset
+STEP_UNTRANSLATABLE = None      # can't evaluate and running anyway is unsafe
+
+
+def classify_condition(condition: str | None) -> str | None:
+    """Map a step's raw `if:` to an emission mode.
+
+    The CI-status functions translate exactly, because they depend on nothing
+    but the run itself. Everything else depends on state the mirror does not
+    have, and is split by which way guessing wrong hurts — see the notes on
+    `_CONTEXT_MARKER` above.
+    """
+    if condition is None:
+        return STEP_NORMAL
+    expr = condition.strip()
+    m = _WRAPPED_EXPR_RE.match(expr)
+    if m:
+        expr = m.group("inner").strip()
+    normalized = " ".join(expr.split())
+    if normalized in _ALWAYS_CONDITIONS:
+        return STEP_ALWAYS
+    if normalized in _FAILURE_CONDITIONS:
+        return STEP_ON_FAILURE
+    if normalized in _SUCCESS_CONDITIONS:
+        return STEP_NORMAL
+    if _CONTEXT_MARKER in normalized:
+        return STEP_UNTRANSLATABLE
+    return STEP_OVER_RUN
+
 
 # `uses:` steps cannot run locally, so they are emitted as inert comments. Most
 # of those are harmless — but a job whose actual gating work IS a `uses:` step
@@ -124,13 +204,25 @@ _SKIPPED_STEP_RE = re.compile(
     re.MULTILINE,
 )
 
+# The other reason a step is omitted: its `if:` cannot be evaluated locally.
+_SKIPPED_COND_RE = re.compile(
+    r"^# Skipped step: (?P<label>.*?) "
+    r"\(if: (?P<cond>.*?), condition not evaluable locally\)$",
+    re.MULTILINE,
+)
+
 
 def dropped_gating_steps(script_text: str) -> list[str]:
-    """`uses:` steps dropped from a generated script that carried real work.
+    """Steps omitted from a generated script that carried real work.
 
-    Returns ``"<label> (<action>)"`` per non-inert dropped step, in file order.
-    Empty when every dropped step was environment setup or result upload —
-    which is the common case, so a clean job stays visibly clean.
+    Two causes, both reported: a `uses:` step with no local mirror, and a step
+    whose `if:` cannot be evaluated locally. Returns one
+    ``"<label> (<reason>)"`` per omitted step.
+
+    `uses:` steps that only prepare the environment or upload results are
+    excluded — that is the common case, so a clean job stays visibly clean.
+    Untranslatable conditions are never excluded: unlike a well-known action,
+    there is no way to tell a cosmetic condition from a gating one.
     """
     found = []
     for m in _SKIPPED_STEP_RE.finditer(script_text):
@@ -138,6 +230,8 @@ def dropped_gating_steps(script_text: str) -> list[str]:
         if action in LOCALLY_INERT_ACTIONS:
             continue
         found.append(f'{m.group("label")} ({action})')
+    for m in _SKIPPED_COND_RE.finditer(script_text):
+        found.append(f'{m.group("label")} (if: {m.group("cond")})')
     return found
 
 # GitHub Actions template syntax that maps cleanly to a local env var.
@@ -431,12 +525,64 @@ def render_script(
     # fails with "No such file or directory" because app/ lives under backend/.
     # The path is relative to the repo root (where the mirror is invoked), so a
     # relative `cd` at the top of each subshell reproduces GHA's cwd exactly.
+    # A job containing a status-conditional step needs GitHub's step semantics,
+    # which `set -e` cannot express: a failed step must not abort the script,
+    # because `always()` / `failure()` steps still have to run — while normal
+    # steps after a failure must still be skipped, and the job must still end
+    # red. That needs an explicit failure flag, so it is emitted only for jobs
+    # that actually have such a step; every other job keeps the simpler
+    # `set -e` shape and its generated script is unchanged.
+    modes = [
+        classify_condition(s.if_condition) for s in job.steps if s.run is not None
+    ]
+    tracks_failure = any(m in (STEP_ALWAYS, STEP_ON_FAILURE) for m in modes)
+    if tracks_failure:
+        lines.extend([
+            "# This job has status-conditional steps, so a failing step must not",
+            "# abort the script — later always()/failure() steps still need to run.",
+            "# Failure is recorded and re-raised as the exit status at the end.",
+            "_forge_failed=0",
+            "",
+        ])
+
     for i, step in enumerate(job.steps):
         label = step.name or step.uses or f"step-{i}"
         if step.run is None:
             lines.append(f"# Skipped step: {label} (uses: {step.uses}, no local mirror)")
             continue
-        lines.append(f"# Step: {label}")
+
+        mode = classify_condition(step.if_condition)
+        if mode is STEP_UNTRANSLATABLE:
+            # Deliberately not emitted. Guessing the condition true would run
+            # work CI skips (one such step commits and pushes); guessing false
+            # silently drops coverage. Naming it keeps the omission visible —
+            # the runner reports the job INCOMPLETE off this line.
+            lines.append(
+                f"# Skipped step: {label} "
+                f"(if: {step.if_condition}, condition not evaluable locally)"
+            )
+            continue
+
+        header = f"# Step: {label}"
+        if step.if_condition:
+            header += f"  [if: {step.if_condition}]"
+        lines.append(header)
+        if mode == STEP_OVER_RUN:
+            # Running unconditionally is deliberate: this gates on whether
+            # something changed, so locally it is a superset of CI. Noted
+            # because the local run is then stricter than CI, not looser.
+            lines.append(
+                "#   condition not evaluable locally; running anyway "
+                "(CI may skip this step)"
+            )
+
+        # Guard BEFORE the subshell, so the subshell body is byte-identical to
+        # the unconditional form and stays easy to compare against the workflow.
+        if tracks_failure and mode in (STEP_NORMAL, STEP_OVER_RUN):
+            lines.append('if [ "$_forge_failed" -eq 0 ]; then')
+        elif mode == STEP_ON_FAILURE:
+            lines.append('if [ "$_forge_failed" -ne 0 ]; then')
+
         lines.append("(")
         workdir = step.working_directory or job.working_directory
         if workdir:
@@ -445,8 +591,20 @@ def render_script(
             lines.append(_render_env_export(k, str(v), indent="  "))
         for run_line in _rewrite_actions_templates(step.run).splitlines():
             lines.append(f"  {run_line}")
-        lines.append(")")
+        # `( … ) || flag=1` is exempt from `set -e` (it is the LHS of ||), which
+        # is what lets the script continue. NOT `|| true`: that would swallow
+        # the failure and turn a real gate into a no-op, the inverse of the bug.
+        lines.append(") || _forge_failed=1" if tracks_failure else ")")
+        if (tracks_failure and mode in (STEP_NORMAL, STEP_OVER_RUN)) or mode == STEP_ON_FAILURE:
+            lines.append("fi")
         lines.append("")
+
+    if tracks_failure:
+        lines.extend([
+            "# Re-raise the first failure recorded above.",
+            'exit "$_forge_failed"',
+            "",
+        ])
     return "\n".join(lines) + "\n"
 
 
