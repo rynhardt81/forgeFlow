@@ -40,6 +40,7 @@ from hook_installer import SENTINEL, refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
     GENERATOR_CONTRACT,
     compute_drift,
+    dropped_gating_steps,
     render_script,
     write_lockfile,
 )
@@ -315,3 +316,109 @@ class TestMigrationOfExistingInstalls(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- T626: hollowed jobs -----------------------------------------------------
+# A `uses:` step cannot run locally, so it is emitted as an inert comment. When
+# the job's actual gating work IS that step, the job still runs its `run:`
+# steps, exits 0, and reports a clean green having proved nothing. image-scan
+# built two Docker images and scanned neither.
+
+def _script(*skipped: str) -> str:
+    body = ["#!/usr/bin/env bash", "set -euo pipefail"]
+    for s in skipped:
+        body.append(f"# Skipped step: {s}")
+    body.append("echo work")
+    return "\n".join(body) + "\n"
+
+
+class TestDroppedStepClassification(unittest.TestCase):
+    def test_real_scanner_counts_as_dropped(self):
+        text = _script(
+            "Scan Control Plane image (uses: aquasecurity/trivy-action@master, "
+            "no local mirror)"
+        )
+        self.assertEqual(
+            dropped_gating_steps(text),
+            ["Scan Control Plane image (aquasecurity/trivy-action)"],
+        )
+
+    def test_environment_setup_is_not_dropped_work(self):
+        # The anti-inflation case: if this warns, 45 of 46 scripts warn and the
+        # real signal drowns.
+        text = _script(
+            "actions/checkout@v5 (uses: actions/checkout@v5, no local mirror)",
+            "Setup Python (uses: actions/setup-python@v6, no local mirror)",
+            "Setup Node.js (uses: actions/setup-node@v5, no local mirror)",
+            "Cache deps (uses: actions/cache@v4, no local mirror)",
+        )
+        self.assertEqual(dropped_gating_steps(text), [])
+
+    def test_uploading_results_out_of_ci_is_not_dropped_work(self):
+        text = _script(
+            "Upload coverage (uses: actions/upload-artifact@v4, no local mirror)",
+            "Codecov (uses: codecov/codecov-action@v4, no local mirror)",
+        )
+        self.assertEqual(dropped_gating_steps(text), [])
+
+    def test_unknown_action_counts_as_dropped(self):
+        # Denylist, not allowlist: an action nobody classified must warn.
+        text = _script("Do a thing (uses: some-vendor/mystery@v1, no local mirror)")
+        self.assertEqual(dropped_gating_steps(text), ["Do a thing (some-vendor/mystery)"])
+
+    def test_data_producing_actions_count_as_dropped(self):
+        # paths-filter sets outputs later steps branch on; download-artifact
+        # brings in data the job consumes. Dropping either changes the logic.
+        text = _script(
+            "Detect changes (uses: dorny/paths-filter@v3, no local mirror)",
+            "Get results (uses: actions/download-artifact@v4, no local mirror)",
+        )
+        self.assertEqual(len(dropped_gating_steps(text)), 2)
+
+    def test_script_with_no_skipped_steps_is_clean(self):
+        self.assertEqual(dropped_gating_steps(_script()), [])
+
+
+class TestIncompleteReporting(unittest.TestCase):
+    def _job_inc(self, name="image-scan", exit_code=0, dropped=("Scan (x/y)",)):
+        return JobResult(
+            name=name, exit_code=exit_code, duration_seconds=2.1,
+            stdout_tail="", stderr_tail="", dropped_steps=list(dropped),
+        )
+
+    def test_incomplete_job_is_not_rendered_as_passed(self):
+        body = format_human(_report(self._job_inc()))
+        self.assertNotIn("✅ image-scan", body)
+        self.assertIn("INCOMPLETE", body)
+
+    def test_dropped_step_names_are_shown(self):
+        body = format_human(_report(self._job_inc(dropped=("Scan CP (trivy)",))))
+        self.assertIn("Scan CP (trivy)", body)
+
+    def test_safe_to_push_withheld_when_a_job_is_incomplete(self):
+        body = format_human(_report(_job("lint"), self._job_inc()))
+        self.assertNotIn("safe to push", body)
+
+    def test_incomplete_yields_exit_5_not_0(self):
+        self.assertEqual(exit_code_for(_report(_job("lint"), self._job_inc())), 5)
+
+    def test_failing_job_is_not_downgraded_to_incomplete(self):
+        # A red job stays red — failure is the loudest signal, and exit 3 must
+        # outrank 5 or a real failure would stop blocking the PR gate.
+        red = self._job_inc(exit_code=1)
+        self.assertFalse(red.incomplete)
+        self.assertEqual(exit_code_for(_report(red)), 3)
+
+    def test_skip_takes_precedence_over_incomplete(self):
+        # A job that never ran is not "incomplete", it is skipped; reporting
+        # both would double-count it in the summary.
+        j = JobResult(
+            name="test", exit_code=0, duration_seconds=0.1, stdout_tail="",
+            stderr_tail=PG_SKIP, skip_reason="postgres not reachable",
+            dropped_steps=["Scan (x/y)"],
+        )
+        self.assertFalse(j.incomplete)
+
+    def test_json_lists_incomplete_jobs(self):
+        payload = _report(self._job_inc()).to_dict()
+        self.assertEqual(payload["jobs_incomplete"], ["image-scan"])

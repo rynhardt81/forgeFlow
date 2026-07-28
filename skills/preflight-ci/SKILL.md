@@ -156,7 +156,8 @@ Exit codes:
 - `2` — drift detected; refused to execute
 - `3` — at least one gating job failed
 - `4` — degraded (no workflows, missing classifier specialist, etc.)
-- `5` — nothing failed, but a job self-skipped; that job's coverage did NOT run
+- `5` — nothing failed, but a job self-skipped or ran without a gating step; that
+  coverage did NOT run locally
 
 ### Self-skipped jobs
 
@@ -188,6 +189,34 @@ and re-run.
 
 The marker is `FORGE_SKIP: `, namespaced so it cannot collide with the ordinary
 `SKIP:`/`SKIPPED` chatter that third-party tools write to stderr.
+
+### Hollowed jobs (`INCOMPLETE`)
+
+The sibling case. `uses:` steps can't be mirrored locally, so they're emitted as
+inert comments — usually harmless, because most of them are `actions/checkout`
+or `setup-python`. But when a job's *actual gating work* is a `uses:` step, the
+job still runs its `run:` steps, exits 0, and reports a clean green having
+proved nothing. `image-scan` built two Docker images and scanned neither.
+
+A job is reported `INCOMPLETE` when a dropped `uses:` step is **not** on
+`LOCALLY_INERT_ACTIONS` (`script_generator.py`). That list is a **denylist of
+inert actions**, not an allowlist of dangerous ones, so an unrecognised action
+counts as lost work — over-warning is recoverable, under-warning is the bug.
+Inert means it prepares the environment (checkout, toolchain setup, cache,
+buildx) or ships results *out* of CI (artifact/coverage upload). Anything that
+brings data *in* that later steps consume, or performs the check itself, is not.
+
+```
+⚠️  image-scan  (6.8s) — INCOMPLETE
+   2 gating step(s) cannot run locally; CI still runs them:
+     · Scan Control Plane image (aquasecurity/trivy-action)
+     · Scan Portal image (aquasecurity/trivy-action)
+```
+
+Same exit code `5` and the same consumer contract as a self-skip — both mean
+"green overstates what was proved". `--json` exposes `jobs_incomplete` plus
+per-job `dropped_steps`. Classification reads the generated script's existing
+`# Skipped step:` comments, so it needs no regeneration to take effect.
 
 ## Integration points
 

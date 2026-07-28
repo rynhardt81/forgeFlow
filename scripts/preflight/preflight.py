@@ -34,6 +34,7 @@ from hook_installer import refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
     JOB_SKIP_MARKER,
     compute_drift,
+    dropped_gating_steps,
     generate_scripts,
     write_lockfile,
 )
@@ -72,6 +73,18 @@ class JobResult:
     # failing job is reported as a failure regardless of what its stderr says,
     # so this stays None there — failure is strictly louder than skip.
     skip_reason: str | None = None
+    # Gating `uses:` steps that could not be mirrored locally. The job DID run —
+    # unlike skip_reason — but it proved less than the same job proves in CI.
+    dropped_steps: list[str] = field(default_factory=list)
+
+    @property
+    def incomplete(self) -> bool:
+        """Ran and passed, but a gating step was dropped from the mirror.
+
+        Only meaningful for a green job: a failure is already the loudest
+        signal, and a red job's missing coverage is not what needs attention.
+        """
+        return self.passed and self.skip_reason is None and bool(self.dropped_steps)
 
     @property
     def passed(self) -> bool:
@@ -106,12 +119,18 @@ class PreflightReport:
         """
         return [j for j in self.jobs_run if j.skip_reason is not None]
 
+    @property
+    def jobs_incomplete(self) -> list[JobResult]:
+        """Green jobs that proved less locally than they prove in CI."""
+        return [j for j in self.jobs_run if j.incomplete]
+
     def to_dict(self) -> dict[str, Any]:
         return {
             **{k: v for k, v in asdict(self).items() if k != "jobs_run"},
             "jobs_run": [asdict(j) for j in self.jobs_run],
             "all_green": self.all_green,
             "jobs_skipped": [j.name for j in self.jobs_skipped],
+            "jobs_incomplete": [j.name for j in self.jobs_incomplete],
         }
 
 
@@ -120,6 +139,14 @@ def _tail(text: str, lines: int = 40) -> str:
     if len(parts) <= lines:
         return text
     return "\n".join(parts[-lines:])
+
+
+def _dropped_steps_for(script: Path) -> list[str]:
+    """Non-inert `uses:` steps the mirror could not run. Never fatal."""
+    try:
+        return dropped_gating_steps(script.read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return []
 
 
 def run_one_script(script: Path, cwd: Path) -> JobResult:
@@ -147,6 +174,10 @@ def run_one_script(script: Path, cwd: Path) -> JobResult:
         skip_reason=(
             _extract_skip_reason(proc.stderr) if proc.returncode == 0 else None
         ),
+        # Read back from the script we just ran, so this needs no new emission
+        # format and no GENERATOR_CONTRACT bump — existing generated scripts are
+        # classified correctly without being regenerated.
+        dropped_steps=_dropped_steps_for(script),
     )
 
 
@@ -235,6 +266,15 @@ def format_human(report: PreflightReport) -> str:
             lines.append(f"⏭️  {j.name}  ({j.duration_seconds}s) — SKIPPED")
             lines.append(f"   {j.skip_reason}")
             continue
+        if j.incomplete:
+            lines.append(f"⚠️  {j.name}  ({j.duration_seconds}s) — INCOMPLETE")
+            lines.append(
+                f"   {len(j.dropped_steps)} gating step(s) cannot run locally; "
+                f"CI still runs them:"
+            )
+            for step in j.dropped_steps:
+                lines.append(f"     · {step}")
+            continue
         mark = "✅" if j.passed else "❌"
         lines.append(f"{mark} {j.name}  ({j.duration_seconds}s)")
         if not j.passed:
@@ -242,12 +282,21 @@ def format_human(report: PreflightReport) -> str:
             lines.append("   " + j.stderr_tail.replace("\n", "\n   "))
     if report.all_green:
         lines.append("")
-        skipped = report.jobs_skipped
-        if skipped:
-            names = ", ".join(j.name for j in skipped)
+        skipped, incomplete = report.jobs_skipped, report.jobs_incomplete
+        if skipped or incomplete:
+            parts = []
+            if skipped:
+                parts.append(
+                    f"{len(skipped)} SKIPPED ({', '.join(j.name for j in skipped)})"
+                )
+            if incomplete:
+                parts.append(
+                    f"{len(incomplete)} INCOMPLETE "
+                    f"({', '.join(j.name for j in incomplete)})"
+                )
             lines.append(
-                f"✓ no gating job failed — but {len(skipped)} SKIPPED ({names});"
-                " that coverage did NOT run"
+                f"✓ no gating job failed — but {' and '.join(parts)};"
+                " that coverage did NOT run locally"
             )
         else:
             lines.append("✓ all gating jobs passed — safe to push")
@@ -277,7 +326,11 @@ def exit_code_for(report: PreflightReport) -> int:
     # Deliberately NOT folded into 3 either: the pre-push hook must keep allowing
     # the push (T600 — an absent local stack must not block one), so a skip needs
     # its own code the hook can wave through while a PR gate blocks on it.
-    if report.jobs_skipped:
+    # Same verdict for a job that never ran and one that ran without its gating
+    # step: green overstates what was actually proved. Consumers already know
+    # how to treat 5 (hook warns and allows, /create-pr blocks), so an
+    # incomplete job needs no new code, only the same honest signal.
+    if report.jobs_skipped or report.jobs_incomplete:
         return 5
     return 0
 
@@ -326,15 +379,23 @@ def main(argv: list[str] | None = None) -> int:
     else:
         text = format_human(report)
         if args.quick and report.all_green:
-            skipped = report.jobs_skipped
-            if skipped:
+            skipped, incomplete = report.jobs_skipped, report.jobs_incomplete
+            if skipped or incomplete:
                 # Deliberately NOT "✓ … green". This line scrolls past during a
                 # push; a green-shaped signal here is the bug this reports on.
-                names = ", ".join(j.name for j in skipped)
-                print(
-                    f"⚠️  preflight: {len(skipped)} job(s) DID NOT RUN ({names}); "
-                    f"{len(report.jobs_run) - len(skipped)} passed"
-                )
+                bits = []
+                if skipped:
+                    bits.append(
+                        f"{len(skipped)} DID NOT RUN "
+                        f"({', '.join(j.name for j in skipped)})"
+                    )
+                if incomplete:
+                    bits.append(
+                        f"{len(incomplete)} ran WITHOUT a gating step "
+                        f"({', '.join(j.name for j in incomplete)})"
+                    )
+                clean = len(report.jobs_run) - len(skipped) - len(incomplete)
+                print(f"⚠️  preflight: {'; '.join(bits)}; {clean} fully passed")
             else:
                 print(f"✓ preflight green ({len(report.jobs_run)} jobs)")
         else:

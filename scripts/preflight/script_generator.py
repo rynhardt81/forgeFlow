@@ -86,6 +86,60 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 # framework-internal, so it must not make the user run a command to recover.
 GENERATOR_CONTRACT = 2
 
+# `uses:` steps cannot run locally, so they are emitted as inert comments. Most
+# of those are harmless — but a job whose actual gating work IS a `uses:` step
+# still runs its `run:` steps, exits 0, and reports a clean green having done
+# nothing. `image-scan` is the live example: it builds two Docker images and
+# scans neither, because both trivy steps are comments.
+#
+# Classification is a DENYLIST of locally-inert actions, not an allowlist of
+# dangerous ones, so an unrecognised action counts as lost work. Over-warning is
+# recoverable; under-warning is the bug.
+#
+# Inert means one of two things, and nothing else:
+#   - it prepares the environment (checkout, language/toolchain setup, cache,
+#     buildx) — locally the environment is already there;
+#   - it ships results OUT of CI (artifact upload, coverage upload) — no gating
+#     signal is lost by not doing it.
+# Anything that brings data IN that later steps consume, or that performs the
+# check itself, is NOT inert: dropping it changes what the job proves.
+LOCALLY_INERT_ACTIONS = frozenset({
+    "actions/checkout",
+    "actions/setup-python",
+    "actions/setup-node",
+    "actions/setup-java",
+    "actions/setup-go",
+    "actions/cache",
+    "actions/upload-artifact",
+    "docker/setup-buildx-action",
+    "docker/setup-qemu-action",
+    "codecov/codecov-action",
+})
+
+# Matches the `# Skipped step: <label> (uses: <action>@<ref>, no local mirror)`
+# line emitted below. Parsed back by preflight.py — defined here, beside the
+# emitter, so the two cannot drift (same reasoning as JOB_SKIP_MARKER).
+_SKIPPED_STEP_RE = re.compile(
+    r"^# Skipped step: (?P<label>.*?) \(uses: (?P<uses>\S+?), no local mirror\)$",
+    re.MULTILINE,
+)
+
+
+def dropped_gating_steps(script_text: str) -> list[str]:
+    """`uses:` steps dropped from a generated script that carried real work.
+
+    Returns ``"<label> (<action>)"`` per non-inert dropped step, in file order.
+    Empty when every dropped step was environment setup or result upload —
+    which is the common case, so a clean job stays visibly clean.
+    """
+    found = []
+    for m in _SKIPPED_STEP_RE.finditer(script_text):
+        action = m.group("uses").split("@", 1)[0]
+        if action in LOCALLY_INERT_ACTIONS:
+            continue
+        found.append(f'{m.group("label")} ({action})')
+    return found
+
 # GitHub Actions template syntax that maps cleanly to a local env var.
 # `secrets.X`, `env.X`, `vars.X`, `inputs.X` — the user can plausibly
 # `export X=...` before running the script. Other contexts (`github.*`,
