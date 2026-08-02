@@ -18,6 +18,7 @@ or directly:
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -49,6 +50,7 @@ from script_generator import (  # noqa: E402
     STEP_OVER_RUN,
     classify_condition,
     compute_drift,
+    denylist_fingerprint,
     destructive_commands,
     dropped_gating_steps,
     render_script,
@@ -388,6 +390,75 @@ class TestFirstRunRegeneratesInsteadOfBailing(unittest.TestCase):
         report = run_preflight(self.root, out_dir=self.out)
         self.assertTrue(report.drift_detected)
         self.assertEqual(exit_code_for(report), 2)
+
+
+class TestDenylistChangesForceRegeneration(unittest.TestCase):
+    """A widened denylist must invalidate mirrors on its own.
+
+    Five consecutive commits widened these patterns without bumping
+    GENERATOR_CONTRACT. Each changed which commands reach a generated script,
+    so mirrors written before them kept transcribing commands the denylist had
+    learned to refuse — and nothing else would have caught it: the workflows had
+    not changed, so `has_drift` was false, and review reads the diff, not the
+    state on disk. Relying on a human to bump an integer failed five times out
+    of five, so the check is derived from the patterns instead.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        self.root = Path(self._tmp)
+        self.addCleanup(shutil.rmtree, self._tmp, True)
+        self.wf = self.root / "workflows"
+        self.wf.mkdir()
+        (self.wf / "ci.yml").write_text("name: ci\n")
+        self.lock = self.root / "drift.lock"
+
+    def test_fingerprint_is_recorded_in_the_lockfile(self):
+        write_lockfile(self.wf, self.lock)
+        data = json.loads(self.lock.read_text())
+        self.assertEqual(data["denylist_fingerprint"], denylist_fingerprint())
+
+    def test_a_fresh_lockfile_is_not_stale(self):
+        write_lockfile(self.wf, self.lock)
+        drift = compute_drift(self.wf, self.lock)
+        self.assertFalse(drift.contract_stale)
+        self.assertFalse(drift.has_drift)
+
+    def test_a_changed_denylist_forces_regeneration_without_a_contract_bump(self):
+        write_lockfile(self.wf, self.lock)
+        data = json.loads(self.lock.read_text())
+        # Same contract integer, different patterns — the exact window those
+        # five commits sat in.
+        data["denylist_fingerprint"] = "0000000000000000"
+        self.lock.write_text(json.dumps(data))
+
+        drift = compute_drift(self.wf, self.lock)
+        self.assertEqual(data["generator_contract"], GENERATOR_CONTRACT)
+        self.assertTrue(drift.contract_stale)
+        # Must not masquerade as workflow drift: that path blocks the run and
+        # tells the user to fix something they did not break.
+        self.assertFalse(drift.has_drift)
+
+    def test_a_lockfile_predating_the_fingerprint_is_stale(self):
+        write_lockfile(self.wf, self.lock)
+        data = json.loads(self.lock.read_text())
+        del data["denylist_fingerprint"]
+        self.lock.write_text(json.dumps(data))
+        self.assertTrue(compute_drift(self.wf, self.lock).contract_stale)
+
+    def test_the_fingerprint_actually_tracks_the_patterns(self):
+        """A fingerprint that never moves is a check that never fires."""
+        import script_generator as sg
+        before = denylist_fingerprint()
+        original = sg._DESTRUCTIVE_PATTERNS
+        try:
+            sg._DESTRUCTIVE_PATTERNS = original + [
+                (re.compile(r"\bkubectl\s+delete\b"), "kubectl delete")
+            ]
+            self.assertNotEqual(before, denylist_fingerprint())
+        finally:
+            sg._DESTRUCTIVE_PATTERNS = original
+        self.assertEqual(before, denylist_fingerprint())
 
 
 class TestGeneratedHeaderIsMachineIndependent(unittest.TestCase):

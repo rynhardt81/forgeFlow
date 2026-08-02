@@ -99,11 +99,23 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 # 7: a job containing a destructive step is skipped ENTIRELY (JOB_SKIP_MARKER),
 #    not just missing that step. The refused step often establishes the job's
 #    precondition, so running the remainder reports a green that tested nothing.
-# 8: the header's workflow path is project-relative, not whatever the caller's
-#    `--project-root` happened to be. Nothing PARSES the header, so this is not
-#    a runner-contract change in the usual sense — it is bumped because stale
-#    scripts still CONTAIN an absolute home path, and the note above commits to
-#    healing that automatically rather than making the user run a command.
+# 8: two reasons, and the second is the one worth reading.
+#    (a) The header's workflow path is project-relative rather than whatever the
+#        caller's `--project-root` happened to be, so stale scripts no longer
+#        CONTAIN an absolute home path.
+#    (b) Five consecutive commits widened the destructive denylist — flag
+#        position, global docker options, shell quoting, attached option values,
+#        the `remove` alias — and NONE of them bumped this integer. Every one
+#        changed which commands reach a generated script, which is case 6 above
+#        exactly. Mirrors generated before them kept transcribing commands the
+#        denylist had learned to refuse, and nothing else would have caught it:
+#        the workflows had not changed, so there was no drift, and review reads
+#        the diff rather than the state on disk. The bump that finally healed it
+#        was (a) — luck, not design.
+#
+#        Hence `denylist_fingerprint()`, recorded alongside this integer in the
+#        lockfile. A pattern change now forces regeneration on its own. Bump
+#        this integer for everything else; do not rely on remembering to.
 GENERATOR_CONTRACT = 8
 
 # --- step `if:` conditions ---------------------------------------------------
@@ -344,6 +356,30 @@ _LINE_CONTINUATION = re.compile(r"\\\r?\n\s*")
 # (`rm -rf "$GITHUB_WORKSPACE/dist"`, `docker compose -f "$COMPOSE_FILE" down`,
 # `docker run --rm -v "$PWD:/src" …`): no new matches.
 _SHELL_QUOTING = re.compile(r"[\"']|\\(?=[^\r\n])")
+
+
+def denylist_fingerprint() -> str:
+    """Stable hash of what the denylist currently refuses.
+
+    Recorded in the lockfile so a widened pattern forces regeneration on its
+    own. Every entry in `_DESTRUCTIVE_PATTERNS` changes which commands reach a
+    generated script, which is exactly the "stale scripts still CONTAIN them"
+    case `GENERATOR_CONTRACT` exists for — but bumping an integer is a thing a
+    human has to remember, and across five consecutive commits that widened
+    these patterns, nobody did. Mirrors generated before those commits kept
+    transcribing commands the denylist had learned to refuse, and no other
+    signal would have caught it: the workflows had not changed, so there was no
+    drift, and a code review reads the diff rather than the state on disk.
+
+    Deriving the check from the patterns themselves removes the discipline
+    requirement. The normalizers are folded in too — they decide what the
+    patterns see, so a change there moves the same boundary.
+    """
+    material = "\n".join(
+        [p.pattern for p, _ in _DESTRUCTIVE_PATTERNS]
+        + [_LINE_CONTINUATION.pattern, _SHELL_QUOTING.pattern]
+    )
+    return hashlib.sha256(material.encode()).hexdigest()[:16]
 
 
 def destructive_commands(body: str) -> list[str]:
@@ -1083,7 +1119,11 @@ def write_lockfile(workflows_dir: Path, lockfile: Path) -> None:
     # tracked file.
     lockfile.write_text(
         json.dumps(
-            {"generator_contract": GENERATOR_CONTRACT, "workflow_hashes": hashes},
+            {
+                "generator_contract": GENERATOR_CONTRACT,
+                "denylist_fingerprint": denylist_fingerprint(),
+                "workflow_hashes": hashes,
+            },
             indent=2,
             sort_keys=True,
         )
@@ -1106,7 +1146,13 @@ def compute_drift(workflows_dir: Path, lockfile: Path) -> DriftReport:
         changed=changed,
         new=new,
         removed=removed,
-        contract_stale=data.get("generator_contract") != GENERATOR_CONTRACT,
+        # Either signal means the generated scripts predate what the generator
+        # now produces. The fingerprint catches the case the integer misses:
+        # a widened denylist that nobody remembered to bump for.
+        contract_stale=(
+            data.get("generator_contract") != GENERATOR_CONTRACT
+            or data.get("denylist_fingerprint") != denylist_fingerprint()
+        ),
     )
 
 
