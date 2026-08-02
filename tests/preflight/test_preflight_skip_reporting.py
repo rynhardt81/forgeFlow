@@ -1023,12 +1023,35 @@ class TestDestructiveCommandsAreRefused(unittest.TestCase):
         ):
             self.assertEqual(destructive_commands(run), [], f"false positive: {run}")
 
+    def test_attached_flag_values_and_the_remove_alias(self):
+        """Two spellings the stricter forms missed.
+
+        `-Htcp://h:2375` attaches its value with no separator at all, and a
+        flag pattern spelled as name-then-optional-`=value` stopped at the `:`.
+        `volume remove` is a documented alias of `volume rm` and destroys the
+        same amount.
+        """
+        for run in (
+            "docker -Htcp://1.2.3.4:2375 volume prune -f",
+            "docker -H=tcp://1.2.3.4:2375 volume prune",
+            "docker --tlscacert=/certs/ca.pem volume prune",
+            "docker volume remove cache",
+        ):
+            self.assertTrue(destructive_commands(run), f"not caught: {run}")
+
     def test_global_flag_widening_does_not_over_match(self):
         """`-v` as a bind-mount is not `down -v`, and `volume` alone is fine."""
         for run in (
             "docker run --rm -v /data:/data alpine ls",
+            "docker run --rm -it --entrypoint=/bin/sh img",
             "docker volume create cache",
+            "docker volume ls -q",
+            "docker volume inspect cache",
             "docker system df",
+            "docker build -t app:latest --build-arg VER=1.2 .",
+            "docker ps -a --filter status=exited",
+            "docker image prune -f",
+            "docker network prune -f",
             "docker run --rm alpine echo volume prune",
         ):
             self.assertEqual(destructive_commands(run), [], f"false positive: {run}")

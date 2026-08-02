@@ -270,11 +270,15 @@ _SKIPPED_COND_RE = re.compile(
 # Prefer adding a pattern over relaxing one.
 
 # `docker-` (the v1 binary, still in plenty of workflows) or `docker ` followed
-# by an optional run of GLOBAL options before the subcommand. Each option may
-# carry a value as a separate token (`--context default`, matched by the
-# trailing `(?:[^-\s]\S*\s+)?`) or attached (`--context=default`, matched by
-# `(?:=\S+)?`). A value never starts with `-`, which is what keeps the separate
-# form from swallowing the subcommand itself.
+# by an optional run of GLOBAL options before the subcommand. An option is a
+# dash, a letter, then anything up to whitespace — deliberately `\S*` rather
+# than a spelled-out name-and-value shape, because values attach in more ways
+# than are worth enumerating: `--context=default`, `-H=tcp://h:2375`, and
+# `-Htcp://h:2375` with no separator at all. A stricter `[\w.-]*(?:=\S+)?`
+# stopped at the `:` in that last form and missed the command behind it.
+# A value given as a SEPARATE token is matched by the trailing
+# `(?:[^-\s]\S*\s+)?`; it never starts with `-`, which is what keeps that form
+# from swallowing the subcommand itself.
 #
 # The option run is not cosmetic: `docker --context prod volume prune -f`,
 # `docker -H tcp://host:2375 volume prune` and `docker --log-level=debug system
@@ -282,12 +286,13 @@ _SKIPPED_COND_RE = re.compile(
 # non-default daemon writes it — and without this they matched nothing and were
 # transcribed straight into the mirror. Anchoring the subcommand directly to the
 # binary assumed a shape the CLI never promised.
-_DOCKER = r"\bdocker(?:-|\s+)(?:-{1,2}[A-Za-z][\w.-]*(?:=\S+)?\s+(?:[^-\s]\S*\s+)?)*"
+_DOCKER = r"\bdocker(?:-|\s+)(?:-{1,2}[A-Za-z]\S*\s+(?:[^-\s]\S*\s+)?)*"
 
 _DESTRUCTIVE_PATTERNS = [
     (re.compile(_DOCKER + r"volume\s+prune\b"), "docker volume prune"),
     (re.compile(_DOCKER + r"system\s+prune\b"), "docker system prune"),
-    (re.compile(_DOCKER + r"volume\s+rm\b"), "docker volume rm"),
+        # `remove` is a documented alias of `rm`, and destroys exactly as much.
+    (re.compile(_DOCKER + r"volume\s+(?:rm|remove)\b"), "docker volume rm"),
     # Volume flag in either order and either spelling:
     # `down -v --remove-orphans`, `down --volumes`.
     (re.compile(_DOCKER + r"compose\b[^\n]*\bdown\b[^\n]*(?:\s-\w*v\w*\b|--volumes\b)"),
