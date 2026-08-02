@@ -170,6 +170,23 @@ git config forge.localReview 'codex review --base {base}'
 
 `{base}` is substituted with the Step 2 target branch. The value is a full command, so any reviewer CLI works — nothing here is specific to one vendor. **Unset → skip this step silently** and continue to 3.5; bare installs are unaffected.
 
+**Do not append review instructions to the command.** In codex-cli 0.144.1 a base-branch diff and a prompt argument are mutually exclusive:
+
+```
+error: the argument '--base <BRANCH>' cannot be used with '[PROMPT]'
+Usage: codex review --base <BRANCH> [PROMPT]
+```
+
+The usage line printed with that error advertises the exact combination it just refused, so anyone who hits this will reasonably conclude they got the syntax wrong and keep trying variants. They didn't. The two are exclusive, and the base-branch diff is the half worth keeping — a prompt-only review has no defined scope.
+
+**Guidance belongs in `AGENTS.md`, not in the invocation.** Codex reads `AGENTS.md` from the repo root automatically, so review direction placed there applies with no prompt argument and no arg conflict. Three reasons this is the better home regardless of the constraint:
+
+- It is versioned and reviewed with the code, rather than living in one developer's shell history or a `git config` value nobody else has.
+- The same file steers the **cloud** review, which sees the assembled PR and is where the more expensive findings tend to come from. One file improves both passes.
+- It survives a framework refresh — it is project data at the repo root, not framework code under `.claude/`.
+
+Put what the reviewer should weight there: which documents are authoritative, what counts as MUST-FIX in this repo, and any area it should not spend attention on.
+
 **Presence check before running:** resolve the command's binary with `command -v`. Absent → emit `Local review skipped (<binary> not on PATH)` and continue. **Never block on a missing reviewer** — same default as 3.7.
 
 **Resolve, then invoke — two steps, never one pipeline:**

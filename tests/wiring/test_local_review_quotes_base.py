@@ -74,12 +74,10 @@ def test_no_prose_is_passed_via_inline_body():
     The skill already mandates --body-file for creation (HEREDOC mangles
     @-mentions); the same mechanism is what makes the text inert.
     """
-    # Match `--body "` only inside a BACKTICKED command, so the prohibition
-    # sentence that names the form (`--body "…"`) does not shield the line it
-    # sits on. The elided form is the prose spelling; a real payload is not.
-    # Prohibition examples elide their payload ("…"); a command a reader would
-    # copy does not. That is the discriminator — matching on the surrounding
-    # sentence instead lets the warning text shield the very line it sits on.
+    # Match `--body "` only inside a BACKTICKED command, and discriminate on
+    # the elided payload prose uses ("…") — a command a reader would copy does
+    # not elide. Matching on the surrounding sentence instead would let the
+    # prohibition text shield the very line it sits on.
     offenders = [
         m.group(0)[:80]
         for m in re.finditer(r"`[^`]*--body \"[^`]*`", SKILL.read_text(encoding="utf-8"))
@@ -93,6 +91,19 @@ def test_untrusted_values_section_exists():
     text = SKILL.read_text(encoding="utf-8")
     assert "## Untrusted values" in text
     assert "check-ref-format" in text
+
+
+def test_step_38_warns_against_a_prompt_argument():
+    """`--base` and `[PROMPT]` are mutually exclusive in codex-cli 0.144.1.
+
+    The error's own usage line advertises the combination it refuses, so
+    without this the reader concludes they got the syntax wrong and keeps
+    trying variants. The skill has to say the two cannot be combined and
+    point at where guidance goes instead.
+    """
+    section = _step_38()
+    assert "AGENTS.md" in section
+    assert "cannot be used with" in section
 
 
 def test_background_guidance_survived():
