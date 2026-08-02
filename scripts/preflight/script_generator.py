@@ -99,7 +99,12 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 # 7: a job containing a destructive step is skipped ENTIRELY (JOB_SKIP_MARKER),
 #    not just missing that step. The refused step often establishes the job's
 #    precondition, so running the remainder reports a green that tested nothing.
-GENERATOR_CONTRACT = 7
+# 8: the header's workflow path is project-relative, not whatever the caller's
+#    `--project-root` happened to be. Nothing PARSES the header, so this is not
+#    a runner-contract change in the usual sense — it is bumped because stale
+#    scripts still CONTAIN an absolute home path, and the note above commits to
+#    healing that automatically rather than making the user run a command.
+GENERATOR_CONTRACT = 8
 
 # --- step `if:` conditions ---------------------------------------------------
 # GitHub runs a step only when its `if:` holds, with an implicit `success()`
@@ -854,6 +859,31 @@ def render_script(
     return "\n".join(lines) + "\n"
 
 
+def _display_path(workflow_file: str, project_root: Path | None) -> Path:
+    """The workflow path as it should appear in a generated script's header.
+
+    `Job.file` carries whatever `derive_gating_jobs` globbed, which is absolute
+    or relative purely according to how the caller spelled `--project-root`. The
+    pre-push hook passes an absolute `git rev-parse --show-toplevel`; the skill
+    documents `--project-root .`. So the same repo produced a different header
+    depending on which entry point last regenerated — a machine-specific home
+    path in one case, and a spurious diff on every alternation for projects that
+    commit `.forge/preflight/*.sh`.
+
+    Always project-relative, so the artifact is identical on every machine and
+    by every route. Falls back to the bare filename when the path cannot be
+    relativized (no project root, or a workflow outside the tree) — never an
+    absolute path, which is the property that matters.
+    """
+    path = Path(workflow_file)
+    if project_root is not None:
+        try:
+            return path.resolve().relative_to(project_root.resolve())
+        except (ValueError, OSError):
+            pass
+    return path if not path.is_absolute() else Path(path.name)
+
+
 def generate_scripts(
     jobs: Iterable[Job],
     out_dir: Path,
@@ -1001,7 +1031,10 @@ def generate_scripts(
     for job in jobs:
         script_path = out_dir / f"{job.name}.sh"
         script_path.write_text(
-            render_script(job, Path(job.file), env_files=env_files_rel or None)
+            render_script(
+                job, _display_path(job.file, project_root),
+                env_files=env_files_rel or None,
+            )
         )
         script_path.chmod(0o755)
         written.append(script_path)
