@@ -163,6 +163,14 @@ STEP_OVER_RUN = "over-run"      # can't evaluate, but running anyway is a supers
 STEP_NEVER = "never"            # `if: false` — CI never runs it, so neither do we
 STEP_UNTRANSLATABLE = None      # can't evaluate and running anyway is unsafe
 
+# Modes whose step bodies `render_script` never emits. Kept here, beside the
+# modes themselves, because the destructive-command scan has to agree with the
+# renderer: a body that is never written cannot be a reason to refuse the job
+# that contains it. When a new non-emitting mode is added, it belongs here too —
+# that coupling is the whole point of naming the set rather than testing modes
+# one at a time at each site.
+_NOT_EMITTED = (STEP_NEVER, STEP_UNTRANSLATABLE)
+
 
 def classify_condition(condition: str | None) -> str | None:
     """Map a step's raw `if:` to an emission mode.
@@ -692,17 +700,23 @@ def render_script(
     # established locally without doing the very thing we refuse. This uses the
     # same JOB_SKIP_MARKER the DB-reachability guard uses, so the runner reports
     # it as SKIPPED (coverage that did not run) rather than as a pass.
-    # `classify_condition` is consulted here because the renderer below omits
-    # STEP_NEVER steps entirely. Without this, a job carrying an obsolete
-    # `if: false` cleanup skipped ENTIRELY — throwing away every other step's
-    # local coverage over a step that neither CI nor the mirror would ever run.
-    # That is this mechanism's own failure mode inverted: the gate stops
-    # describing what actually ran.
+    # Steps the renderer never emits cannot be a reason to refuse the job. A
+    # body that is not written cannot run, so refusing over it discards every
+    # other step's local coverage for nothing — this mechanism's own failure
+    # mode inverted, with the gate no longer describing what actually ran.
+    #
+    # Both excluded modes stay honest by a different route. `if: false` is not
+    # run by CI either, so omitting it locally is faithful and the job is a
+    # genuine pass. An untranslatable condition IS run by CI, so its omission is
+    # real lost coverage — but it is emitted as `# Skipped step:`, which
+    # `dropped_gating_steps()` reports, marking the job INCOMPLETE and blocking
+    # on exit 5. Same gate, reached through the channel that describes the
+    # situation precisely, and the rest of the job still gets mirrored.
     refused = [
         (step.name or step.uses or f"step-{i}", destructive_commands(step.run))
         for i, step in enumerate(job.steps)
         if step.run
-        and classify_condition(step.if_condition) != STEP_NEVER
+        and classify_condition(step.if_condition) not in _NOT_EMITTED
         and destructive_commands(step.run)
     ]
     if refused:

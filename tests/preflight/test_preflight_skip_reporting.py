@@ -1052,6 +1052,33 @@ class TestDestructiveCommandsAreRefused(unittest.TestCase):
         self.assertIn("# Disabled step: Old teardown", body)
         self.assertNotIn("volume prune", body)      # and it is still not mirrored
 
+    def test_an_untranslatable_destructive_step_does_not_refuse_the_whole_job(self):
+        """Its body is never emitted, so it cannot justify refusing the job.
+
+        Unlike `if: false`, CI DOES run this step — so its local omission is
+        real lost coverage. That is reported through the other channel: it is
+        emitted as `# Skipped step:`, which `dropped_gating_steps()` surfaces,
+        marking the job INCOMPLETE and blocking on exit 5. Same gate, precise
+        description, and the rest of the job still gets mirrored.
+        """
+        job = Job(name="e2e", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="Nightly wipe", run="docker volume prune -f",
+                 if_condition="github.event_name == 'schedule'"),
+            Step(name="Real work", run="echo REAL"),
+        ])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        executable = [
+            ln for ln in body.splitlines()
+            if not ln.lstrip().startswith("#") and JOB_SKIP_MARKER not in ln
+        ]
+
+        self.assertNotIn(JOB_SKIP_MARKER, body)          # job not refused wholesale
+        self.assertIn("echo REAL", body)                 # coverage retained
+        self.assertFalse(                                # but the command never runs
+            any("volume prune" in ln for ln in executable)
+        )
+        self.assertTrue(dropped_gating_steps(body))      # still blocks, as INCOMPLETE
+
     def test_an_enabled_destructive_step_still_refuses_the_job(self):
         """The STEP_NEVER carve-out must not weaken the actual guard."""
         job = Job(name="e2e", file="ci.yml", runs_on="ubuntu-latest", steps=[
