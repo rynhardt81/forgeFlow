@@ -56,6 +56,25 @@ docs/tasks/T*/
 # docs/processed/ itself stays (a real tier slot, kept via .gitkeep); these don't.
 docs/processed/*-audit-*.md
 
+# Preflight working directory — framework repo only. Holds the framework's own
+# `.forge/venv/` (900+ vendored pip files, escaping today only via the generic
+# `venv/` rule below) and, once /preflight-ci runs here, `.forge/preflight/*.sh`
+# — generated CI mirrors that embed local absolute paths and source the
+# developer's .env files. Neither is framework source, and this repo is public.
+#
+# Scope note: this file ships to consumers as `.claude/.gitignore`, so this rule
+# matches `.claude/.forge/` there, NOT their project-root `.forge/`. Consumer
+# projects keep committing their own preflight mirrors for diff-reviewability,
+# exactly as skills/preflight-ci/SKILL.md describes.
+.forge/
+
+# The framework's OWN project memory — internal development notes, not shipped
+# framework content. Same scoping as `.forge/` above: in a consumer this matches
+# `.claude/docs/project-memory/`, never their project-root `docs/project-memory/`,
+# which stays tracked as durable project knowledge (see the `memories/` note
+# at the end of this file).
+docs/project-memory/
+
 # Generated code-map JSON artifact (regenerated on every SessionStart via
 # the audit-code-map skill's --ensure-fresh path; opt-in companion to the
 # committed docs/code-map.md). Consumed by the forge-code-map MCP server.
