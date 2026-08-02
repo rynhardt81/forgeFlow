@@ -192,7 +192,7 @@ This section defines the decision tree for handling user requests.
 
 | Implementation | Runtime     | Install Command                                    |
 | -------------- | ----------- | -------------------------------------------------- |
-| Python         | UV (Astral) | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| Python         | UV (Astral) | `brew install uv` (see cookbook for non-brew hosts)  |
 
 ---
 

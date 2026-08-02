@@ -6,8 +6,13 @@ This workflow guides installation of the Damage Control security hooks.
 
 1. **UV (Python runtime)** - Required for running the hooks
    ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+   brew install uv
    ```
+
+   Prefer brew: versions below 0.10 silently ignore `add-bounds`, and the
+   python.org framework builds still ship 0.9.x. Without Homebrew, download
+   the installer, read it, then run it as two steps — do not pipe it into a
+   shell, which defensive PreToolUse hooks block by design.
 
 ## Installation Steps
 
@@ -145,8 +150,10 @@ To modify: Edit .claude/hooks/damage-control/patterns.yaml
 ### "UV not found"
 Install UV:
 ```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
+brew install uv
 ```
+
+No Homebrew? Download the installer, read it, then run it — as two steps, not one pipeline.
 
 ### "Permission denied"
 Make hooks executable:

@@ -152,11 +152,13 @@ git config forge.localReview 'codex review --base {base}'
 
 **Presence check before running:** resolve the command's binary with `command -v`. Absent → emit `Local review skipped (<binary> not on PATH)` and continue. **Never block on a missing reviewer** — same default as 3.7.
 
-**Run it:**
+**Resolve, then invoke — two steps, never one pipeline:**
 
-```bash
-git config forge.localReview | sed "s|{base}|$TARGET_BRANCH|" | sh
-```
+1. Read the configured command: `git config forge.localReview`
+2. Substitute `{base}` with the Step 2 target branch yourself.
+3. Run the resolved command as its own invocation, and show it before you do.
+
+Piping the config value straight into a shell interpreter is the wrong shape and will be blocked outright on any machine running a defensive hook — it is the same pattern as the notorious download-and-execute one-liner, and the text being piped comes from config. `eval` is no better. Resolving first also means the exact command is visible in the transcript before it executes, which is what you want from something whose contents come out of config rather than out of this file.
 
 Triage the output into the same three buckets as 3.7 and Step 6: **MUST-FIX** / **NICE-TO-HAVE** / **NO-ACTION**.
 
