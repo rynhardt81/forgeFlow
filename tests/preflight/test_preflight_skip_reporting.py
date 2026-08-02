@@ -47,6 +47,7 @@ from script_generator import (  # noqa: E402
     STEP_OVER_RUN,
     classify_condition,
     compute_drift,
+    destructive_commands,
     dropped_gating_steps,
     render_script,
     write_lockfile,
@@ -637,6 +638,104 @@ class TestDisabledStepsAreOmitted(unittest.TestCase):
         self.assertIn("# Disabled step: Old migration (if: false)", body)
         self.assertNotIn("# Skipped step:", body)
         self.assertEqual(dropped_gating_steps(body), [])
+
+
+class TestDestructiveCommandsAreRefused(unittest.TestCase):
+    """Commands that are free on a runner and expensive on a workstation.
+
+    `run:` bodies are transcribed verbatim into scripts the developer executes
+    against their real daemon. The generator is the one physical chokepoint
+    where "never mirror this locally" can be enforced — an in-workflow
+    `if [ "$CI" = true ]` guard is armed by the `env:` block the generator
+    itself exports above every step body.
+    """
+
+    _CLEANUP = (
+        'if [ "${CI:-}" = "true" ]; then\n'
+        "  docker compose -f x.yml down -v --remove-orphans || true\n"
+        "  docker volume prune -f || true\n"
+        "fi\n"
+    )
+
+    def _body(self, run, **job_kwargs):
+        job = Job(name="e2e", file="ci.yml", runs_on="ubuntu-latest",
+                  steps=[Step(name="Clean", run=run),
+                         Step(name="Keep", run="echo KEPT")],
+                  **job_kwargs)
+        return render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+
+    def _executable(self, run, **job_kwargs):
+        """The script minus its refusal notices.
+
+        The notice NAMES the command it refused, so a naive substring check
+        against the whole script matches its own explanation and passes for the
+        wrong reason. What must not survive is an executable line.
+        """
+        return "\n".join(
+            ln for ln in self._body(run, **job_kwargs).splitlines()
+            if not ln.startswith("# Refused step:")
+        )
+
+    def test_destructive_body_never_reaches_the_mirror(self):
+        self.assertNotIn("volume prune", self._executable(self._CLEANUP))
+        self.assertNotIn("down -v", self._executable(self._CLEANUP))
+        self.assertIn("# Refused step: Clean (destructive:", self._body(self._CLEANUP))
+
+    def test_env_cannot_re_arm_a_refused_command(self):
+        # The bypass the in-workflow guard cannot survive: two lines in an
+        # `env:` block, the kind of PR titled "force CI mode so compose stops
+        # prompting". The generator exports these ABOVE every step body.
+        env = {"CI": "true", "GITHUB_ACTIONS": "true"}
+        self.assertIn('export CI="true"', self._body(self._CLEANUP, env=env))
+        self.assertNotIn("volume prune", self._executable(self._CLEANUP, env=env))
+
+    def test_sibling_steps_are_still_mirrored(self):
+        self.assertIn("echo KEPT", self._body(self._CLEANUP))
+
+    def test_refusal_is_not_reported_as_dropped_work(self):
+        # Not the `# Skipped step:` form: that would mark the job INCOMPLETE on
+        # every run, for an omission that is correct and permanent.
+        self.assertEqual(dropped_gating_steps(self._body(self._CLEANUP)), [])
+
+    def test_recoverable_compose_down_is_still_mirrored(self):
+        # `down` without a volume flag stops containers and keeps volumes. This
+        # is the false-positive guard that matters — refusing it would remove
+        # real local coverage from every project that tears a stack down.
+        body = self._body("docker compose -f x.yml down")
+        self.assertIn("docker compose -f x.yml down", body)
+        self.assertNotIn("# Refused step:", body)
+
+    def test_destructive_body_is_refused_even_with_unresolved_templates(self):
+        # Refusal must come BEFORE the `${{` check, or a body carrying both
+        # takes the Skipped branch and the command stays in the file.
+        run = "docker volume prune -f ${{ steps.x.outputs.y }}"
+        self.assertNotIn("volume prune", self._executable(run))
+        self.assertIn("# Refused step:", self._body(run))
+
+    def test_variants_the_narrow_form_missed(self):
+        # Probed 2026-08-02: each of these was NOT caught by the first draft of
+        # the denylist while being exactly as destructive as a form that was.
+        for run in (
+            "docker-compose -f x.yml down -v",       # hyphenated v1 binary
+            "docker-compose down --volumes",
+            "docker compose down -fv",               # clustered flags
+            "rm -rf /*",                             # glob form of the root
+            "rm -rfv /",                             # three-letter cluster
+            "rm --recursive --force /",              # long flags
+        ):
+            self.assertTrue(destructive_commands(run), f"not caught: {run}")
+
+    def test_ordinary_commands_are_not_refused(self):
+        for run in (
+            "docker compose down",
+            "docker compose up -d",
+            "rm -rf ./node_modules",
+            "rm -rf /tmp/build-cache",               # scoped path, not the root
+            "rm -rf dist",
+            "docker image prune -f",                 # rebuild cost, not data loss
+            "echo 'docker volume'",
+        ):
+            self.assertEqual(destructive_commands(run), [], f"false positive: {run}")
 
 
 class TestUnresolvableBodyTemplates(unittest.TestCase):

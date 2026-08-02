@@ -90,7 +90,12 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 #    force regeneration.
 # 5: `if: false` steps are emitted as `# Disabled step:` and omitted, instead of
 #    over-run. Stale scripts still RUN work CI suppresses.
-GENERATOR_CONTRACT = 5
+# 6: destructive commands (volume prunes, compose teardowns that take volumes,
+#    recursive deletes of the filesystem root) are refused at generation time
+#    rather than transcribed. Stale scripts still CONTAIN them, and any
+#    env-keyed guard around them is armed by the workflow `env:` block the
+#    generator itself exports — so this must force regeneration.
+GENERATOR_CONTRACT = 6
 
 # --- step `if:` conditions ---------------------------------------------------
 # GitHub runs a step only when its `if:` holds, with an implicit `success()`
@@ -227,6 +232,49 @@ _SKIPPED_COND_RE = re.compile(
     r"\(if: (?P<cond>.*?), condition not evaluable locally\)$",
     re.MULTILINE,
 )
+
+# Commands that are free to run on an ephemeral runner and expensive on a
+# workstation. `run:` bodies are transcribed VERBATIM into scripts the developer
+# executes against their real daemon, so this is the one physical chokepoint
+# where "never mirror this locally" can be enforced.
+#
+# Why here and not with an `if [ "$CI" = true ]` guard in the workflow: the
+# generator exports workflow- and job-level `env:` at the TOP of the mirror,
+# above every step body. So any env-keyed guard is armed by the very thing an
+# untrusted PR is allowed to edit — two lines in an `env:` block re-arm it, and
+# preflight on that branch then runs it on the maintainer's machine. A command
+# that is never written to the file cannot be re-armed by any variable. The same
+# property rules out every "runner-only" variable as key material: `CI`,
+# `GITHUB_ACTIONS`, `RUNNER_ENVIRONMENT`, `GITHUB_RUN_ID` are all either settable
+# through `env:` or absent when the script is run directly.
+#
+# Deliberately narrow. Compose `down` WITHOUT a volume flag is not here: it stops
+# containers and keeps volumes, which is recoverable, and refusing it would
+# remove real local coverage. The line is drawn at "destroys data or reaches
+# outside this project". Knowingly omitted, as judgement calls rather than
+# oversights: `docker network prune` (cheap to recreate) and `git clean -xfd`
+# (destructive, but a routine and deliberate local command).
+#
+# Prefer adding a pattern over relaxing one.
+_DESTRUCTIVE_PATTERNS = [
+    # Both binaries: the hyphenated v1 form is still in plenty of workflows.
+    (re.compile(r"\bdocker[\s-]+volume\s+prune\b"), "docker volume prune"),
+    (re.compile(r"\bdocker[\s-]+system\s+prune\b"), "docker system prune"),
+    (re.compile(r"\bdocker[\s-]+volume\s+rm\b"), "docker volume rm"),
+    # Volume flag in either order and either spelling:
+    # `down -v --remove-orphans`, `down --volumes`.
+    (re.compile(r"\bdocker[\s-]+compose\b[^\n]*\bdown\b[^\n]*(?:\s-\w*v\w*\b|--volumes\b)"),
+     "docker compose down -v"),
+    # Recursive delete of the filesystem root. Arbitrary flag cluster (`-rf`,
+    # `-fr`, `-rfv`, `--recursive --force`) and an optional trailing glob, since
+    # `<root>/*` destroys exactly as much as `<root>`.
+    (re.compile(r"\brm\s+(?:-\S+\s+|--\w+\s+)*-*\S*[rR]\S*\s+/\*?(?:\s|$)"), "rm -rf /"),
+]
+
+
+def destructive_commands(body: str) -> list[str]:
+    """Names of destructive commands present in a workflow `run:` body."""
+    return [name for pattern, name in _DESTRUCTIVE_PATTERNS if pattern.search(body)]
 
 
 def dropped_gating_steps(script_text: str) -> list[str]:
@@ -602,6 +650,23 @@ def render_script(
         # cannot run at all. Emitting it anyway makes the job permanently red
         # for a reason the developer cannot fix.
         body = _rewrite_actions_templates(step.run)
+
+        # Refuse to transcribe destructive commands, whatever guards the
+        # workflow wraps them in. Deliberately NOT the `# Skipped step:` form —
+        # `dropped_gating_steps()` counts those as lost coverage and would mark
+        # a teardown job INCOMPLETE on every run, which is exactly the false
+        # alarm that trains people to ignore a real one (see STEP_NEVER above).
+        # CI still runs the step; only the local mirror declines it. Checked
+        # BEFORE the `${{` test below, so a body carrying both is refused rather
+        # than merely skipped — skipping leaves the command in the file.
+        destructive = destructive_commands(body)
+        if destructive:
+            lines.append(
+                f"# Refused step: {label} "
+                f"(destructive: {', '.join(destructive)} — never mirrored locally)"
+            )
+            continue
+
         if "${{" in body:
             unresolved = sorted(set(re.findall(r"\$\{\{\s*([^}]+?)\s*\}\}", body)))
             lines.append(
