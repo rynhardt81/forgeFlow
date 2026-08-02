@@ -35,7 +35,9 @@ from preflight import (  # noqa: E402
     _extract_skip_reason,
     exit_code_for,
     format_human,
+    main,
     run_one_script,
+    run_preflight,
 )
 from hook_installer import SENTINEL, _hooks_dir, refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
@@ -320,6 +322,122 @@ class TestMigrationOfExistingInstalls(unittest.TestCase):
     def test_absent_hook_is_not_an_error(self):
         (self.root / ".git" / "hooks").mkdir(parents=True)
         self.assertFalse(refresh_if_stale(self.root))
+
+
+class TestFirstRunRegeneratesInsteadOfBailing(unittest.TestCase):
+    """No lockfile is a fresh clone, not user-authored workflow drift.
+
+    `compute_drift` reports every workflow as `new` when there is nothing to
+    compare against, so the drift branch would exit 2 and demand a manual
+    `--regenerate` before preflight — or the pre-push hook — would run at all.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        self.root = Path(self._tmp)
+        self.addCleanup(shutil.rmtree, self._tmp, True)
+        wf = self.root / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        (wf / "ci.yml").write_text(self._workflow("echo LINT"))
+        self.out = self.root / ".forge" / "preflight"
+
+    @staticmethod
+    def _workflow(body: str) -> str:
+        # Must declare pull_request against the default branch — that is what
+        # makes a job "gating" and therefore mirrored at all.
+        return (
+            "name: ci\n"
+            "on:\n  pull_request:\n    branches: [main]\n"
+            "jobs:\n  lint:\n    runs-on: ubuntu-latest\n"
+            f"    steps:\n      - run: {body}\n"
+        )
+
+    def test_missing_lockfile_does_not_report_drift(self):
+        report = run_preflight(self.root, out_dir=self.out)
+        self.assertFalse(report.drift_detected)
+        self.assertNotEqual(exit_code_for(report), 2)
+
+    def test_missing_lockfile_generates_and_writes_the_lock(self):
+        run_preflight(self.root, out_dir=self.out)
+        self.assertTrue((self.out / "drift.lock").exists())
+        self.assertTrue((self.out / "lint.sh").exists())
+
+    def test_generated_scripts_get_the_shim_they_source(self):
+        # Every generated script sources `_local_shims.sh` from its own
+        # directory and hard-exits without it. Nothing else puts it there, so
+        # a fresh out dir produced scripts that all failed with "portability
+        # shim missing" — advising the reader to run the regenerate that had
+        # just produced them.
+        run_preflight(self.root, out_dir=self.out)
+        self.assertTrue((self.out / "_local_shims.sh").exists())
+
+    def test_first_run_actually_executes_the_job(self):
+        # The end the first-run fix exists for: a fresh clone runs its gating
+        # jobs rather than bailing or failing on a missing shim.
+        report = run_preflight(self.root, out_dir=self.out)
+        self.assertEqual([j.name for j in report.jobs_run], ["lint"])
+        self.assertTrue(report.all_green)
+        self.assertEqual(exit_code_for(report), 0)
+
+    def test_real_drift_after_the_first_run_still_bails(self):
+        # The first run must not disarm the gate for subsequent ones.
+        run_preflight(self.root, out_dir=self.out)
+        (self.root / ".github" / "workflows" / "ci.yml").write_text(
+            self._workflow("echo CHANGED")
+        )
+        report = run_preflight(self.root, out_dir=self.out)
+        self.assertTrue(report.drift_detected)
+        self.assertEqual(exit_code_for(report), 2)
+
+
+class TestStaleHookWaiverIsScopedToThePrePushHook(unittest.TestCase):
+    """`--quick` is how the pre-push hook identifies itself.
+
+    The waiver exists so a V1 hook — which blocks on ANY non-zero — does not
+    break "a skip never blocks a push" for the users being migrated. But a
+    stale hook merely being INSTALLED used to waive exit 5 for every caller,
+    and `/create-pr --preflight` documents blocking on 5.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        self.root = Path(self._tmp)
+        self.addCleanup(shutil.rmtree, self._tmp, True)
+        hooks = self.root / ".git" / "hooks"
+        hooks.mkdir(parents=True)
+        # A V1 hook, so refresh_if_stale() reports True on this run.
+        (hooks / "pre-push").write_text(
+            "#!/bin/sh\n# Sentinel: FORGE_PREFLIGHT_HOOK_V1\nexit 0\n"
+        )
+        wf = self.root / ".github" / "workflows"
+        wf.mkdir(parents=True)
+        # A job that self-skips: exit 0 plus the marker on stderr => exit code 5.
+        (wf / "ci.yml").write_text(
+            "name: ci\n"
+            "on:\n  pull_request:\n    branches: [main]\n"
+            "jobs:\n  test:\n    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            # Quoted: the marker contains a colon, which would otherwise
+            # break the plain scalar and make the whole file unparseable —
+            # the parser skips files it cannot read, so the job would simply
+            # vanish and the test would pass for the wrong reason.
+            f'      - run: "echo \'{JOB_SKIP_MARKER}stack down\' >&2"\n'
+        )
+
+    def _run(self, *extra):
+        return main([
+            "--project-root", str(self.root),
+            "--out", str(self.root / ".forge" / "preflight"),
+            *extra,
+        ])
+
+    def test_hook_invocation_waives_the_five(self):
+        self.assertEqual(self._run("--quick"), 0)
+
+    def test_other_callers_still_get_the_five(self):
+        # /create-pr --preflight is the caller that matters: it must not
+        # proceed over a job that never ran.
+        self.assertEqual(self._run(), 5)
 
 
 class TestHooksDirResolution(unittest.TestCase):

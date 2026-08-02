@@ -210,7 +210,14 @@ def run_preflight(
         return report
 
     drift = compute_drift(wf_dir, out / "drift.lock")
-    if drift.has_drift and not regenerate:
+    # No lockfile means nothing has been generated on THIS machine yet — a fresh
+    # clone, or a checkout that just received the un-tracking of drift.lock. That
+    # is not user-authored workflow drift, but `compute_drift` reports every
+    # workflow as `new`, so the drift branch below would bail with exit 2 and
+    # demand a manual --regenerate before preflight (and the pre-push hook)
+    # would run at all. First run regenerates implicitly instead.
+    first_run = not (out / "drift.lock").exists()
+    if drift.has_drift and not regenerate and not first_run:
         report.drift_detected = True
         report.drift_changed = drift.changed
         report.drift_new = drift.new
@@ -229,7 +236,7 @@ def run_preflight(
     # Regenerate on an explicit request, a missing lockfile, or a generator
     # contract bump. The last one matters most: scripts built against an older
     # contract still *run*, so without this the runner silently misreads them.
-    if regenerate or not (out / "drift.lock").exists() or drift.contract_stale:
+    if regenerate or first_run or drift.contract_stale:
         generate_scripts(jobs, out, project_root=project_root)
         write_lockfile(wf_dir, out / "drift.lock")
 
@@ -402,12 +409,19 @@ def main(argv: list[str] | None = None) -> int:
             print(text)
 
     code = exit_code_for(report)
-    if code == 5 and hook_was_stale:
-        # Backward compatibility, exactly once. The hook executing this run is
-        # the pre-refresh copy, whose catch-all branch blocks the push on ANY
+    if code == 5 and hook_was_stale and args.quick:
+        # Backward compatibility, exactly once, and ONLY for the pre-push hook —
+        # `--quick` is how the hook identifies itself (pre-push.template.sh
+        # invokes preflight.py with it). The hook executing this run is the
+        # pre-refresh copy, whose catch-all branch blocks the push on ANY
         # non-zero — so returning 5 here would break the documented "a skip never
         # blocks a push" contract for the very users being migrated. The refresh
         # above already landed, so the next push gets the real 5.
+        #
+        # Gated on `--quick` because a stale hook merely being INSTALLED used to
+        # waive the 5 for every other caller too: `/create-pr --preflight`
+        # documents blocking on exit 5, and would have proceeded over a skipped
+        # or incomplete job that never ran.
         print(
             "preflight: pre-push hook was out of date and has been refreshed; "
             "treating this run's skip as non-blocking. Next push reports it "

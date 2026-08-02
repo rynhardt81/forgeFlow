@@ -31,6 +31,7 @@ import hashlib
 import json
 import re
 import shlex
+import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -864,6 +865,20 @@ def generate_scripts(
                 '    env_files = ["path/to/your/.env"]',
                 file=sys.stderr,
             )
+
+    # Every generated script sources `_local_shims.sh` from its OWN directory
+    # and hard-exits when it is absent. Nothing else puts it there, so a fresh
+    # out dir produced scripts that all failed with "portability shim missing"
+    # and told the reader to run the regenerate that had just produced them.
+    # Copied here because this is the only writer into out_dir.
+    #
+    # Overwritten rather than seeded only-if-missing: the source is the
+    # project-local, user-extended copy (install.sh seeds that one and refresh
+    # excludes it), while out_dir is generated and gitignored — so copying every
+    # time is what makes an edited shim actually reach the scripts.
+    shim_src = Path(__file__).parent / "_local_shims.sh"
+    if shim_src.exists():
+        shutil.copyfile(shim_src, out_dir / "_local_shims.sh")
 
     written: list[Path] = []
     for job in jobs:

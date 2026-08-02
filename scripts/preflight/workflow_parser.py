@@ -90,6 +90,10 @@ class Job:
                 {
                     "name": s.name, "run": s.run, "uses": s.uses,
                     "env": s.env, "working_directory": s.working_directory,
+                    # Without this, `--json` / `--emit-jobs` render a conditioned
+                    # step and an unconditional one identically, so a consumer
+                    # cannot reconstruct the semantics the parser preserves.
+                    "if_condition": s.if_condition,
                 }
                 for s in self.steps
             ],

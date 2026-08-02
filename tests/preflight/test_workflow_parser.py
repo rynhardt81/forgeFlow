@@ -110,5 +110,32 @@ class TestWorkingDirectory(unittest.TestCase):
         self.assertIn("cd 'my app'", render_script(jobs[0], "ci.yml"))
 
 
+class TestSerializedStepsCarryTheirCondition(unittest.TestCase):
+    """`--json` / `--emit-jobs` must not flatten away `if:`.
+
+    Without the field a conditioned step and an unconditional one serialize
+    identically, so a consumer cannot reconstruct the semantics the parser
+    goes to some trouble to preserve.
+    """
+
+    def _steps(self):
+        jobs = _workflows(
+            "on:\n  pull_request:\n"
+            "jobs:\n  lint:\n    runs-on: ubuntu-latest\n"
+            "    steps:\n"
+            "      - run: echo A\n"
+            "      - run: echo B\n        if: always()\n"
+        )
+        return jobs[0].to_dict()["steps"]
+
+    def test_condition_is_serialized(self):
+        self.assertEqual(self._steps()[1]["if_condition"], "always()")
+
+    def test_unconditional_step_is_distinguishable(self):
+        first, second = self._steps()
+        self.assertIsNone(first["if_condition"])
+        self.assertNotEqual(first["if_condition"], second["if_condition"])
+
+
 if __name__ == "__main__":
     unittest.main()
