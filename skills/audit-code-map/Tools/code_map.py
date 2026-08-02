@@ -126,8 +126,15 @@ def parse_python(path: Path) -> tuple[list[str], list[str], list[str]]:
     return classes, funcs, imports
 
 
-_TS_CLASS = re.compile(r"^\s*(?:export\s+)?(?:abstract\s+)?class\s+([A-Z][\w$]*)", re.MULTILINE)
-_TS_FUNC = re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)", re.MULTILINE)
+_TS_CLASS = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([A-Z][\w$]*)", re.MULTILINE
+)
+# `default` must be optional between `export` and `async`/`function`: Next.js App
+# Router declares every page and layout as `export default function X`, which the
+# original pattern missed entirely (8 of 10 such files indexed with zero symbols).
+_TS_FUNC = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)", re.MULTILINE
+)
 _TS_ARROW = re.compile(r"^\s*(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s+)?\(", re.MULTILINE)
 _TS_IMPORT = re.compile(r"""^\s*import[^'"]*['"]([^'"]+)['"]""", re.MULTILINE)
 
