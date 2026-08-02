@@ -43,44 +43,15 @@ The verification trail. Project ISA at `<project>/ISA.md`; task ISA at `docs/tas
 
 Invoke via `/<skill-name>`. Canonical roster: `skills/skills-manifest.json`; human index: `skills/README.md`.
 
-| Skill | Purpose |
-|-------|---------|
-| `/reflect` | Session continuity — resume, status, handoff, unlock |
-| `/create-pr` | PR with pre-flight review gate + review-feedback loop + merge-order |
-| `/run-epic E##` | Drain one epic autonomously — caps, 3-failure halt, PR per task |
-| `/fix-bug` | Reproduce → root-cause → fix → regression test → verify |
-| `/triage-incident` | Production incident → stabilize → fix → verify in prod → postmortem |
-| `/new-feature` | Scoped feature flow, ISA at E3+, ships via `/create-pr` |
-| `/new-project` | Initialize project — PRD, ADRs, tasks, populated reference docs |
-| `/migrate` | Onboard existing project / upgrade framework version |
-| `/refactor` | Risk-scaled refactoring, behavior verified |
-| `/release` | Version + changelog + tag + release-safety checklist (rollback verified, staged rollout, flag inventory) |
-| `/build` | Stack-aware build routing (EAS/Vercel/Supabase/Docker) |
-| `/preflight-ci` | Mirror GitHub Actions locally before push; pre-push hook |
-| `/diagnose-ci` | Diagnose failed Actions runs locally — no blind retry-pushing |
-| `/vet-idea` | GO / NO-GO / RECONSIDER council verdict BEFORE building |
-| `/security-review` | Business-logic security pass (IDOR, race, state bypass) + secrets scan |
-| `/audit-rules` | Advisory audit of CLAUDE.md + rules for staleness/contradiction |
-| `/audit-task-status` | Reconcile statuses against the registry (registry is truth) |
-| `/audit-code-map` | (Re)generate `docs/code-map.md` + JSON for the MCP server |
-| `/remember` | Manual knowledge capture → `docs/project-memory/` |
-| `/refresh-project-context` | Sync CLAUDE.md + project docs with reality |
-| `/frontend-design` | Design direction (defers to native plugin when installed) |
-| `/ui-ux-pro-max` | Searchable local design DB — styles, palettes, fonts |
-| `/damage-control` | Install defense-in-depth blocking security hooks |
-| `forge dashboard`* | Local cockpit at `http://127.0.0.1:4847/` — tasks, code map, ISAs, memory, registry, burndown (read-only; SSE live-reload). *`forge` = `python3 .claude/scripts/forge/forge.py` — alias it once per machine |
+Each skill's own one-line purpose is already in the session's skill listing, so it is not repeated here.
+
+`forge dashboard` is not a skill: it serves a local cockpit at `http://127.0.0.1:4847/` — tasks, code map, ISAs, memory, registry, burndown (read-only, SSE live-reload). `forge` = `python3 .claude/scripts/forge/forge.py`; alias it once per machine.
 
 ## Agents
 
 Framework agents in `.claude/agents/` (replaced on refresh); specialists in `.claude/agents/specialists/` (user-owned, never touched). Each agent's frontmatter binds a PostToolUse validator whose advice arrives as `additionalContext` — read it. Agents accept `model:` frontmatter; per-task model routing for subagent dispatch (used by `/run-epic --parallel`) is defined in `skills/_shared/model-routing.md`.
 
-| Agent | Specialization | Bound validator |
-|-------|----------------|-----------------|
-| `@architect` | System design, ADRs, tech-stack | `architect_adr.py` |
-| `@project-manager` | Requirements, scope, PRDs | — |
-| `@quality-engineer` | Test strategy, code review | `quality_coverage.py`, `tdd_aaa.py` |
-| `@security-boss` | Auth, secrets, security review | `security_secrets.py` |
-| `@devops` | CI/CD, deployment, infra | `build_deps.py` |
+Each agent's specialization and its bound validator are in its own frontmatter — read the file rather than a copy of it here.
 
 Scaffold specialists: `python3 .claude/scripts/forge/forge.py specialist add <name> --domain "..."` (paired `EXPERT.md` for vendoring into sibling projects).
 
