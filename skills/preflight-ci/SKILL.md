@@ -23,6 +23,21 @@ GitHub Actions monthly minutes cap hard on solo-dev plans. Every push that fails
 
 The mirror is **workflow-derived, not hand-maintained**. Whatever your `.github/workflows/*.yml` declares as `run:` steps for PR-trigger jobs, this skill executes locally. Drift between workflow and mirror is detected and surfaced.
 
+### What that means: this skill runs code from the checked-out branch
+
+The mirror is generated from the workflows **on the branch you have checked out**, and executed on your machine with your `.env` files auto-exported into scope (see *Compose-aware rewrites* below). So:
+
+> **Running `/preflight-ci` on a branch you did not author is a code-execution path.** A `run:` step is arbitrary shell, and preflight is how it gets run locally.
+
+This is not hypothetical plumbing — the drift gate actively funnels people into it. Check out a PR that touched any workflow and the very next thing you see is `run: /preflight-ci --regenerate`. The pre-push hook reaches the same code without anyone typing the command at all.
+
+Two mitigations, neither of which removes the exposure:
+
+- Destructive commands are **refused at generation time** rather than transcribed (see *Refused steps* under Step 2). That is a filter on the text of `run:` bodies, not a sandbox — anything reached through a script the step invokes is still mirrored.
+- Guards *inside* a `run:` body keyed on `CI`, `GITHUB_ACTIONS` or any other "runner-only" variable are **not** a control. The generator exports workflow- and job-level `env:` above every step body, so the workflow can set whatever its own guard reads.
+
+Before running it on someone else's branch, read the workflow diff. `git diff origin/main -- .github/workflows/` is the whole attack surface.
+
 ## Invocation
 
 | Form | Behaviour |
@@ -63,6 +78,20 @@ export FOO="bar"            # one per env: entry from workflow/job
 `uses:` steps are emitted as comments (`# Skipped step: actions/checkout@v4 (uses: ..., no local mirror)`) — scripted parity does not emulate composite actions. The opt-in `--with-act` tier runs `act` against the same job filter when full fidelity is needed.
 
 A `drift.lock` file is written alongside the scripts with SHA-256 of each workflow file. These files **are committed** to the project for diff-reviewability — when workflows change, the diff is visible.
+
+### Refused steps
+
+A step whose `run:` body contains a command that is free on an ephemeral runner and expensive on a workstation — a volume prune, a compose `down` that takes volumes with it, a recursive delete of the filesystem root — is **not written to the mirror at all**. It appears as:
+
+```
+# Refused step: Clean up (destructive: docker volume prune — never mirrored locally)
+```
+
+CI still runs the step; only the local mirror declines it. This is deliberately not the `# Skipped step:` form, so it is **not** counted as lost coverage and does not make the job `INCOMPLETE`.
+
+Refusing at generation time rather than guarding inside the body is the whole point: the generator exports workflow- and job-level `env:` at the top of the mirror, above every step body, so a guard keyed on `CI` or `GITHUB_ACTIONS` is armed by the very file an untrusted PR is allowed to edit. A command never written to the file cannot be re-armed by any variable.
+
+The list is deliberately narrow. A compose `down` **without** a volume flag stops containers and keeps volumes — recoverable, so it stays mirrored. Keep an in-workflow `if [ "$CI" = true ]` guard as well if you have one: it is still a useful accident guard, and `act` bypasses this mechanism entirely because it runs the workflow rather than the mirror.
 
 ### Project-local portability shims
 
@@ -273,6 +302,7 @@ Bypass: `FORGE_SKIP_PREFLIGHT=1 git push` (rare, for emergencies).
 ## Key rules
 
 - **No pushes.** This skill never invokes `git push`, `gh run rerun`, `gh pr create`, or `gh pr edit`. It runs CI locally and reports. The user decides what to push.
+- **Running this on a branch you did not author executes that branch's shell.** Read the workflow diff first — `git diff origin/main -- .github/workflows/`. See *What that means* above.
 - **Workflow files are source of truth.** No hand-maintained mirror config; drift between `.github/workflows/` and `.forge/preflight/` is detected.
 - **Shared classifier with `/diagnose-ci`.** Failure routing lives in `skills/_shared/ci-failure-classifier.md`. Both skills `@see` it; neither embeds its own copy.
 - **Generated scripts are committed.** `.forge/preflight/*.sh` lives in the repo so the parity layer is diff-reviewable.
