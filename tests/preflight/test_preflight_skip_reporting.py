@@ -829,13 +829,19 @@ class TestDisabledStepsAreOmitted(unittest.TestCase):
 
 
 class TestDestructiveCommandsAreRefused(unittest.TestCase):
-    """Commands that are free on a runner and expensive on a workstation.
+    """A job containing a destructive step is not mirrored locally at all.
 
     `run:` bodies are transcribed verbatim into scripts the developer executes
     against their real daemon. The generator is the one physical chokepoint
     where "never mirror this locally" can be enforced — an in-workflow
     `if [ "$CI" = true ]` guard is armed by the `env:` block the generator
     itself exports above every step body.
+
+    Refusing only the STEP is not enough: the refused cleanup is often what
+    establishes the job's precondition (an empty volume, a torn-down stack), so
+    the remainder runs against retained state and reports a green that tested
+    nothing. The whole job self-skips instead, via the same JOB_SKIP_MARKER the
+    DB-reachability guard uses, so the runner reports SKIPPED rather than a pass.
     """
 
     _CLEANUP = (
@@ -852,38 +858,86 @@ class TestDestructiveCommandsAreRefused(unittest.TestCase):
                   **job_kwargs)
         return render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
 
-    def _executable(self, run, **job_kwargs):
-        """The script minus its refusal notices.
+    def _executable(self, run, **kw):
+        """The script minus its skip-marker line.
 
-        The notice NAMES the command it refused, so a naive substring check
-        against the whole script matches its own explanation and passes for the
-        wrong reason. What must not survive is an executable line.
+        The marker NAMES the commands it refused, so a substring check against
+        the whole script matches its own explanation and passes for the wrong
+        reason. What must not survive is an executable line.
         """
         return "\n".join(
-            ln for ln in self._body(run, **job_kwargs).splitlines()
-            if not ln.startswith("# Refused step:")
+            ln for ln in self._body(run, **kw).splitlines()
+            if JOB_SKIP_MARKER not in ln
         )
 
     def test_destructive_body_never_reaches_the_mirror(self):
-        self.assertNotIn("volume prune", self._executable(self._CLEANUP))
-        self.assertNotIn("down -v", self._executable(self._CLEANUP))
-        self.assertIn("# Refused step: Clean (destructive:", self._body(self._CLEANUP))
+        executable = self._executable(self._CLEANUP)
+        self.assertNotIn("volume prune", executable)
+        self.assertNotIn("down -v", executable)
+
+    def test_whole_job_self_skips(self):
+        """Not a step omission — the job declines and says so on stderr."""
+        body = self._body(self._CLEANUP)
+        self.assertIn(JOB_SKIP_MARKER, body)
+        self.assertIn("exit 0", body)
+        # Siblings must NOT run: their precondition was the refused step.
+        self.assertNotIn("echo KEPT", body)
 
     def test_env_cannot_re_arm_a_refused_command(self):
-        # The bypass the in-workflow guard cannot survive: two lines in an
-        # `env:` block, the kind of PR titled "force CI mode so compose stops
-        # prompting". The generator exports these ABOVE every step body.
+        # The bypass an in-workflow guard cannot survive: two lines in an `env:`
+        # block, the kind of PR titled "force CI mode so compose stops prompting".
         env = {"CI": "true", "GITHUB_ACTIONS": "true"}
-        self.assertIn('export CI="true"', self._body(self._CLEANUP, env=env))
-        self.assertNotIn("volume prune", self._executable(self._CLEANUP, env=env))
+        body = self._body(self._CLEANUP, env=env)
+        self.assertNotIn("volume prune -f", body)
 
-    def test_sibling_steps_are_still_mirrored(self):
-        self.assertIn("echo KEPT", self._body(self._CLEANUP))
+    def test_line_continuation_cannot_smuggle_a_command_past_the_denylist(self):
+        """`docker volume \\<newline> prune` is one command to bash.
 
-    def test_refusal_is_not_reported_as_dropped_work(self):
-        # Not the `# Skipped step:` form: that would mark the job INCOMPLETE on
-        # every run, for an omission that is correct and permanent.
-        self.assertEqual(dropped_gating_steps(self._body(self._CLEANUP)), [])
+        The backslash breaks `\\s+` and the newline stops the compose pattern's
+        `[^\\n]*`, so without joining continuations first every pattern misses it.
+        """
+        for run in (
+            "docker volume \\\n  prune -f",
+            "docker compose -f x.yml \\\n  down -v",
+        ):
+            self.assertTrue(destructive_commands(run), f"not caught: {run!r}")
+
+    def test_untrusted_step_label_cannot_execute(self):
+        """The label comes from workflow YAML — the untrusted input itself.
+
+        Interpolated raw into a double-quoted echo, a step named
+        `wipe $(docker compose down -v)` would run that command on the
+        developer's machine while "reporting" the skip.
+        """
+        job = Job(name="e2e", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="wipe $(docker compose down -v)", run="docker volume prune -f"),
+        ])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+
+        # Executing it is the only assertion that proves inertness: the label
+        # legitimately APPEARS in the diagnostic, single-quoted, where `$(…)`
+        # is literal text. If quoting ever regressed, bash would run the
+        # substitution here and the literal would not survive to stderr.
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        (tmp / "_local_shims.sh").write_text(":\n")
+        script = tmp / "e2e.sh"
+        script.write_text(body)
+        proc = subprocess.run(["bash", str(script)], capture_output=True, text=True)
+
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("$(docker compose down -v)", proc.stderr)  # inert, not run
+        self.assertIn(JOB_SKIP_MARKER, proc.stderr)
+
+    def test_label_is_flattened_to_one_bounded_line(self):
+        """A multi-line label would emit stderr lines around the parsed marker."""
+        job = Job(name="e2e", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="a\nb\nc" + "x" * 200, run="docker volume prune -f"),
+        ])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        self.assertEqual(
+            len([ln for ln in body.splitlines() if JOB_SKIP_MARKER in ln]), 1
+        )
 
     def test_recoverable_compose_down_is_still_mirrored(self):
         # `down` without a volume flag stops containers and keeps volumes. This
@@ -891,14 +945,8 @@ class TestDestructiveCommandsAreRefused(unittest.TestCase):
         # real local coverage from every project that tears a stack down.
         body = self._body("docker compose -f x.yml down")
         self.assertIn("docker compose -f x.yml down", body)
-        self.assertNotIn("# Refused step:", body)
-
-    def test_destructive_body_is_refused_even_with_unresolved_templates(self):
-        # Refusal must come BEFORE the `${{` check, or a body carrying both
-        # takes the Skipped branch and the command stays in the file.
-        run = "docker volume prune -f ${{ steps.x.outputs.y }}"
-        self.assertNotIn("volume prune", self._executable(run))
-        self.assertIn("# Refused step:", self._body(run))
+        self.assertNotIn(JOB_SKIP_MARKER, body)
+        self.assertIn("echo KEPT", body)
 
     def test_variants_the_narrow_form_missed(self):
         # Probed 2026-08-02: each of these was NOT caught by the first draft of

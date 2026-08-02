@@ -96,7 +96,10 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 #    rather than transcribed. Stale scripts still CONTAIN them, and any
 #    env-keyed guard around them is armed by the workflow `env:` block the
 #    generator itself exports — so this must force regeneration.
-GENERATOR_CONTRACT = 6
+# 7: a job containing a destructive step is skipped ENTIRELY (JOB_SKIP_MARKER),
+#    not just missing that step. The refused step often establishes the job's
+#    precondition, so running the remainder reports a green that tested nothing.
+GENERATOR_CONTRACT = 7
 
 # --- step `if:` conditions ---------------------------------------------------
 # GitHub runs a step only when its `if:` holds, with an implicit `success()`
@@ -273,9 +276,32 @@ _DESTRUCTIVE_PATTERNS = [
 ]
 
 
+# A shell line continuation is invisible to bash but fatal to every pattern
+# above: `docker volume \<newline>  prune -f` is one command to the shell, yet
+# the backslash breaks `\s+` and the newline stops the compose pattern's
+# `[^\n]*`. Joining continuations BEFORE matching is the one normalization that
+# covers all five patterns — and any future one — instead of teaching each
+# regex about backslashes. Over-joining (a literal `\\` at end of line) only
+# makes the denylist more eager, which is the safe direction for a refusal.
+_LINE_CONTINUATION = re.compile(r"\\\r?\n\s*")
+
+
 def destructive_commands(body: str) -> list[str]:
     """Names of destructive commands present in a workflow `run:` body."""
-    return [name for pattern, name in _DESTRUCTIVE_PATTERNS if pattern.search(body)]
+    joined = _LINE_CONTINUATION.sub(" ", body)
+    return [name for pattern, name in _DESTRUCTIVE_PATTERNS if pattern.search(joined)]
+
+
+def _sanitize_label(label: str) -> str:
+    """Collapse an untrusted workflow label to one bounded, printable line.
+
+    Belt to `shlex.quote`'s braces: quoting alone already makes the label inert,
+    but a label carrying newlines would still emit extra stderr lines around the
+    skip marker the runner parses. One line, bounded length, no control chars.
+    """
+    flattened = " ".join(str(label).split())
+    printable = "".join(c for c in flattened if c.isprintable())
+    return (printable[:80] + "…") if len(printable) > 80 else (printable or "(unnamed step)")
 
 
 def dropped_gating_steps(script_text: str) -> list[str]:
@@ -611,6 +637,43 @@ def render_script(
             "",
         ])
 
+    # Refusing only the STEP was the first cut and it was wrong. In a
+    # fresh-install gate the refused cleanup is what establishes the job's
+    # precondition — an empty volume. Drop just that step and the remainder still
+    # runs, against RETAINED volumes, taking the install-recovery path and
+    # reporting a clean green without ever exercising a fresh install. That is
+    # the "gate reports green having tested nothing" failure this whole mechanism
+    # exists to prevent.
+    #
+    # Skipping the whole job is the honest outcome: its precondition cannot be
+    # established locally without doing the very thing we refuse. This uses the
+    # same JOB_SKIP_MARKER the DB-reachability guard uses, so the runner reports
+    # it as SKIPPED (coverage that did not run) rather than as a pass.
+    refused = [
+        (step.name or step.uses or f"step-{i}", destructive_commands(step.run))
+        for i, step in enumerate(job.steps)
+        if step.run and destructive_commands(step.run)
+    ]
+    if refused:
+        # The step label comes from workflow YAML — the untrusted input this
+        # whole guard exists to defend against — so it must never reach
+        # executable shell unquoted. Interpolated raw into a double-quoted echo,
+        # a step named `wipe $(docker compose down -v)` runs that command on the
+        # developer's machine while "reporting" the skip, bypassing the safeguard
+        # via the exact vector it was written to close. Collapse each label to one
+        # bounded line, then shlex.quote the WHOLE diagnostic.
+        why = "; ".join(
+            f"{_sanitize_label(lbl)} ({', '.join(cmds)})" for lbl, cmds in refused
+        )
+        message = (
+            f"{JOB_SKIP_MARKER}job not mirrored locally — it contains destructive "
+            f"step(s): {why}. These are free on an ephemeral runner and would "
+            "delete this machine's data, and the rest of the job depends on them "
+            "having run. CI runs it in full."
+        )
+        lines.extend([f"echo {shlex.quote(message)} >&2", "exit 0", ""])
+        return "\n".join(lines) + "\n"
+
     for i, step in enumerate(job.steps):
         label = step.name or step.uses or f"step-{i}"
 
@@ -651,22 +714,6 @@ def render_script(
         # cannot run at all. Emitting it anyway makes the job permanently red
         # for a reason the developer cannot fix.
         body = _rewrite_actions_templates(step.run)
-
-        # Refuse to transcribe destructive commands, whatever guards the
-        # workflow wraps them in. Deliberately NOT the `# Skipped step:` form —
-        # `dropped_gating_steps()` counts those as lost coverage and would mark
-        # a teardown job INCOMPLETE on every run, which is exactly the false
-        # alarm that trains people to ignore a real one (see STEP_NEVER above).
-        # CI still runs the step; only the local mirror declines it. Checked
-        # BEFORE the `${{` test below, so a body carrying both is refused rather
-        # than merely skipped — skipping leaves the command in the file.
-        destructive = destructive_commands(body)
-        if destructive:
-            lines.append(
-                f"# Refused step: {label} "
-                f"(destructive: {', '.join(destructive)} — never mirrored locally)"
-            )
-            continue
 
         if "${{" in body:
             unresolved = sorted(set(re.findall(r"\$\{\{\s*([^}]+?)\s*\}\}", body)))
