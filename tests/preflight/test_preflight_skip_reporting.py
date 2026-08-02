@@ -978,6 +978,32 @@ class TestDestructiveCommandsAreRefused(unittest.TestCase):
         ):
             self.assertTrue(destructive_commands(run), f"not caught: {run}")
 
+    def test_global_docker_flags_do_not_hide_the_subcommand(self):
+        """Anchoring the subcommand to the binary missed ordinary invocations.
+
+        `docker --context prod volume prune` and `docker -H tcp://h:2375 volume
+        prune` are how anyone driving a remote or non-default daemon writes it —
+        not evasion, just the documented CLI.
+        """
+        for run in (
+            "docker --context prod volume prune -f",
+            "docker -H tcp://1.2.3.4:2375 volume prune",
+            "docker --log-level=debug system prune -af",
+            "docker --tls --context ci volume prune -f",
+            "docker --context ci compose -f x.yml down -v",
+        ):
+            self.assertTrue(destructive_commands(run), f"not caught: {run}")
+
+    def test_global_flag_widening_does_not_over_match(self):
+        """`-v` as a bind-mount is not `down -v`, and `volume` alone is fine."""
+        for run in (
+            "docker run --rm -v /data:/data alpine ls",
+            "docker volume create cache",
+            "docker system df",
+            "docker run --rm alpine echo volume prune",
+        ):
+            self.assertEqual(destructive_commands(run), [], f"false positive: {run}")
+
     def test_a_disabled_destructive_step_does_not_refuse_the_whole_job(self):
         """`if: false` steps are omitted by the renderer, so they cannot poison it.
 

@@ -160,9 +160,17 @@ git config forge.localReview 'codex review --base {base}'
 
 Piping the config value straight into a shell interpreter is the wrong shape and will be blocked outright on any machine running a defensive hook — it is the same pattern as the notorious download-and-execute one-liner, and the text being piped comes from config. `eval` is no better. Resolving first also means the exact command is visible in the transcript before it executes, which is what you want from something whose contents come out of config rather than out of this file.
 
-Triage the output into the same three buckets as 3.7 and Step 6: **MUST-FIX** / **NICE-TO-HAVE** / **NO-ACTION**.
+**Run it in the background.** A review over a real diff takes long enough that a blocking call is a frozen turn of unknown length. Launch it detached (`run_in_background`) and let the harness re-invoke you when it exits — do **not** sit in a polling loop, which burns turns to learn nothing the completion notification would have told you.
+
+The point of running it detached is that it overlaps **Step 3.7**: the specialist fan-out and this review read the same diff and do not depend on each other, so both proceed at once and the gate waits for the pair. That is the whole of the concurrency — see the gate note below.
+
+**Do not edit files while a review is in flight.** The reviewer reads the working tree. Editing underneath it means it reviews a mix of old and new state and reports findings against code that no longer exists — a phantom MUST-FIX that costs more to disprove than the review saved. If a fix cannot wait, kill the review and re-run it after the edit.
+
+Triage the output into the same three buckets as 3.7 and Step 6: **MUST-FIX** / **NICE-TO-HAVE** / **NO-ACTION**. The reviewer emits prose, not structured findings, so this is a judgement call on free text — when a finding's severity is genuinely ambiguous, treat it as MUST-FIX and let the fix or the explicit deferral be the record.
 
 **Push gate:** unresolved MUST-FIX blocks PR creation, exactly as in 3.7. Fix → re-run Step 3 checks → re-run this step on the new diff.
+
+Background execution does **not** relax this. Step 5 must never create the PR while a review is still running — that defeats the gate entirely and leaves you paying for the post-PR rounds this step exists to remove. The concurrency is with 3.7 only; everything after the gate waits.
 
 **Round cap — read this before looping.** Stop after **3** local review rounds and hand back to the user with what is still outstanding. Do not run the reviewer in an unattended loop, and never wire it into a hook or a `/loop`. This is the same failure shape as any LLM CLI invoked in a loop: a subscription meant for interactive use, billed by a process that never gets tired. Three rounds catches the ordinary case; a fourth means the change needs a human read, not another review pass.
 

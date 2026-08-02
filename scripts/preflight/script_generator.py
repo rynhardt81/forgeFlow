@@ -260,14 +260,22 @@ _SKIPPED_COND_RE = re.compile(
 # (destructive, but a routine and deliberate local command).
 #
 # Prefer adding a pattern over relaxing one.
+# `docker` plus any run of GLOBAL flags before the subcommand. Anchoring the
+# subcommand directly to the binary made `docker --context prod volume prune`,
+# `docker -H tcp://host:2375 volume prune` and `docker --log-level=debug system
+# prune` invisible — all ordinary invocations, none of them evasion attempts.
+# The trailing `(?:[^-\s]\S*\s+)?` consumes a flag's separate value (`-H <host>`)
+# without swallowing the subcommand itself, since a value never starts with `-`.
+# `(?:-|\s+)` after the binary keeps the legacy hyphenated `docker-compose` form.
+_DOCKER = r"\bdocker(?:-|\s+)(?:-{1,2}[A-Za-z][\w.-]*(?:=\S+)?\s+(?:[^-\s]\S*\s+)?)*"
+
 _DESTRUCTIVE_PATTERNS = [
-    # Both binaries: the hyphenated v1 form is still in plenty of workflows.
-    (re.compile(r"\bdocker[\s-]+volume\s+prune\b"), "docker volume prune"),
-    (re.compile(r"\bdocker[\s-]+system\s+prune\b"), "docker system prune"),
-    (re.compile(r"\bdocker[\s-]+volume\s+rm\b"), "docker volume rm"),
+    (re.compile(_DOCKER + r"volume\s+prune\b"), "docker volume prune"),
+    (re.compile(_DOCKER + r"system\s+prune\b"), "docker system prune"),
+    (re.compile(_DOCKER + r"volume\s+rm\b"), "docker volume rm"),
     # Volume flag in either order and either spelling:
     # `down -v --remove-orphans`, `down --volumes`.
-    (re.compile(r"\bdocker[\s-]+compose\b[^\n]*\bdown\b[^\n]*(?:\s-\w*v\w*\b|--volumes\b)"),
+    (re.compile(_DOCKER + r"compose\b[^\n]*\bdown\b[^\n]*(?:\s-\w*v\w*\b|--volumes\b)"),
      "docker compose down -v"),
     # Recursive delete of the filesystem root, with an optional trailing glob
     # since `<root>/*` destroys exactly as much as `<root>`.
