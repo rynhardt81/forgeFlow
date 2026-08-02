@@ -155,8 +155,22 @@ git config forge.localReview 'codex review --base {base}'
 **Resolve, then invoke — two steps, never one pipeline:**
 
 1. Read the configured command: `git config forge.localReview`
-2. Substitute `{base}` with the Step 2 target branch yourself.
+2. Substitute `{base}` with the Step 2 target branch, **shell-quoted**.
 3. Run the resolved command as its own invocation, and show it before you do.
+
+**Quote the branch — this string is executed.** `git check-ref-format` permits
+`;`, `$(…)`, backticks, `&&` and `|` in a branch name, so `release/foo;id` is a
+legal branch, and substituting it raw appends a second command to whatever the
+reviewer was supposed to run. Verified: a branch named `release/foo;touch PWNED`
+creates the file when substituted bare, and does not when quoted.
+
+```
+--base 'release/foo;touch PWNED'      # inert: one argument
+--base release/foo;touch PWNED        # two commands
+```
+
+Most branch names need no quoting, which is exactly why this is easy to miss —
+you cannot tell by looking at the usual case. Quote unconditionally.
 
 Piping the config value straight into a shell interpreter is the wrong shape and will be blocked outright on any machine running a defensive hook — it is the same pattern as the notorious download-and-execute one-liner, and the text being piped comes from config. `eval` is no better. Resolving first also means the exact command is visible in the transcript before it executes, which is what you want from something whose contents come out of config rather than out of this file.
 
