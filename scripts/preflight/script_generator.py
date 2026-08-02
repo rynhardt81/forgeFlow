@@ -260,13 +260,20 @@ _SKIPPED_COND_RE = re.compile(
 # (destructive, but a routine and deliberate local command).
 #
 # Prefer adding a pattern over relaxing one.
-# `docker` plus any run of GLOBAL flags before the subcommand. Anchoring the
-# subcommand directly to the binary made `docker --context prod volume prune`,
+
+# `docker-` (the v1 binary, still in plenty of workflows) or `docker ` followed
+# by an optional run of GLOBAL options before the subcommand. Each option may
+# carry a value as a separate token (`--context default`, matched by the
+# trailing `(?:[^-\s]\S*\s+)?`) or attached (`--context=default`, matched by
+# `(?:=\S+)?`). A value never starts with `-`, which is what keeps the separate
+# form from swallowing the subcommand itself.
+#
+# The option run is not cosmetic: `docker --context prod volume prune -f`,
 # `docker -H tcp://host:2375 volume prune` and `docker --log-level=debug system
-# prune` invisible — all ordinary invocations, none of them evasion attempts.
-# The trailing `(?:[^-\s]\S*\s+)?` consumes a flag's separate value (`-H <host>`)
-# without swallowing the subcommand itself, since a value never starts with `-`.
-# `(?:-|\s+)` after the binary keeps the legacy hyphenated `docker-compose` form.
+# prune` are ordinary documented invocations — how anyone driving a remote or
+# non-default daemon writes it — and without this they matched nothing and were
+# transcribed straight into the mirror. Anchoring the subcommand directly to the
+# binary assumed a shape the CLI never promised.
 _DOCKER = r"\bdocker(?:-|\s+)(?:-{1,2}[A-Za-z][\w.-]*(?:=\S+)?\s+(?:[^-\s]\S*\s+)?)*"
 
 _DESTRUCTIVE_PATTERNS = [
@@ -277,14 +284,16 @@ _DESTRUCTIVE_PATTERNS = [
     # `down -v --remove-orphans`, `down --volumes`.
     (re.compile(_DOCKER + r"compose\b[^\n]*\bdown\b[^\n]*(?:\s-\w*v\w*\b|--volumes\b)"),
      "docker compose down -v"),
-    # Recursive delete of the filesystem root, with an optional trailing glob
-    # since `<root>/*` destroys exactly as much as `<root>`.
+    # Recursive delete of the filesystem root. Arbitrary flag cluster (`-rf`,
+    # `-fr`, `-rfv`, `--recursive --force`) and an optional trailing glob, since
+    # `<root>/*` destroys exactly as much as `<root>`.
     #
     # The recursive flag is found by LOOKAHEAD across the whole flag run, not by
-    # position. Requiring the token adjacent to the target to carry `r`/`R` made
-    # flag ORDER load-bearing: `rm -f -r /` matched while `rm -r -f /` did not —
-    # the same command with the flags swapped. Separated flags are ordinary
-    # shell, not an evasion attempt.
+    # position. Requiring it in the token adjacent to the target matched
+    # `rm -f -r /` but not `rm -r -f /` — the same command with the flags
+    # swapped — and missed `rm --recursive -f /` and `rm -R -f /*` entirely.
+    # Separated flags are ordinary shell, not an evasion, so position must not
+    # be load-bearing.
     (re.compile(
         r"\brm\s+"                                        # the command
         r"(?=(?:-\S+\s+)*(?:-\w*[rR]\w*|--recursive)\b)"  # recursive ANYWHERE in the flags
