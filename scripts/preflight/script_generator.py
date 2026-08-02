@@ -88,7 +88,9 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 #    errexit inside the body and let a multi-command step report green after an
 #    early command failed. Stale scripts still carry the old shape, so this must
 #    force regeneration.
-GENERATOR_CONTRACT = 4
+# 5: `if: false` steps are emitted as `# Disabled step:` and omitted, instead of
+#    over-run. Stale scripts still RUN work CI suppresses.
+GENERATOR_CONTRACT = 5
 
 # --- step `if:` conditions ---------------------------------------------------
 # GitHub runs a step only when its `if:` holds, with an implicit `success()`
@@ -127,6 +129,14 @@ _ALWAYS_CONDITIONS = frozenset({"always()", "!cancelled()", "! cancelled()"})
 _FAILURE_CONDITIONS = frozenset({"failure()"})
 _SUCCESS_CONDITIONS = frozenset({"success()"})
 
+# `if: false` / `${{ false }}` — a step switched off on purpose rather than
+# deleted. `Step.from_dict` normalizes the YAML boolean to the string "false",
+# so both spellings land here. This must NOT fall through to the over-run
+# default: over-running is only safe for change-DETECTION conditions, where
+# running anyway is a superset. A disabled step is the opposite — CI suppresses
+# it deliberately, so running it locally does work nobody asked for.
+_NEVER_CONDITIONS = frozenset({"false"})
+
 # Marks a condition as selecting an execution context rather than detecting a
 # change. Deliberately a substring test on the context name — `github.ref`,
 # `github.event_name`, `github.actor` all qualify, and a new one nobody
@@ -141,6 +151,7 @@ STEP_NORMAL = "normal"          # run only while nothing has failed (GHA default
 STEP_ALWAYS = "always"          # run even after an earlier step failed
 STEP_ON_FAILURE = "on-failure"  # run only when an earlier step failed
 STEP_OVER_RUN = "over-run"      # can't evaluate, but running anyway is a superset
+STEP_NEVER = "never"            # `if: false` — CI never runs it, so neither do we
 STEP_UNTRANSLATABLE = None      # can't evaluate and running anyway is unsafe
 
 
@@ -165,6 +176,8 @@ def classify_condition(condition: str | None) -> str | None:
         return STEP_ON_FAILURE
     if normalized in _SUCCESS_CONDITIONS:
         return STEP_NORMAL
+    if normalized in _NEVER_CONDITIONS:
+        return STEP_NEVER
     if _CONTEXT_MARKER in normalized:
         return STEP_UNTRANSLATABLE
     return STEP_OVER_RUN
@@ -551,11 +564,26 @@ def render_script(
 
     for i, step in enumerate(job.steps):
         label = step.name or step.uses or f"step-{i}"
+
+        # Classified BEFORE the run:/uses: split. A `uses:` step disabled with
+        # `if: false` is still disabled — routing it to the `# Skipped step:`
+        # branch below would have `dropped_gating_steps()` mark an otherwise
+        # clean job INCOMPLETE and exit 5 block `/create-pr`, over coverage CI
+        # never ran either.
+        mode = classify_condition(step.if_condition)
+        if mode == STEP_NEVER:
+            # Switched off on purpose. Deliberately NOT the `# Skipped step:`
+            # form — the runner counts those as lost coverage. CI does not run
+            # this step either, so omitting it locally is faithful, not a gap;
+            # flagging it would be a false alarm, which is how a real INCOMPLETE
+            # stops being read.
+            lines.append(f"# Disabled step: {label} (if: {step.if_condition})")
+            continue
+
         if step.run is None:
             lines.append(f"# Skipped step: {label} (uses: {step.uses}, no local mirror)")
             continue
 
-        mode = classify_condition(step.if_condition)
         if mode is STEP_UNTRANSLATABLE:
             # Deliberately not emitted. Guessing the condition true would run
             # work CI skips (one such step commits and pushes); guessing false

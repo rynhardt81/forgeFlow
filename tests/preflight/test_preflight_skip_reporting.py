@@ -41,6 +41,7 @@ from hook_installer import SENTINEL, refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
     GENERATOR_CONTRACT,
     STEP_ALWAYS,
+    STEP_NEVER,
     STEP_NORMAL,
     STEP_ON_FAILURE,
     STEP_OVER_RUN,
@@ -486,6 +487,21 @@ class TestConditionClassification(unittest.TestCase):
             classify_condition("steps.x.outputs.y == 'true' && github.event_name == 'push'")
         )
 
+    def test_disabled_steps_are_their_own_mode(self):
+        # `if: false` is a step switched off on purpose rather than deleted.
+        # It must NOT reach the over-run default: over-running is only safe for
+        # change DETECTION, where running anyway is a superset. A disabled step
+        # is the opposite — CI suppresses it deliberately.
+        for c in ("false", "${{ false }}"):
+            self.assertEqual(classify_condition(c), STEP_NEVER, c)
+
+    def test_compound_containing_false_is_not_treated_as_disabled(self):
+        # Only a bare `false` is a deliberate off-switch. Anything compound is
+        # an expression the mirror cannot evaluate and must not silently drop.
+        self.assertEqual(
+            classify_condition("steps.a.outputs.b == 'false'"), STEP_OVER_RUN
+        )
+
     def test_compound_containing_always_is_not_treated_as_always(self):
         # `github.event_name == 'pull_request' && always()` is NOT always():
         # matching loosely here would run PR-only work on every local run.
@@ -584,6 +600,43 @@ class TestUntranslatableStepsAreOmitted(unittest.TestCase):
         dropped = dropped_gating_steps(body)
         self.assertEqual(len(dropped), 1)
         self.assertIn("Commit generated configs", dropped[0])
+
+
+class TestDisabledStepsAreOmitted(unittest.TestCase):
+    """`if: false` — switched off on purpose, so the mirror declines it too."""
+
+    def _body(self, condition="false", **step_kwargs):
+        step_kwargs.setdefault("run", "echo SHOULD-NOT-RUN")
+        job = Job(name="j", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="Old migration", if_condition=condition, **step_kwargs),
+        ])
+        return render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+
+    def test_disabled_step_body_is_not_emitted(self):
+        body = self._body()
+        self.assertNotIn("SHOULD-NOT-RUN", body)
+        self.assertIn("# Disabled step: Old migration (if: false)", body)
+
+    def test_yaml_boolean_and_wrapped_forms_are_both_disabled(self):
+        # `if: false` deserializes to a bool; the parser normalizes it to the
+        # string. `${{ false }}` is the wrapped spelling of the same thing.
+        for c in ("false", "${{ false }}"):
+            self.assertNotIn("SHOULD-NOT-RUN", self._body(c), c)
+
+    def test_disabled_step_is_not_reported_as_dropped_work(self):
+        # The whole point of a separate marker: CI does not run this step
+        # either, so omitting it locally is faithful, not lost coverage. A
+        # false INCOMPLETE here would exit 5 and block /create-pr forever.
+        self.assertEqual(dropped_gating_steps(self._body()), [])
+
+    def test_disabled_uses_step_takes_the_disabled_branch(self):
+        # A `uses:` step disabled with `if: false` is still disabled. Routing it
+        # to the `# Skipped step:` branch would mark an otherwise clean job
+        # INCOMPLETE over coverage CI never ran either.
+        body = self._body(run=None, uses="some/costly-action@v1")
+        self.assertIn("# Disabled step: Old migration (if: false)", body)
+        self.assertNotIn("# Skipped step:", body)
+        self.assertEqual(dropped_gating_steps(body), [])
 
 
 class TestUnresolvableBodyTemplates(unittest.TestCase):

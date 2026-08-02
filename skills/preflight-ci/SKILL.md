@@ -202,6 +202,7 @@ and is explicit about the rest:
 | `failure()` | Runs **only** when an earlier step failed |
 | change detection — `steps.<id>.outputs.*`, `hashFiles(…)` | Runs anyway, with a note. CI skips these as an optimisation, so running locally is a superset — slower, never wrong |
 | context selection — anything mentioning `github.` | **Not emitted.** Named in the summary as a dropped step |
+| `false` (bare or `${{ … }}`) | **Not emitted**, as `# Disabled step:`. Switched off on purpose, so CI does not run it either — omitting it locally is faithful, and it is *not* counted as dropped work |
 
 The last two rows are the same "can't evaluate this locally" problem split by
 which way guessing wrong hurts. Over-running a change-detection gate costs time;
