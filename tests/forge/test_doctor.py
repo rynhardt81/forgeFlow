@@ -88,6 +88,12 @@ def make_consumer(tmp_path: Path, *, version: str | None = None,
     return tmp_path
 
 
+# The framework's own version. Read rather than hardcoded: a fixture pinned to
+# a literal turns "current" into "stale" on the next release bump, failing a
+# test that has nothing to do with the change that bumped it.
+CURRENT_VERSION = (_REPO_ROOT / "VERSION").read_text().strip()
+
+
 def make_live_settings_consumer(
     tmp_path: Path, *, version: str | None = "4.1.0",
     broken_wiring: bool = False, no_hooks_key: bool = False,
@@ -371,7 +377,7 @@ def test_cut_paths_manifest_never_lists_itself_or_its_own_dir():
 def test_doctor_all_discovers_and_flags_stale(tmp_path):
     parent = tmp_path / "fleet"
     parent.mkdir()
-    make_consumer(parent / "current-clean", version="4.1.0",
+    make_consumer(parent / "current-clean", version=CURRENT_VERSION,
                   orphan=False, broken_wiring=False)
     make_consumer(parent / "old-with-orphan", version="3.0.0",
                   orphan=True, broken_wiring=False)
@@ -388,7 +394,7 @@ def test_doctor_all_discovers_and_flags_stale(tmp_path):
     assert set(by_name) == {"current-clean", "old-with-orphan"}
 
     current = by_name["current-clean"]
-    assert current["version"] == "4.1.0"
+    assert current["version"] == CURRENT_VERSION
     assert current["stale"] is False
     assert current["orphans_count"] == 0
     assert current["healthy"] is True
@@ -403,7 +409,7 @@ def test_doctor_all_discovers_and_flags_stale(tmp_path):
 def test_doctor_all_human_output_has_one_row_per_install(tmp_path):
     parent = tmp_path / "fleet"
     parent.mkdir()
-    make_consumer(parent / "clean-one", version="4.1.0",
+    make_consumer(parent / "clean-one", version=CURRENT_VERSION,
                   orphan=False, broken_wiring=False)
 
     result = run_doctor(_REPO_ROOT, "--all", str(parent))
