@@ -81,13 +81,17 @@ A `drift.lock` file is written alongside the scripts with SHA-256 of each workfl
 
 ### Refused steps
 
-A step whose `run:` body contains a command that is free on an ephemeral runner and expensive on a workstation — a volume prune, a compose `down` that takes volumes with it, a recursive delete of the filesystem root — is **not written to the mirror at all**. It appears as:
+A step whose `run:` body contains a command that is free on an ephemeral runner and expensive on a workstation — a volume prune, a compose `down` that takes volumes with it, a recursive delete of the filesystem root — is **not written to the mirror at all**, and the **whole job is skipped**. The generated script emits:
 
 ```
-# Refused step: Clean up (destructive: docker volume prune — never mirrored locally)
+FORGE_SKIP: job not mirrored locally — it contains destructive step(s): Clean up (docker volume prune). …
 ```
 
-CI still runs the step; only the local mirror declines it. This is deliberately not the `# Skipped step:` form, so it is **not** counted as lost coverage and does not make the job `INCOMPLETE`.
+and exits 0 immediately, so the runner reports the job **SKIPPED** — coverage that did not run, not a pass.
+
+Skipping the whole job rather than just the step is deliberate. In a fresh-install gate the refused cleanup is what *establishes* the job's precondition (an empty volume); dropping only that step leaves the remainder running against retained state and reporting a clean green having tested nothing. The job's precondition cannot be established locally without doing the very thing being refused, so the honest outcome is to run none of it.
+
+Steps that CI itself never runs are excluded from this scan — `if: false` (`STEP_NEVER`) and conditions that cannot be evaluated locally (`STEP_UNTRANSLATABLE`, e.g. `github.*`). The renderer omits those anyway, so refusing the job over one would discard every other step's coverage to avoid mirroring a command that was never going to be mirrored.
 
 Refusing at generation time rather than guarding inside the body is the whole point: the generator exports workflow- and job-level `env:` at the top of the mirror, above every step body, so a guard keyed on `CI` or `GITHUB_ACTIONS` is armed by the very file an untrusted PR is allowed to edit. A command never written to the file cannot be re-armed by any variable.
 
