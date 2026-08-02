@@ -269,10 +269,20 @@ _DESTRUCTIVE_PATTERNS = [
     # `down -v --remove-orphans`, `down --volumes`.
     (re.compile(r"\bdocker[\s-]+compose\b[^\n]*\bdown\b[^\n]*(?:\s-\w*v\w*\b|--volumes\b)"),
      "docker compose down -v"),
-    # Recursive delete of the filesystem root. Arbitrary flag cluster (`-rf`,
-    # `-fr`, `-rfv`, `--recursive --force`) and an optional trailing glob, since
-    # `<root>/*` destroys exactly as much as `<root>`.
-    (re.compile(r"\brm\s+(?:-\S+\s+|--\w+\s+)*-*\S*[rR]\S*\s+/\*?(?:\s|$)"), "rm -rf /"),
+    # Recursive delete of the filesystem root, with an optional trailing glob
+    # since `<root>/*` destroys exactly as much as `<root>`.
+    #
+    # The recursive flag is found by LOOKAHEAD across the whole flag run, not by
+    # position. Requiring the token adjacent to the target to carry `r`/`R` made
+    # flag ORDER load-bearing: `rm -f -r /` matched while `rm -r -f /` did not —
+    # the same command with the flags swapped. Separated flags are ordinary
+    # shell, not an evasion attempt.
+    (re.compile(
+        r"\brm\s+"                                        # the command
+        r"(?=(?:-\S+\s+)*(?:-\w*[rR]\w*|--recursive)\b)"  # recursive ANYWHERE in the flags
+        r"(?:-\S+\s+)+"                                   # consume the flag run
+        r"/\*?(?:\s|$)"                                   # target is the filesystem root
+    ), "rm -rf /"),
 ]
 
 
@@ -649,10 +659,18 @@ def render_script(
     # established locally without doing the very thing we refuse. This uses the
     # same JOB_SKIP_MARKER the DB-reachability guard uses, so the runner reports
     # it as SKIPPED (coverage that did not run) rather than as a pass.
+    # `classify_condition` is consulted here because the renderer below omits
+    # STEP_NEVER steps entirely. Without this, a job carrying an obsolete
+    # `if: false` cleanup skipped ENTIRELY — throwing away every other step's
+    # local coverage over a step that neither CI nor the mirror would ever run.
+    # That is this mechanism's own failure mode inverted: the gate stops
+    # describing what actually ran.
     refused = [
         (step.name or step.uses or f"step-{i}", destructive_commands(step.run))
         for i, step in enumerate(job.steps)
-        if step.run and destructive_commands(step.run)
+        if step.run
+        and classify_condition(step.if_condition) != STEP_NEVER
+        and destructive_commands(step.run)
     ]
     if refused:
         # The step label comes from workflow YAML — the untrusted input this

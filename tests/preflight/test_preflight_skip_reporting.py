@@ -961,6 +961,52 @@ class TestDestructiveCommandsAreRefused(unittest.TestCase):
         ):
             self.assertTrue(destructive_commands(run), f"not caught: {run}")
 
+    def test_recursive_flag_is_found_regardless_of_position(self):
+        """Flag ORDER must not be load-bearing.
+
+        Matching the recursive flag by position — requiring the token adjacent
+        to the target to carry r/R — meant `rm -f -r /` was caught while
+        `rm -r -f /` was not: the same command with the flags swapped.
+        Separated flags are ordinary shell, not an evasion attempt.
+        """
+        for run in (
+            "rm -r -f /",
+            "rm -f -r /",
+            "rm -R -f /*",
+            "rm --recursive -f /",
+            "rm -i -r -f /*",
+        ):
+            self.assertTrue(destructive_commands(run), f"not caught: {run}")
+
+    def test_a_disabled_destructive_step_does_not_refuse_the_whole_job(self):
+        """`if: false` steps are omitted by the renderer, so they cannot poison it.
+
+        A job carrying an obsolete disabled cleanup would otherwise skip
+        entirely, discarding every other step's local coverage over a step that
+        neither CI nor the mirror ever runs — this mechanism's own failure mode
+        inverted, with the gate no longer describing what actually ran.
+        """
+        job = Job(name="e2e", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="Old teardown", run="docker volume prune -f",
+                 if_condition="false"),
+            Step(name="Real work", run="echo REAL"),
+        ])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        self.assertNotIn(JOB_SKIP_MARKER, body)     # job still runs
+        self.assertIn("echo REAL", body)            # coverage retained
+        self.assertIn("# Disabled step: Old teardown", body)
+        self.assertNotIn("volume prune", body)      # and it is still not mirrored
+
+    def test_an_enabled_destructive_step_still_refuses_the_job(self):
+        """The STEP_NEVER carve-out must not weaken the actual guard."""
+        job = Job(name="e2e", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="Teardown", run="docker volume prune -f"),
+            Step(name="Real work", run="echo REAL"),
+        ])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        self.assertIn(JOB_SKIP_MARKER, body)
+        self.assertNotIn("echo REAL", body)
+
     def test_ordinary_commands_are_not_refused(self):
         for run in (
             "docker compose down",
