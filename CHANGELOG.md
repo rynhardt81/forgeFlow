@@ -2,6 +2,36 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
+## [v4.2.0] — 2026-08-02
+
+> Minor release, dominated by the preflight CI-mirror hardening. Eight rounds of adversarial review found the local mirror could transcribe destructive commands, report green on a failed step, and skip whole jobs it should have run. Also adds a pre-push review gate that moves the review-fix loop off GitHub Actions, and `/setup-review-bot` to configure it.
+
+### Added
+
+- **`/setup-review-bot`** — configures both reviewers (post-PR mention + pre-push CLI) and writes the `AGENTS.md` they read. Interviews for the four things a reviewer cannot infer from code: authoritative documents, what counts as MUST-FIX in this repo, what to skip and why, and conventions that differ from the obvious default. Verifies the reviewer CLI resolves before writing config — an absent binary otherwise turns the pre-push gate into a silent skip that reads as a pass.
+- **Pre-push local review gate** (`create-pr` Step 3.8, `git config forge.localReview`) — runs the review bot locally before the branch is pushed, so its findings cost nothing instead of a full Actions matrix each. Runs detached to overlap the Step 3.7 specialist fan-out. Capped at 3 rounds, never unattended, never in a hook or `/loop`.
+- **`AGENTS.md` seeding** — `install.sh` seeds a template into the project root when a reviewer is configured and the file is missing. Only-if-missing permanently; the file is project data and is never overwritten.
+- **`SKILL.local.md` sidecars** — project overrides for framework skills that survive a refresh, mirroring the existing `rules/*.local.md` pattern.
+- **`forge task set-scope`** — post-hoc scope mutation, previously only settable at task creation.
+
+### Fixed
+
+- **Destructive commands are refused at generation time** — a volume prune or a compose teardown that takes volumes with it is never written into a local mirror, and the whole job self-skips rather than running without its precondition. An in-workflow `if [ "$CI" = true ]` guard cannot do this: the generator exports the workflow's own `env:` above every step body, so the guard is armed by the file an untrusted PR may edit.
+- **A failed command inside a tracked step no longer reports green** — a subshell on the LHS of `||` had errexit suppressed inside its body, so a multi-command step whose first command failed exited 0.
+- **Denylist evasions closed** — flag position (`rm -r -f /`), global docker options (`docker --context prod volume prune`), shell quoting (`docker volume "prune"`), line continuations, attached option values (`-Htcp://host`), and the `volume remove` alias.
+- **Command injection in the review gate** — the branch substituted into the reviewer command is shell-quoted; `git check-ref-format` permits `;`, `$(…)` and backticks in a branch name. Review-bot output now reaches `gh` through `--body-file` rather than an inline `--body` string.
+- **`if: false` and locally-unevaluable steps** are no longer mirrored, and no longer cause the whole job to be refused.
+- **Mirrors regenerate when the denylist changes** — a fingerprint of the patterns is recorded in the lockfile, so a widened pattern invalidates stale scripts on its own rather than depending on someone remembering to bump the contract.
+- **Generated script headers are project-relative**, not whatever `--project-root` the caller happened to spell — no machine-specific home path in a committed artifact.
+- **Pre-push hook is found in linked worktrees**, where `.git` is a file and the naive path never existed.
+- **A fresh checkout's first preflight run works** instead of demanding a manual `--regenerate`, and the generated scripts get the portability shim they source.
+- **Code map indexes `export default function`** — Next.js App Router pages, layouts and error boundaries previously indexed with no symbols.
+
+### Changed
+
+- `GENERATOR_CONTRACT` 3 → 8. Existing `.forge/preflight/*.sh` regenerate automatically on the next run; no user action required.
+- Skills and agents tables removed from `CLAUDE.md` — both duplicated sources the file already names.
+
 ## [v4.1.0] — 2026-07-07
 
 > Minor release: the skills catch up to the v4.0.1 `epic add` CLI (they still described the pre-`epic add` process), and autonomous runs gain model-routed subagent dispatch. Docs/skills only — no CLI or interface changes.
