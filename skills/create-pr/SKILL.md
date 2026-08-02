@@ -15,15 +15,18 @@ hooks:
 | **Purpose** | Create PRs with smart defaults + config-aware review-bot mention + post-create monitoring + merge-order guidance |
 | **Inputs** | Optional `--draft`, or `review [PR#]`, or `merge-order` |
 | **Output** | PR created (with bot mention when configured); or review-feedback triage; or recommended merge sequence |
-| **Flow** | Analyze → Target → Checks → Docs → Description → Create → Monitor → Merge-order |
+| **Flow** | Analyze → Target → Checks → **Local review** → Docs → Description → Create → Monitor → Merge-order |
 
 ---
 
 ## Review bot configuration (detect once per repo)
 
 ```bash
-git config forge.reviewBot   # e.g. "cc @codex — please review."
+git config forge.reviewBot    # e.g. "cc @codex — please review."  (post-PR mention)
+git config forge.localReview  # e.g. "codex review --base {base}"  (pre-push gate, Step 3.8)
 ```
+
+The two are independent and complementary: `localReview` runs the reviewer on your machine before the branch is pushed, `reviewBot` mentions it on the PR afterwards. Setting both is the intended configuration — the local pass absorbs the fix rounds that would otherwise each trigger CI.
 
 - **Set** — the value is the exact mention line. Append it to **every** PR body (draft or final) immediately before the Claude Code attribution, and run the Step 6 review loop against that bot.
 - **Unset** — skip the mention entirely; Step 6 falls back to triaging human reviews + CI feedback with the same buckets. Never invent a bot mention on a repo that hasn't configured one.
@@ -135,6 +138,36 @@ Plugin absent → **cross-check before trusting it** (agent-verification.md: an 
 
 **Push gate:** cannot create the PR with unresolved MUST-FIX. Options: fix it (re-run checks + 3.7 on the new diff), defer (file a follow-up via `forge task add`, document in the PR body), or `--proceed-anyway` (override reason recorded in the body's Pre-flight notes). NICE-TO-HAVE → Pre-flight notes section (TEMPLATES.md), doesn't gate. NO-ACTION → dropped.
 
+## Step 3.8: Local review-bot gate (pre-push)
+
+Same idea as 3.7, aimed at the one reviewer that otherwise costs CI minutes to consult. The configured review bot only ever sees the code **after** the PR exists, so every finding it raises is paid for with a full Actions run: fix → push → the whole matrix re-runs → the bot re-scans → repeat. A PR that takes 19 review rounds burns 19 matrices. Running the same reviewer locally, before the branch is pushed, moves that loop off Actions entirely.
+
+**Config (per repo, mirrors `forge.reviewBot`):**
+
+```bash
+git config forge.localReview 'codex review --base {base}'
+```
+
+`{base}` is substituted with the Step 2 target branch. The value is a full command, so any reviewer CLI works — nothing here is specific to one vendor. **Unset → skip this step silently** and continue to 3.5; bare installs are unaffected.
+
+**Presence check before running:** resolve the command's binary with `command -v`. Absent → emit `Local review skipped (<binary> not on PATH)` and continue. **Never block on a missing reviewer** — same default as 3.7.
+
+**Run it:**
+
+```bash
+git config forge.localReview | sed "s|{base}|$TARGET_BRANCH|" | sh
+```
+
+Triage the output into the same three buckets as 3.7 and Step 6: **MUST-FIX** / **NICE-TO-HAVE** / **NO-ACTION**.
+
+**Push gate:** unresolved MUST-FIX blocks PR creation, exactly as in 3.7. Fix → re-run Step 3 checks → re-run this step on the new diff.
+
+**Round cap — read this before looping.** Stop after **3** local review rounds and hand back to the user with what is still outstanding. Do not run the reviewer in an unattended loop, and never wire it into a hook or a `/loop`. This is the same failure shape as any LLM CLI invoked in a loop: a subscription meant for interactive use, billed by a process that never gets tired. Three rounds catches the ordinary case; a fourth means the change needs a human read, not another review pass.
+
+**What this does not change:** the `forge.reviewBot` mention still goes in the PR body (Step 5) and Step 6 still runs. The bot gets a second pass over the assembled PR with full context, which the local diff review does not have. The difference is that it should now come back `NO-ACTION` or close to it — one Actions run instead of nineteen.
+
+**Feedback signal:** if Step 6 surfaces a MUST-FIX that this step could have caught on the same diff, say so in the status report. Either the local invocation needs different instructions, or that finding class genuinely needs full-PR context — both worth knowing, and neither is visible unless it is named.
+
 ## Step 3.5: Documentation Verification (final PRs only)
 
 Invoke `/refresh-project-context`: README matches new features/config, API docs current, CHANGELOG has Unreleased entries, doc examples still work. Issues found → present list, offer to fix before proceeding.
@@ -206,6 +239,7 @@ Use the Task tool:
 - Always confirm target branch before creating.
 - Never create a final PR with failing checks (offer draft instead).
 - Review-bot mention is config-driven: `forge.reviewBot` set → its line on every PR body, verified post-create; unset → no mention, Step 6 triages human + CI feedback.
+- **Consult the review bot locally BEFORE pushing** (`forge.localReview`, Step 3.8). Its post-PR findings cost a full Actions run each; its pre-push findings cost nothing. Capped at 3 rounds, never unattended, never in a hook or `/loop`.
 - After review feedback, push fixes to the SAME PR (never close-and-recreate); re-mention the bot in a comment to retrigger its review.
 - Always include the Claude Code attribution; extract and link related issues.
 - For multi-PR sequences, present a merge order; never auto-merge without explicit instruction.
