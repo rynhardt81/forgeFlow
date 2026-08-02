@@ -5,159 +5,86 @@
   "description": "Registry of all Claude Forge skills with metadata for discovery and routing. Optional 'paths' field (glob patterns) scopes a skill to relevant directories so loaders/UIs can surface it only when working there \u2014 see Anthropic's large-codebase post on path-scoped skills.",
   "skills": [
     {
-      "name": "new-project",
-      "command": "/new-project",
-      "path": "skills/new-project/SKILL.md",
-      "description": "Initialize a project with Claude Forge framework",
-      "category": "initialization",
-      "agents": [
-        "project-manager",
-        "architect",
-        "security-boss"
-      ],
-      "phases": [
-        "framework-setup",
-        "requirements-discovery",
-        "architecture",
-        "task-planning",
-        "implementation-readiness",
-        "kickoff"
-      ],
-      "flags": [
-        "--current",
-        "--autonomous",
-        "--minimal",
-        "--mode=standard|yolo|hybrid"
-      ],
-      "prerequisites": [
-        "session-active"
-      ],
-      "creates": [
-        "registry",
-        "epics",
-        "tasks"
-      ],
-      "hooks": {
-        "PostToolUse": [
-          "new_project_prd.py"
-        ]
-      }
-    },
-    {
-      "name": "fix-bug",
-      "command": "/fix-bug",
-      "path": "skills/fix-bug/SKILL.md",
-      "description": "Disciplined bug fixing from diagnosis through verification",
-      "category": "development",
-      "agents": [
-        "security-boss"
-      ],
-      "phases": [
-        "memory-check",
-        "reproduce",
-        "hypothesize",
-        "test",
-        "fix",
-        "verify",
-        "remember"
-      ],
+      "name": "ISA",
+      "command": null,
+      "path": "skills/ISA/SKILL.md",
+      "description": "Articulate the ideal state of a task or project as testable criteria. Auto-invoked by the Algorithm at OBSERVE for non-trivial work; produces an ISA.md the rest of the run reads from and writes back to",
+      "category": "algorithm",
+      "agents": [],
       "flags": [],
-      "prerequisites": [
-        "session-active",
-        "registry-exists",
-        "task-assigned"
-      ],
+      "prerequisites": [],
       "creates": [
-        "debug-doc",
-        "regression-test"
-      ],
-      "hooks": {
-        "Stop": [
-          "fix_bug_regression.py"
-        ]
-      },
-      "files": []
+        "ISA.md"
+      ]
     },
     {
-      "name": "triage-incident",
-      "command": "/triage-incident",
-      "path": "skills/triage-incident/SKILL.md",
-      "description": "Production incident triage: assess (Sentry/logs), stabilize, reproduce, fix via /fix-bug prod fast path, verify in prod, postmortem + prevention tasks",
-      "category": "development",
+      "name": "audit-code-map",
+      "command": "/audit-code-map",
+      "path": "skills/audit-code-map/SKILL.md",
+      "description": "Generate or refresh docs/code-map.md \u2014 structural map of classes, top-level functions, and import graph across Python, TypeScript/JavaScript, Go, and Rust",
+      "category": "quality",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "docs/code-map.md"
+      ]
+    },
+    {
+      "name": "audit-rules",
+      "command": "/audit-rules",
+      "path": "skills/audit-rules/SKILL.md",
+      "description": "Audit CLAUDE.md and .claude/rules/*.md for stale, contradictory, or over-prompting rules \u2014 outputs a review report, never modifies governance files directly",
+      "category": "quality",
+      "agents": [],
+      "flags": [
+        "--stale-months=<n>",
+        "--include-skills",
+        "--output=<path>"
+      ],
+      "prerequisites": [],
+      "creates": [
+        "rules-audit-report"
+      ]
+    },
+    {
+      "name": "audit-task-status",
+      "command": "/audit-task-status",
+      "path": "skills/audit-task-status/SKILL.md",
+      "description": "Align Forge task/epic statuses with the authoritative registry and report registry health \u2014 detects/fixes drift in task-file frontmatter and epic files; registry is single source of truth",
+      "category": "quality",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "task-status-audit-report"
+      ]
+    },
+    {
+      "name": "build",
+      "command": "/build",
+      "path": "skills/build/SKILL.md",
+      "description": "Production build and containerization guidance \u2014 stack detection, routing to platform tooling (EAS/Vercel/Supabase) or a minimal verified Dockerfile.",
+      "category": "deployment",
       "agents": [
-        "security-boss"
+        "devops"
       ],
       "phases": [
-        "assess",
-        "stabilize",
-        "reproduce",
-        "fix",
-        "verify-prod",
-        "postmortem"
+        "detect-stack",
+        "route",
+        "generate",
+        "verify"
       ],
       "flags": [],
       "prerequisites": [],
       "creates": [
-        "incident-postmortem",
-        "prevention-tasks"
+        "dockerfile",
+        "manifests",
+        "ci-workflows"
       ],
-      "hooks": {}
-    },
-    {
-      "name": "new-feature",
-      "command": "/new-feature",
-      "path": "skills/new-feature/SKILL.md",
-      "description": "Implement new features with TDD workflow",
-      "category": "development",
-      "agents": [
-        "security-boss",
-        "quality-engineer"
-      ],
-      "phases": [
-        "analysis",
-        "design",
-        "implementation",
-        "testing",
-        "documentation"
-      ],
-      "flags": [
-        "--tdd",
-        "--skip-tests"
-      ],
-      "prerequisites": [
-        "session-active",
-        "registry-exists",
-        "task-assigned"
-      ],
-      "creates": [
-        "feature-code",
-        "tests"
+      "files": [
+        "SKILL.md"
       ]
-    },
-    {
-      "name": "refactor",
-      "command": "/refactor",
-      "path": "skills/refactor/SKILL.md",
-      "description": "Safe refactoring with test preservation",
-      "category": "development",
-      "agents": [
-        "quality-engineer"
-      ],
-      "phases": [
-        "analysis",
-        "planning",
-        "execution",
-        "verification"
-      ],
-      "flags": [
-        "--scope=file|directory|module"
-      ],
-      "prerequisites": [
-        "session-active",
-        "registry-exists",
-        "task-assigned"
-      ],
-      "creates": []
     },
     {
       "name": "create-pr",
@@ -206,6 +133,27 @@
       ]
     },
     {
+      "name": "damage-control",
+      "command": "/damage-control",
+      "path": "skills/damage-control/SKILL.md",
+      "description": "Defense-in-depth security hooks with pattern blocking",
+      "category": "security",
+      "agents": [
+        "security-boss"
+      ],
+      "subcommands": [
+        "install",
+        "modify",
+        "test",
+        "list"
+      ],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "security-hooks"
+      ]
+    },
+    {
       "name": "diagnose-ci",
       "command": "/diagnose-ci",
       "path": "skills/diagnose-ci/SKILL.md",
@@ -241,6 +189,242 @@
       ]
     },
     {
+      "name": "fix-bug",
+      "command": "/fix-bug",
+      "path": "skills/fix-bug/SKILL.md",
+      "description": "Disciplined bug fixing from diagnosis through verification",
+      "category": "development",
+      "agents": [
+        "security-boss"
+      ],
+      "phases": [
+        "memory-check",
+        "reproduce",
+        "hypothesize",
+        "test",
+        "fix",
+        "verify",
+        "remember"
+      ],
+      "flags": [],
+      "prerequisites": [
+        "session-active",
+        "registry-exists",
+        "task-assigned"
+      ],
+      "creates": [
+        "debug-doc",
+        "regression-test"
+      ],
+      "hooks": {
+        "Stop": [
+          "fix_bug_regression.py"
+        ]
+      },
+      "files": []
+    },
+    {
+      "name": "frontend-design",
+      "command": null,
+      "path": "skills/frontend-design/SKILL.md",
+      "description": "Design direction for distinctive, intentional UI. Defers to the native frontend-design plugin when installed; self-contained fallback otherwise. Catalog lookups via /ui-ux-pro-max.",
+      "category": "design",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [],
+      "paths": [
+        "src/components/**",
+        "src/pages/**",
+        "src/app/**",
+        "app/**",
+        "pages/**",
+        "components/**",
+        "ui/**",
+        "web/**",
+        "frontend/**"
+      ],
+      "files": [
+        "SKILL.md"
+      ]
+    },
+    {
+      "name": "migrate",
+      "command": "/migrate",
+      "path": "skills/migrate/SKILL.md",
+      "description": "Migrate existing project to Claude Forge",
+      "category": "initialization",
+      "agents": [],
+      "phases": [
+        "analysis",
+        "migration",
+        "verification"
+      ],
+      "flags": [
+        "--dry-run"
+      ],
+      "prerequisites": [],
+      "creates": [
+        "claude-dir",
+        "registry"
+      ]
+    },
+    {
+      "name": "new-feature",
+      "command": "/new-feature",
+      "path": "skills/new-feature/SKILL.md",
+      "description": "Implement new features with TDD workflow",
+      "category": "development",
+      "agents": [
+        "security-boss",
+        "quality-engineer"
+      ],
+      "phases": [
+        "analysis",
+        "design",
+        "implementation",
+        "testing",
+        "documentation"
+      ],
+      "flags": [
+        "--tdd",
+        "--skip-tests"
+      ],
+      "prerequisites": [
+        "session-active",
+        "registry-exists",
+        "task-assigned"
+      ],
+      "creates": [
+        "feature-code",
+        "tests"
+      ]
+    },
+    {
+      "name": "new-project",
+      "command": "/new-project",
+      "path": "skills/new-project/SKILL.md",
+      "description": "Initialize a project with Claude Forge framework",
+      "category": "initialization",
+      "agents": [
+        "project-manager",
+        "architect",
+        "security-boss"
+      ],
+      "phases": [
+        "framework-setup",
+        "requirements-discovery",
+        "architecture",
+        "task-planning",
+        "implementation-readiness",
+        "kickoff"
+      ],
+      "flags": [
+        "--current",
+        "--autonomous",
+        "--minimal",
+        "--mode=standard|yolo|hybrid"
+      ],
+      "prerequisites": [
+        "session-active"
+      ],
+      "creates": [
+        "registry",
+        "epics",
+        "tasks"
+      ],
+      "hooks": {
+        "PostToolUse": [
+          "new_project_prd.py"
+        ]
+      }
+    },
+    {
+      "name": "preflight-ci",
+      "command": "/preflight-ci",
+      "path": "skills/preflight-ci/SKILL.md",
+      "description": "Mirror GitHub Actions CI locally before push. Derives gating jobs from .github/workflows/*.yml, generates committed bash scripts at .forge/preflight/<job>.sh, executes them, and routes failures to pr-review-toolkit specialists \u2014 proactive twin of /diagnose-ci",
+      "category": "workflow",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [
+        "gh-cli-installed"
+      ],
+      "creates": [
+        ".forge/preflight/*.sh"
+      ],
+      "optional_plugin_agents": [
+        "pr-review-toolkit:code-reviewer",
+        "pr-review-toolkit:pr-test-analyzer",
+        "pr-review-toolkit:type-design-analyzer",
+        "pr-review-toolkit:silent-failure-hunter"
+      ]
+    },
+    {
+      "name": "refactor",
+      "command": "/refactor",
+      "path": "skills/refactor/SKILL.md",
+      "description": "Safe refactoring with test preservation",
+      "category": "development",
+      "agents": [
+        "quality-engineer"
+      ],
+      "phases": [
+        "analysis",
+        "planning",
+        "execution",
+        "verification"
+      ],
+      "flags": [
+        "--scope=file|directory|module"
+      ],
+      "prerequisites": [
+        "session-active",
+        "registry-exists",
+        "task-assigned"
+      ],
+      "creates": []
+    },
+    {
+      "name": "reflect",
+      "command": "/reflect",
+      "path": "skills/reflect/SKILL.md",
+      "description": "Session management and task resumption",
+      "category": "workflow",
+      "agents": [],
+      "subcommands": [
+        "resume",
+        "status",
+        "handoff",
+        "unlock",
+        "config"
+      ],
+      "flags": [
+        "--ready",
+        "--locked",
+        "--all"
+      ],
+      "prerequisites": [],
+      "creates": [
+        "session-file"
+      ]
+    },
+    {
+      "name": "refresh-project-context",
+      "command": "/refresh-project-context",
+      "path": "skills/refresh-project-context/SKILL.md",
+      "description": "Update CLAUDE.md and CHEATSHEET.md with current project state",
+      "category": "workflow",
+      "agents": [],
+      "flags": [
+        "--quick",
+        "--prd",
+        "--full"
+      ],
+      "prerequisites": [],
+      "creates": []
+    },
+    {
       "name": "release",
       "command": "/release",
       "path": "skills/release/SKILL.md",
@@ -272,56 +456,6 @@
           "release_changelog.py"
         ]
       }
-    },
-    {
-      "name": "build",
-      "command": "/build",
-      "path": "skills/build/SKILL.md",
-      "description": "Production build and containerization guidance \u2014 stack detection, routing to platform tooling (EAS/Vercel/Supabase) or a minimal verified Dockerfile.",
-      "category": "deployment",
-      "agents": [
-        "devops"
-      ],
-      "phases": [
-        "detect-stack",
-        "route",
-        "generate",
-        "verify"
-      ],
-      "flags": [],
-      "prerequisites": [],
-      "creates": [
-        "dockerfile",
-        "manifests",
-        "ci-workflows"
-      ],
-      "files": [
-        "SKILL.md"
-      ]
-    },
-    {
-      "name": "reflect",
-      "command": "/reflect",
-      "path": "skills/reflect/SKILL.md",
-      "description": "Session management and task resumption",
-      "category": "workflow",
-      "agents": [],
-      "subcommands": [
-        "resume",
-        "status",
-        "handoff",
-        "unlock",
-        "config"
-      ],
-      "flags": [
-        "--ready",
-        "--locked",
-        "--all"
-      ],
-      "prerequisites": [],
-      "creates": [
-        "session-file"
-      ]
     },
     {
       "name": "remember",
@@ -382,48 +516,6 @@
       ]
     },
     {
-      "name": "migrate",
-      "command": "/migrate",
-      "path": "skills/migrate/SKILL.md",
-      "description": "Migrate existing project to Claude Forge",
-      "category": "initialization",
-      "agents": [],
-      "phases": [
-        "analysis",
-        "migration",
-        "verification"
-      ],
-      "flags": [
-        "--dry-run"
-      ],
-      "prerequisites": [],
-      "creates": [
-        "claude-dir",
-        "registry"
-      ]
-    },
-    {
-      "name": "damage-control",
-      "command": "/damage-control",
-      "path": "skills/damage-control/SKILL.md",
-      "description": "Defense-in-depth security hooks with pattern blocking",
-      "category": "security",
-      "agents": [
-        "security-boss"
-      ],
-      "subcommands": [
-        "install",
-        "modify",
-        "test",
-        "list"
-      ],
-      "flags": [],
-      "prerequisites": [],
-      "creates": [
-        "security-hooks"
-      ]
-    },
-    {
       "name": "security-review",
       "command": "/security-review",
       "path": "skills/security-review/SKILL.md",
@@ -442,138 +534,36 @@
       ]
     },
     {
-      "name": "refresh-project-context",
-      "command": "/refresh-project-context",
-      "path": "skills/refresh-project-context/SKILL.md",
-      "description": "Update CLAUDE.md and CHEATSHEET.md with current project state",
-      "category": "workflow",
-      "agents": [],
-      "flags": [
-        "--quick",
-        "--prd",
-        "--full"
-      ],
-      "prerequisites": [],
-      "creates": []
+      "name": "setup-review-bot",
+      "command": "/setup-review-bot",
+      "path": "skills/setup-review-bot/SKILL.md",
+      "description": "Configure the repo's AI code reviewers and write the AGENTS.md they read",
+      "category": "initialization"
     },
     {
-      "name": "audit-rules",
-      "command": "/audit-rules",
-      "path": "skills/audit-rules/SKILL.md",
-      "description": "Audit CLAUDE.md and .claude/rules/*.md for stale, contradictory, or over-prompting rules \u2014 outputs a review report, never modifies governance files directly",
-      "category": "quality",
-      "agents": [],
-      "flags": [
-        "--stale-months=<n>",
-        "--include-skills",
-        "--output=<path>"
+      "name": "triage-incident",
+      "command": "/triage-incident",
+      "path": "skills/triage-incident/SKILL.md",
+      "description": "Production incident triage: assess (Sentry/logs), stabilize, reproduce, fix via /fix-bug prod fast path, verify in prod, postmortem + prevention tasks",
+      "category": "development",
+      "agents": [
+        "security-boss"
       ],
-      "prerequisites": [],
-      "creates": [
-        "rules-audit-report"
-      ]
-    },
-    {
-      "name": "vet-idea",
-      "command": "/vet-idea",
-      "path": "skills/vet-idea/SKILL.md",
-      "description": "Vet an idea/decision before building \u2014 single-model council (5 adversarial roles, peer review, chairman) emits a halt-capable GO/NO-GO/RECONSIDER verdict; advisory, non-mutating, bare-install safe",
-      "category": "quality",
-      "agents": [],
-      "flags": [
-        "--isa=<path>",
-        "--roles=<5|7>",
-        "--output=<path>"
+      "phases": [
+        "assess",
+        "stabilize",
+        "reproduce",
+        "fix",
+        "verify-prod",
+        "postmortem"
       ],
-      "prerequisites": [],
-      "creates": [
-        "vet-idea-report"
-      ]
-    },
-    {
-      "name": "ISA",
-      "command": null,
-      "path": "skills/ISA/SKILL.md",
-      "description": "Articulate the ideal state of a task or project as testable criteria. Auto-invoked by the Algorithm at OBSERVE for non-trivial work; produces an ISA.md the rest of the run reads from and writes back to",
-      "category": "algorithm",
-      "agents": [],
       "flags": [],
       "prerequisites": [],
       "creates": [
-        "ISA.md"
-      ]
-    },
-    {
-      "name": "audit-code-map",
-      "command": "/audit-code-map",
-      "path": "skills/audit-code-map/SKILL.md",
-      "description": "Generate or refresh docs/code-map.md \u2014 structural map of classes, top-level functions, and import graph across Python, TypeScript/JavaScript, Go, and Rust",
-      "category": "quality",
-      "agents": [],
-      "flags": [],
-      "prerequisites": [],
-      "creates": [
-        "docs/code-map.md"
-      ]
-    },
-    {
-      "name": "audit-task-status",
-      "command": "/audit-task-status",
-      "path": "skills/audit-task-status/SKILL.md",
-      "description": "Align Forge task/epic statuses with the authoritative registry and report registry health \u2014 detects/fixes drift in task-file frontmatter and epic files; registry is single source of truth",
-      "category": "quality",
-      "agents": [],
-      "flags": [],
-      "prerequisites": [],
-      "creates": [
-        "task-status-audit-report"
-      ]
-    },
-    {
-      "name": "preflight-ci",
-      "command": "/preflight-ci",
-      "path": "skills/preflight-ci/SKILL.md",
-      "description": "Mirror GitHub Actions CI locally before push. Derives gating jobs from .github/workflows/*.yml, generates committed bash scripts at .forge/preflight/<job>.sh, executes them, and routes failures to pr-review-toolkit specialists \u2014 proactive twin of /diagnose-ci",
-      "category": "workflow",
-      "agents": [],
-      "flags": [],
-      "prerequisites": [
-        "gh-cli-installed"
+        "incident-postmortem",
+        "prevention-tasks"
       ],
-      "creates": [
-        ".forge/preflight/*.sh"
-      ],
-      "optional_plugin_agents": [
-        "pr-review-toolkit:code-reviewer",
-        "pr-review-toolkit:pr-test-analyzer",
-        "pr-review-toolkit:type-design-analyzer",
-        "pr-review-toolkit:silent-failure-hunter"
-      ]
-    },
-    {
-      "name": "frontend-design",
-      "command": null,
-      "path": "skills/frontend-design/SKILL.md",
-      "description": "Design direction for distinctive, intentional UI. Defers to the native frontend-design plugin when installed; self-contained fallback otherwise. Catalog lookups via /ui-ux-pro-max.",
-      "category": "design",
-      "agents": [],
-      "flags": [],
-      "prerequisites": [],
-      "creates": [],
-      "paths": [
-        "src/components/**",
-        "src/pages/**",
-        "src/app/**",
-        "app/**",
-        "pages/**",
-        "components/**",
-        "ui/**",
-        "web/**",
-        "frontend/**"
-      ],
-      "files": [
-        "SKILL.md"
-      ]
+      "hooks": {}
     },
     {
       "name": "ui-ux-pro-max",
@@ -598,6 +588,23 @@
         "web/**",
         "frontend/**",
         "design/**"
+      ]
+    },
+    {
+      "name": "vet-idea",
+      "command": "/vet-idea",
+      "path": "skills/vet-idea/SKILL.md",
+      "description": "Vet an idea/decision before building \u2014 single-model council (5 adversarial roles, peer review, chairman) emits a halt-capable GO/NO-GO/RECONSIDER verdict; advisory, non-mutating, bare-install safe",
+      "category": "quality",
+      "agents": [],
+      "flags": [
+        "--isa=<path>",
+        "--roles=<5|7>",
+        "--output=<path>"
+      ],
+      "prerequisites": [],
+      "creates": [
+        "vet-idea-report"
       ]
     }
   ],

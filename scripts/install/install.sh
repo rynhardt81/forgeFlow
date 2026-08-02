@@ -256,6 +256,34 @@ prune_old_backups() {
 # install only. The rsync step excludes this path so we never trample a
 # project-extended copy on subsequent refreshes; this function fills the gap
 # when the file is genuinely missing.
+# Seed AGENTS.md into the PROJECT ROOT — but only for projects that actually
+# have a review bot configured. AI reviewers (Codex among them) read this file
+# from the repo root automatically, and both the pre-push and post-PR passes read
+# the same one, so it is where review direction belongs.
+#
+# Gated on the git config rather than seeded unconditionally: an empty AGENTS.md
+# in a project with no reviewer is a file nobody will ever fill in, and the
+# framework should not litter project roots on the chance one is added later.
+# `/setup-review-bot` is what creates it in the first place; this only heals the
+# case where a configured project has lost the file.
+#
+# Only-if-missing, permanently. AGENTS.md is project data (see
+# rules/framework-vs-project-root.md) — hand-written, load-bearing for the cloud
+# reviewer, and never the framework's to overwrite.
+seed_agents_md_if_missing() {
+    local project_dir="$1"
+    local target="$project_dir/AGENTS.md"
+    local source="$FRAMEWORK_DIR/templates/AGENTS.template.md"
+    [ -f "$target" ] && return 0
+    [ -f "$source" ] || return 0
+    # No reviewer configured -> nothing to steer, so nothing to seed.
+    git -C "$project_dir" config --get forge.reviewBot >/dev/null 2>&1 \
+        || git -C "$project_dir" config --get forge.localReview >/dev/null 2>&1 \
+        || return 0
+    cp "$source" "$target"
+    ok "Seeded AGENTS.md for the configured review bot (project data, survives refresh)"
+}
+
 seed_preflight_shim_if_missing() {
     local claude_dir="$1"
     local target="$claude_dir/scripts/preflight/_local_shims.sh"
@@ -577,6 +605,7 @@ install_framework_refresh() {
         --exclude='.vscode' \
         "$FRAMEWORK_DIR/" "$PROJECT_DIR/.claude/"
     seed_preflight_shim_if_missing "$PROJECT_DIR/.claude"
+    seed_agents_md_if_missing "$PROJECT_DIR"
     # Doctrine: framework code lives under .claude/; project data lives at
     # PROJECT root (one level up). The framework's own docs/ tree is dev-repo
     # state (self-documentation + planning) and never belongs in consumer
@@ -1487,6 +1516,7 @@ install_v3_framework_files() {
         2>/dev/null || true
 
     seed_preflight_shim_if_missing "$PROJECT_DIR/.claude"
+    seed_agents_md_if_missing "$PROJECT_DIR"
     heal_vendored_tests
     install_cut_paths_manifest
 
