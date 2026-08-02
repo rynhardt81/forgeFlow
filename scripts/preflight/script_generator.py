@@ -84,7 +84,11 @@ JOB_SKIP_MARKER = "FORGE_SKIP: "
 # the exact bug this machinery exists to prevent, reintroduced by the upgrade.
 # A mismatch here forces regeneration automatically (see run_preflight); it is
 # framework-internal, so it must not make the user run a command to recover.
-GENERATOR_CONTRACT = 3
+# 4: tracked step subshells no longer sit on the LHS of `||`, which suppressed
+#    errexit inside the body and let a multi-command step report green after an
+#    early command failed. Stale scripts still carry the old shape, so this must
+#    force regeneration.
+GENERATOR_CONTRACT = 4
 
 # --- step `if:` conditions ---------------------------------------------------
 # GitHub runs a step only when its `if:` holds, with an implicit `success()`
@@ -599,7 +603,19 @@ def render_script(
         elif mode == STEP_ON_FAILURE:
             lines.append('if [ "$_forge_failed" -ne 0 ]; then')
 
+        # A subshell on the LHS of `||` has errexit suppressed *inside its body*
+        # too, not just for the outer script — so a multi-command `run:` whose
+        # first command fails and last succeeds would exit 0 and report the job
+        # green, while the GHA step (`bash -e`) fails at the first command. To
+        # keep the status without that suppression: disable errexit around the
+        # CALL, re-enable it INSIDE the subshell, then test the captured status.
+        # NOT `|| true` anywhere: that swallows the failure and turns a real
+        # gate into a no-op, the inverse of the bug this tracking exists for.
+        if tracks_failure:
+            lines.append("set +e")
         lines.append("(")
+        if tracks_failure:
+            lines.append("  set -e")
         workdir = step.working_directory or job.working_directory
         if workdir:
             lines.append(f'  cd {shlex.quote(workdir)}')
@@ -607,10 +623,13 @@ def render_script(
             lines.append(_render_env_export(k, str(v), indent="  "))
         for run_line in body.splitlines():
             lines.append(f"  {run_line}")
-        # `( … ) || flag=1` is exempt from `set -e` (it is the LHS of ||), which
-        # is what lets the script continue. NOT `|| true`: that would swallow
-        # the failure and turn a real gate into a no-op, the inverse of the bug.
-        lines.append(") || _forge_failed=1" if tracks_failure else ")")
+        lines.append(")")
+        if tracks_failure:
+            lines.extend([
+                "_forge_step_status=$?",
+                "set -e",
+                '[ "$_forge_step_status" -eq 0 ] || _forge_failed=1',
+            ])
         if (tracks_failure and mode in (STEP_NORMAL, STEP_OVER_RUN)) or mode == STEP_ON_FAILURE:
             lines.append("fi")
         lines.append("")

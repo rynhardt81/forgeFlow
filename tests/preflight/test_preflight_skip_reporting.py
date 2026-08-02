@@ -534,6 +534,26 @@ class TestConditionalStepEmission(unittest.TestCase):
         rc, _ = self._run(first_fails=True)
         self.assertNotEqual(rc, 0)
 
+    def test_failure_inside_a_step_body_is_not_masked(self):
+        # The step body's FIRST command fails and its LAST succeeds. GHA runs
+        # each `run:` under `bash -e`, so the step dies at the first command.
+        # A compound command on the LHS of `||` has errexit suppressed inside
+        # its body too, so the old `( … ) || _forge_failed=1` shape ran the body
+        # to the end, exited 0, and reported the job green — a false green on a
+        # real CI failure, which is the bug this whole mechanism exists to stop.
+        job = Job(name="demo", file="ci.yml", runs_on="ubuntu-latest", steps=[
+            Step(name="work", run="false\necho STEP1"),
+            Step(name="teardown", run="echo TEARDOWN", if_condition="always()"),
+        ])
+        body = render_script(job, Path("/tmp/x/.github/workflows/ci.yml"))
+        script = self.root / "midstep.sh"
+        script.write_text(body)
+        proc = subprocess.run(["bash", str(script)], capture_output=True, text=True)
+        ran = proc.stdout.split()
+        self.assertNotIn("STEP1", ran)   # errexit killed the body, as on GHA
+        self.assertIn("TEARDOWN", ran)   # always() cleanup still runs
+        self.assertEqual(proc.returncode, 1)
+
     def test_job_without_conditional_steps_keeps_the_simple_shape(self):
         job = Job(name="plain", file="ci.yml", runs_on="ubuntu-latest",
                   steps=[Step(name="a", run="echo A")])
