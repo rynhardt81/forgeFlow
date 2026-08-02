@@ -313,10 +313,26 @@ _DESTRUCTIVE_PATTERNS = [
 _LINE_CONTINUATION = re.compile(r"\\\r?\n\s*")
 
 
+# Quoting and escaping are invisible to the shell but fatal to every pattern
+# above. `docker volume "prune" -f`, `docker vol''ume prune` and `rm -rf "/"`
+# all execute exactly as their bare spellings do, yet none of them match: the
+# quote lands mid-token where `\s+` and `\b` expect a boundary. Stripping quotes
+# and escapes before matching is the one normalization that covers every
+# pattern, for the same reason joining line continuations is.
+#
+# Deliberately not a shell parser. Removing quote characters can only merge
+# tokens, never split them, so this makes the denylist more eager — the safe
+# direction for a refusal. Verified against real workflow bodies
+# (`rm -rf "$GITHUB_WORKSPACE/dist"`, `docker compose -f "$COMPOSE_FILE" down`,
+# `docker run --rm -v "$PWD:/src" …`): no new matches.
+_SHELL_QUOTING = re.compile(r"[\"']|\\(?=[^\r\n])")
+
+
 def destructive_commands(body: str) -> list[str]:
     """Names of destructive commands present in a workflow `run:` body."""
     joined = _LINE_CONTINUATION.sub(" ", body)
-    return [name for pattern, name in _DESTRUCTIVE_PATTERNS if pattern.search(joined)]
+    unquoted = _SHELL_QUOTING.sub("", joined)
+    return [name for pattern, name in _DESTRUCTIVE_PATTERNS if pattern.search(unquoted)]
 
 
 def _sanitize_label(label: str) -> str:

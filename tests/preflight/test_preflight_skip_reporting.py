@@ -994,6 +994,35 @@ class TestDestructiveCommandsAreRefused(unittest.TestCase):
         ):
             self.assertTrue(destructive_commands(run), f"not caught: {run}")
 
+    def test_quoting_cannot_smuggle_a_command_past_the_denylist(self):
+        """Quotes are invisible to the shell but land mid-token for a regex.
+
+        Each of these executes exactly as its bare spelling does, while the
+        quote sits where `\\s+` or `\\b` expects a boundary.
+        """
+        for run in (
+            'docker volume "prune" -f',
+            "docker vol''ume prune -f",
+            'docker "volume" prune',
+            'rm -rf "/"',
+            'docker compose -f x.yml down "-v"',
+            'rm -rf /"*"',
+        ):
+            self.assertTrue(destructive_commands(run), f"not caught: {run}")
+
+    def test_quote_stripping_does_not_flag_ordinary_workflow_bodies(self):
+        """Quoted shell is everywhere in real workflows; it must stay quiet."""
+        for run in (
+            'docker compose -f "$COMPOSE_FILE" down',
+            'rm -rf "$GITHUB_WORKSPACE/dist"',
+            'rm -rf ./node_modules "$HOME/.cache/pip"',
+            'docker run --rm -v "$PWD:/src" alpine sh -c "ls /src"',
+            'docker volume create "cache-$GITHUB_SHA"',
+            'aws s3 rm "s3://bucket/path" --recursive',
+            'sed -i "s|/old/|/new/|g" config.yml',
+        ):
+            self.assertEqual(destructive_commands(run), [], f"false positive: {run}")
+
     def test_global_flag_widening_does_not_over_match(self):
         """`-v` as a bind-mount is not `down -v`, and `volume` alone is fine."""
         for run in (
