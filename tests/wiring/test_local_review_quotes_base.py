@@ -12,6 +12,7 @@ and by then the command has already run.
 
 from __future__ import annotations
 
+import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -64,6 +65,34 @@ def test_quoting_actually_neutralises_the_payload(tmp_path):
             capture_output=True, text=True,
         )
         assert marker.exists() is should_fire
+
+
+def test_no_prose_is_passed_via_inline_body():
+    """Review-bot output must reach `gh` through a file, never a shell string.
+
+    `--body "…<finding>…"` quotes external text straight back into a command.
+    The skill already mandates --body-file for creation (HEREDOC mangles
+    @-mentions); the same mechanism is what makes the text inert.
+    """
+    # Match `--body "` only inside a BACKTICKED command, so the prohibition
+    # sentence that names the form (`--body "…"`) does not shield the line it
+    # sits on. The elided form is the prose spelling; a real payload is not.
+    # Prohibition examples elide their payload ("…"); a command a reader would
+    # copy does not. That is the discriminator — matching on the surrounding
+    # sentence instead lets the warning text shield the very line it sits on.
+    offenders = [
+        m.group(0)[:80]
+        for m in re.finditer(r"`[^`]*--body \"[^`]*`", SKILL.read_text(encoding="utf-8"))
+        if "…" not in m.group(0)
+    ]
+    assert not offenders, "inline --body found: " + "; ".join(offenders)
+
+
+def test_untrusted_values_section_exists():
+    """One cross-cutting rule, so each new command site inherits it."""
+    text = SKILL.read_text(encoding="utf-8")
+    assert "## Untrusted values" in text
+    assert "check-ref-format" in text
 
 
 def test_background_guidance_survived():

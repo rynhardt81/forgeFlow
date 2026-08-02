@@ -53,6 +53,26 @@ If in doubt, cut. A reviewer would rather read a 2-line PR with a clear title th
 
 ---
 
+## Untrusted values (apply to EVERY command this skill runs)
+
+Almost every value this skill handles arrives from somewhere that permits shell metacharacters, and most of them end up inside a command:
+
+| Value | Comes from |
+|-------|-----------|
+| branch name | `git check-ref-format` permits `;`, `$(…)`, backticks, `&&`, `\|` |
+| PR title / commit topic | commit messages on the branch — authored by whoever opened the PR |
+| review findings | the review bot's output — external text, quoted back into a comment |
+| bot mention line | `git config forge.reviewBot`, never validated |
+
+**Never interpolate any of them into a command string.** Two rules cover every case in this skill:
+
+- **Pass values as separate arguments**, never inside a double-quoted string built by concatenation. `gh pr view "$n" --json body` — not `gh pr view $n ...` assembled into one line.
+- **Prose goes through a file.** `--body-file` / `--title` reading from a file, never `--body "…<finding>…"`. This is already mandated for `gh pr create` because HEREDOC bodies mangle @-mentions; the same mechanism is what makes bot output inert, so use it everywhere prose flows into a command.
+
+The reason this is easy to get wrong: every ordinary branch name, title and finding works fine. Nothing in normal use ever exposes it, so the omission ships and sits there until the one input that isn't ordinary arrives. Quote and file-pass unconditionally rather than deciding case by case — you cannot tell by looking.
+
+---
+
 # Create PR Workflow
 
 ## Invocation
@@ -80,7 +100,7 @@ Infer target from branch name and **confirm with the user** before proceeding:
 - `hotfix/*` → latest `release/*` if one exists, else `main`.
 - Everything else (`feature/*`, `feat/*`, `fix/*`, `bugfix/*`, `refactor/*`, `docs/*`, `chore/*`, `release/*`, `dependabot/*`, unmatched) → `main`.
 
-Title: `<type>: <description>` with the type prefix from the branch pattern (`feat`, `fix`, `refactor`, `docs`, `chore`; `hotfix/*` → `fix`; otherwise infer from commits). Extract issue refs from branch name (`feature/123-…` → `#123`) and commit keywords (`fixes|closes|resolves #N`) into the body. If the branch isn't on the remote (`git ls-remote --heads origin <branch>`), push with `-u` first.
+Title: `<type>: <description>` with the type prefix from the branch pattern (`feat`, `fix`, `refactor`, `docs`, `chore`; `hotfix/*` → `fix`; otherwise infer from commits). Extract issue refs from branch name (`feature/123-…` → `#123`) and commit keywords (`fixes|closes|resolves #N`) into the body. If the branch isn't on the remote (`git ls-remote --heads origin "<branch>"` — quoted, see Untrusted values), push with `-u` first.
 
 ## Step 3: Run Checks
 
@@ -203,7 +223,7 @@ Use the size-matched template from [TEMPLATES.md](TEMPLATES.md). Concision rules
 ## Step 5: Create PR
 
 1. Push the branch if needed.
-2. **If `forge.reviewBot` is set:** the PR body MUST end with the configured mention line before the Claude Code attribution — draft or final. Create via `gh pr create --body-file` (HEREDOC bodies sometimes mangle @-mentions), then verify post-create: `gh pr view <N> --json body --jq .body | grep -qF "<bot handle>" || echo MISSING`. If missing, fix immediately via `gh pr edit --body-file`.
+2. **If `forge.reviewBot` is set:** the PR body MUST end with the configured mention line before the Claude Code attribution — draft or final. Create via `gh pr create --body-file` (HEREDOC bodies sometimes mangle @-mentions), then verify post-create: `gh pr view <N> --json body --jq .body | grep -qF -- "$(git config forge.reviewBot)" || echo MISSING`. If missing, fix immediately via `gh pr edit --body-file`.
 3. **If unset:** create via `gh pr create --body-file` with no bot mention.
 4. Present the PR URL + the `/create-pr review <N>` follow-up hint (bot-configured repos: feedback usually lands in 2–10 min).
 
@@ -215,7 +235,7 @@ Post-create monitoring: is this PR (or every open PR) safe to merge?
 2. **Fetch per PR:** `gh pr view <N> --json number,title,headRefName,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,reviews,comments` + `gh api repos/{owner}/{repo}/pulls/<N>/comments` (inline comments).
 3. **Feedback source:** with `forge.reviewBot` set, look for that bot's actor (verify the actual bot login on first run — e.g. `chatgpt-codex-connector[bot]`; it may differ from the mention handle). Without a bot, triage human review comments + failing CI checks from `statusCheckRollup` — same buckets, same loop.
 4. **Triage every finding:** **MUST-FIX** (actual bug, security gap, broken test, regression) / **NICE-TO-HAVE** (style, naming, docstring, small refactor) / **NO-ACTION** (nothing found, or acknowledgment only).
-5. **For each MUST-FIX:** `gh pr checkout <N>` → apply fix → re-run Step 3 checks → **re-run Step 3.7 specialists on the fix diff** (`git diff` of the fix commit — same fan-out, same MUST-FIX push gate) → commit `fix(review): address review feedback on <topic> (PR #<N>)` → push. **Same PR number — never close-and-recreate.** Then comment: `gh pr comment <N> --body "Addressed in <sha>: <one-line per finding>. <bot mention line if configured — the re-mention retriggers the bot's re-scan>"`. For human reviewers, request re-review via `gh pr edit --add-reviewer` or the comment.
+5. **For each MUST-FIX:** `gh pr checkout <N>` → apply fix → re-run Step 3 checks → **re-run Step 3.7 specialists on the fix diff** (`git diff` of the fix commit — same fan-out, same MUST-FIX push gate) → commit `fix(review): address review feedback on <topic> (PR #<N>)` → push. **Same PR number — never close-and-recreate.** Then comment via `gh pr comment <N> --body-file <file>` — write the body (`Addressed in <sha>:`, one line per finding, then the bot mention line if configured, whose re-mention retriggers the re-scan) to a file first. **Never `--body "…"`**: those lines quote review-bot output straight back into a command. For human reviewers, request re-review via `gh pr edit --add-reviewer` or the comment.
 
    **Why re-run 3.7 here:** the fix itself is unreviewed code. A review bot (Codex et al.) re-scans every commit, so it catches regressions the fix introduced — a misleading comment, an orphaned route, a guard that broke a sibling. If the framework's own specialists only run once at the *original* 3.7 and then go silent through the whole review phase, every self-inflicted fix bug is left for the bot to find, which is exactly the round-trip this loop exists to avoid. Re-running 3.7 on the fix diff closes the seam: catch your own regressions with your own tooling before the bot has to. Skip only when the fix is a pure revert or a one-line typo with no runtime surface.
 6. **NICE-TO-HAVE:** apply if cheap, else defer to a follow-up task; note the deferral in a PR comment.
