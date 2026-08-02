@@ -13,6 +13,7 @@ consumer's global Python install. See `venv_manager.py`.
 from __future__ import annotations
 
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -50,6 +51,31 @@ class UninstallResult:
 
 
 def _hooks_dir(repo_root: Path) -> Path:
+    """The ACTIVE hooks directory, resolved through git rather than assumed.
+
+    In a linked worktree `<root>/.git` is a FILE pointing at
+    `<common>/.git/worktrees/<name>`, so `<root>/.git/hooks` never exists. The
+    naive join therefore reports "no hook installed", a V1 hook survives the
+    migration, and its catch-all failure branch blocks the push on the new
+    exit code 5 — the opposite of the non-blocking guarantee. Asking git also
+    honours `core.hooksPath`.
+
+    Falls back to the naive join when git is unavailable or errors, which keeps
+    a plain (non-worktree) checkout working exactly as before.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--git-path", "hooks"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=True,
+        ).stdout.strip()
+        if out:
+            resolved = Path(out)
+            return resolved if resolved.is_absolute() else repo_root / resolved
+    except (OSError, subprocess.SubprocessError):
+        pass
     return repo_root / ".git" / "hooks"
 
 

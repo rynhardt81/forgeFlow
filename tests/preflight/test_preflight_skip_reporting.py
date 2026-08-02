@@ -37,7 +37,7 @@ from preflight import (  # noqa: E402
     format_human,
     run_one_script,
 )
-from hook_installer import SENTINEL, refresh_if_stale  # noqa: E402
+from hook_installer import SENTINEL, _hooks_dir, refresh_if_stale  # noqa: E402
 from script_generator import (  # noqa: E402
     GENERATOR_CONTRACT,
     STEP_ALWAYS,
@@ -320,6 +320,76 @@ class TestMigrationOfExistingInstalls(unittest.TestCase):
     def test_absent_hook_is_not_an_error(self):
         (self.root / ".git" / "hooks").mkdir(parents=True)
         self.assertFalse(refresh_if_stale(self.root))
+
+
+class TestHooksDirResolution(unittest.TestCase):
+    """Where the hook actually lives, asked of git rather than assumed.
+
+    In a linked worktree `<root>/.git` is a FILE pointing at
+    `<common>/.git/worktrees/<name>`, so `<root>/.git/hooks` never exists. The
+    naive join reports "no hook installed", a V1 hook survives the migration,
+    and its catch-all failure branch blocks the push on the new exit code 5 —
+    the opposite of the non-blocking guarantee.
+    """
+
+    def setUp(self):
+        self._tmp = tempfile.mkdtemp()
+        self.root = Path(self._tmp)
+        self.addCleanup(shutil.rmtree, self._tmp, True)
+
+    def _git(self, *args, cwd=None):
+        subprocess.run(["git", *args], cwd=cwd or self.root, check=True,
+                       capture_output=True, text=True)
+
+    def _repo(self) -> Path:
+        main = self.root / "main"
+        main.mkdir()
+        self._git("init", "-q", cwd=main)
+        self._git("config", "user.email", "t@example.com", cwd=main)
+        self._git("config", "user.name", "t", cwd=main)
+        (main / "a.txt").write_text("x")
+        self._git("add", "-A", cwd=main)
+        self._git("commit", "-qm", "init", cwd=main)
+        return main
+
+    def test_plain_checkout_is_unchanged(self):
+        main = self._repo()
+        self.assertEqual(_hooks_dir(main), main / ".git" / "hooks")
+
+    def test_linked_worktree_resolves_to_the_shared_hooks_dir(self):
+        main = self._repo()
+        linked = self.root / "linked"
+        self._git("worktree", "add", "-q", str(linked), "-b", "feature", cwd=main)
+        # The premise: the naive join finds nothing here.
+        self.assertFalse((linked / ".git").is_dir())
+        # resolve() both sides: on macOS the temp dir is /var, a symlink to
+        # /private/var, and git answers with the resolved form.
+        self.assertEqual(
+            _hooks_dir(linked).resolve(), (main / ".git" / "hooks").resolve()
+        )
+
+    def test_stale_hook_in_a_worktree_is_actually_refreshed(self):
+        # The consequence that matters: without resolution the V1 hook survives.
+        main = self._repo()
+        linked = self.root / "linked"
+        self._git("worktree", "add", "-q", str(linked), "-b", "feature", cwd=main)
+        hook = main / ".git" / "hooks" / "pre-push"
+        hook.parent.mkdir(parents=True, exist_ok=True)
+        hook.write_text("#!/bin/sh\n# Sentinel: FORGE_PREFLIGHT_HOOK_V1\nexit 0\n")
+        self.assertTrue(refresh_if_stale(linked))
+        self.assertIn(SENTINEL, hook.read_text())
+
+    def test_core_hookspath_is_honoured(self):
+        main = self._repo()
+        custom = main / "myhooks"
+        custom.mkdir()
+        self._git("config", "core.hooksPath", "myhooks", cwd=main)
+        self.assertEqual(_hooks_dir(main).resolve(), custom.resolve())
+
+    def test_non_git_directory_falls_back_to_the_naive_join(self):
+        plain = self.root / "not-a-repo"
+        plain.mkdir()
+        self.assertEqual(_hooks_dir(plain), plain / ".git" / "hooks")
 
 
 if __name__ == "__main__":
