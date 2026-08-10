@@ -314,7 +314,15 @@ def main():
     if memory_index.exists():
         try:
             index_content = memory_index.read_text(encoding='utf-8')
-            if index_content.strip() and '_No entries yet._' not in index_content:
+            # A pristine skeleton (either generation of the template) is not
+            # content — injecting it just looks like a working catalog.
+            skeleton = (
+                '_No entries yet._' in index_content
+                or ('<!-- /remember appends' in index_content
+                    and not any(line.startswith('- ')
+                                for line in index_content.splitlines()))
+            )
+            if index_content.strip() and not skeleton:
                 # Truncate to stay within reasonable token budget
                 max_chars = 20000
                 if len(index_content) > max_chars:
@@ -326,6 +334,29 @@ def main():
                 write_env_var(env_file, 'FORGE_MEMORY_LOADED', 'true')
         except (OSError, IOError):
             pass
+
+    # An entry missing from the index is invisible to future sessions, and both
+    # failure modes (index absent, index still a skeleton) otherwise look exactly
+    # like a healthy install. Count what exists and say so.
+    memory_dir = project_root / 'docs' / 'project-memory'
+
+    def count_lines(name, prefix):
+        try:
+            text = (memory_dir / name).read_text(encoding='utf-8')
+        except (OSError, IOError):
+            return 0
+        return sum(1 for line in text.splitlines() if line.startswith(prefix))
+
+    entries = sum(count_lines(f, '## ')
+                  for f in ('bugs.md', 'decisions.md', 'patterns.md'))
+    if entries and not count_lines('index.md', '- '):
+        context.append('')
+        context.append(
+            f'⚠ project memory: {entries} entries exist in '
+            'bugs/decisions/patterns but index.md is missing or empty — none of '
+            'them are loaded. Run /remember to rebuild the index.'
+        )
+        write_env_var(env_file, 'FORGE_MEMORY_LOADED', 'false')
 
     # Inject recent daily log for latest conversation context
     daily_dir = project_root / 'daily'

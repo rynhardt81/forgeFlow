@@ -259,7 +259,7 @@ section "7. Project data (project root)"
 # docs/project-memory/
 if [ -d "$PROJECT_DIR/docs/project-memory" ]; then
     ok "docs/project-memory/ at project root"
-    for f in bugs.md decisions.md key-facts.md patterns.md; do
+    for f in index.md bugs.md decisions.md key-facts.md patterns.md; do
         [ -f "$PROJECT_DIR/docs/project-memory/$f" ] || warn "docs/project-memory/$f missing (template)"
     done
 else

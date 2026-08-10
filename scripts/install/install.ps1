@@ -494,6 +494,38 @@ function Install-SessionDirs {
     Say-Ok "Session directories ready"
 }
 
+# index.md is the only project-memory file the SessionStart hook injects as the
+# knowledge catalog — without it the whole feature is a silent no-op. Guarded on
+# absence, so this is safe to call on every path including "keep existing".
+function Ensure-MemoryIndex {
+    param([string]$Target, [string]$Src)
+    $indexPath = Join-Path $Target "index.md"
+    if (Test-Path $indexPath) { return }
+    $srcIndex = Join-Path $Src "index.md"
+    if (Test-Path $srcIndex) {
+        Copy-Item -Path $srcIndex -Destination $indexPath -Force
+    } else {
+        $indexContent = @"
+# Project Memory - Index
+
+> Master catalog of this project's committed knowledge. Loaded at every SessionStart. One line per notable entry - content lives in the files below.
+
+| File | Holds | Load |
+|------|-------|------|
+| [key-facts.md](key-facts.md) | Always-relevant facts (URLs, accounts, magic values) | Always (SessionStart) |
+| [decisions.md](decisions.md) | Architectural + product decisions with their why | On-demand |
+| [bugs.md](bugs.md) | Root-caused bugs worth remembering | On-demand |
+| [patterns.md](patterns.md) | Codebase patterns and conventions | On-demand |
+
+## Recent entries
+
+<!-- /remember appends a one-line pointer here per capture: - YYYY-MM-DD [type] title -->
+"@
+        Set-Content -Path $indexPath -Value $indexContent
+    }
+    Say-Ok "Created docs/project-memory/index.md"
+}
+
 function Install-ProjectMemory {
     Say-Step "Installing docs/project-memory/"
     $target = Join-Path $script:PROJECT_DIR "docs\project-memory"
@@ -502,7 +534,13 @@ function Install-ProjectMemory {
     if (Test-Path $target) {
         Say-Warn "docs/project-memory/ already exists"
         $ow = Read-Host "Overwrite template files? [y/N]"
-        if ($ow -notmatch '^[Yy]$') { Say-Ok "Keeping existing project memory files"; return }
+        if ($ow -notmatch '^[Yy]$') {
+            Say-Ok "Keeping existing project memory files"
+            # Repair the catalog even while keeping everything else — a project
+            # missing it can never be healed by any number of refreshes.
+            Ensure-MemoryIndex $target $src
+            return
+        }
         Backup-File $target
     }
 
@@ -523,30 +561,7 @@ function Install-ProjectMemory {
         Copy-Item -Path (Join-Path $src "*") -Destination $resetDir -Recurse -Force
     }
 
-    $indexPath = Join-Path $target "index.md"
-    if (-not (Test-Path $indexPath)) {
-        $indexContent = @"
-# Project Memory Index
-
-> Auto-generated catalog of all project knowledge.
-> This file is injected at session start for instant context.
-
-## Summary
-
-| Category | Count | Last Updated |
-|----------|-------|--------------|
-| Bugs | 0 | - |
-| Decisions | 0 | - |
-| Patterns | 0 | - |
-| Key Facts | 0 | - |
-
-## Recent Entries
-
-_No entries yet._
-"@
-        Set-Content -Path $indexPath -Value $indexContent
-        Say-Ok "Created docs/project-memory/index.md"
-    }
+    Ensure-MemoryIndex $target $src
 }
 
 function Install-Settings {
@@ -1210,13 +1225,15 @@ function Invoke-Full {
 }
 
 function Invoke-Refresh {
-    Set-Phases 9
+    Set-Phases 10
     Write-Section "Running: Refresh framework files"
     Install-FrameworkRefresh
     Write-Section "Removing framework-retired paths"
     Install-V3CleanupCutPaths
     Write-Section "Session directories"
     Install-SessionDirs
+    Write-Section "Project memory"
+    Install-ProjectMemory
     Write-Section "Wiring settings.json"
     Install-Settings
     Write-Section "Memory schema doc"
@@ -1232,7 +1249,7 @@ function Invoke-Refresh {
 }
 
 function Invoke-RefreshV3 {
-    Set-Phases 15
+    Set-Phases 16
     Write-Section "Running: Forge Flow v3 upgrade (refresh-v3)"
     if ($script:HAS_CLAUDE -eq 0) {
         Say-Warn ".claude/ not present — refresh-v3 expects an existing install."
@@ -1252,6 +1269,8 @@ function Invoke-RefreshV3 {
     Install-V3SeedSpecialists
     Write-Section "Session directories"
     Install-SessionDirs
+    Write-Section "Project memory"
+    Install-ProjectMemory
     Write-Section "Wiring settings.json"
     Install-Settings
     Write-Section "Memory schema doc"

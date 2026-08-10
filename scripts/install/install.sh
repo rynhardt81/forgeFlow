@@ -663,6 +663,37 @@ install_session_dirs() {
     ok "Session directories ready"
 }
 
+# index.md is the only project-memory file the SessionStart hook injects as the
+# knowledge catalog — without it the whole feature is a silent no-op. Guarded by
+# [ ! -f ], so this is safe to call on every path including "keep existing".
+ensure_memory_index() {
+    local target="$1" src="$2"
+    if [ -f "$target/index.md" ]; then
+        return 0
+    fi
+    if [ -f "$src/index.md" ]; then
+        cp "$src/index.md" "$target/index.md"
+    else
+        cat > "$target/index.md" <<'INDEX_EOF'
+# Project Memory — Index
+
+> Master catalog of this project's committed knowledge. Loaded at every SessionStart. One line per notable entry — content lives in the files below.
+
+| File | Holds | Load |
+|------|-------|------|
+| [key-facts.md](key-facts.md) | Always-relevant facts (URLs, accounts, magic values) | Always (SessionStart) |
+| [decisions.md](decisions.md) | Architectural + product decisions with their why | On-demand |
+| [bugs.md](bugs.md) | Root-caused bugs worth remembering | On-demand |
+| [patterns.md](patterns.md) | Codebase patterns and conventions | On-demand |
+
+## Recent entries
+
+<!-- /remember appends a one-line pointer here per capture: - YYYY-MM-DD [type] title -->
+INDEX_EOF
+    fi
+    ok "Created docs/project-memory/index.md"
+}
+
 install_project_memory() {
     step "Installing docs/project-memory/"
     local target="$PROJECT_DIR/docs/project-memory"
@@ -670,16 +701,24 @@ install_project_memory() {
 
     if [ -d "$target" ]; then
         warn "docs/project-memory/ already exists"
+        local keep=0
         # Non-interactive runs (--yes, or no tty) keep existing memory — the
         # safe default; an EOF from `read` under `set -e` used to kill the
         # whole install here, silently skipping every later step.
         if [ "${AUTO_YES:-0}" = "1" ] || [ ! -t 0 ]; then
             ok "Keeping existing project memory files (non-interactive)"
-            return
+            keep=1
+        else
+            read -r -p "Overwrite template files? [y/N] " overwrite
+            if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
+                ok "Keeping existing project memory files"
+                keep=1
+            fi
         fi
-        read -r -p "Overwrite template files? [y/N] " overwrite
-        if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
-            ok "Keeping existing project memory files"
+        if [ "$keep" = "1" ]; then
+            # Repair the catalog even while keeping everything else — a project
+            # missing it can never be healed by any number of refreshes.
+            ensure_memory_index "$target" "$src"
             return
         fi
         backup_file "$target"
@@ -702,29 +741,7 @@ install_project_memory() {
         cp -r "$src/." "$reset_dir/"
     fi
 
-    # Index file (skeleton)
-    if [ ! -f "$target/index.md" ]; then
-        cat > "$target/index.md" <<'INDEX_EOF'
-# Project Memory Index
-
-> Auto-generated catalog of all project knowledge.
-> This file is injected at session start for instant context.
-
-## Summary
-
-| Category | Count | Last Updated |
-|----------|-------|--------------|
-| Bugs | 0 | — |
-| Decisions | 0 | — |
-| Patterns | 0 | — |
-| Key Facts | 0 | — |
-
-## Recent Entries
-
-_No entries yet._
-INDEX_EOF
-        ok "Created docs/project-memory/index.md"
-    fi
+    ensure_memory_index "$target" "$src"
 }
 
 install_settings() {
@@ -1798,13 +1815,15 @@ run_full_install() {
 }
 
 run_refresh_framework() {
-    set_phases 12
+    set_phases 13
     section "Running: Refresh framework files"
     install_framework_refresh
     section "Removing framework-retired paths"
     install_v3_cleanup_cut_paths
     section "Session directories"
     install_session_dirs
+    section "Project memory"
+    install_project_memory
     section "Wiring settings.json"
     install_settings
     section "MCP servers"
@@ -1842,7 +1861,7 @@ install_v3_preflight_hook() {
 }
 
 run_refresh_v3() {
-    set_phases 17
+    set_phases 18
     section "Running: Forge Flow v3 upgrade (refresh-v3)"
     if [ "$HAS_CLAUDE" = "0" ]; then
         warn ".claude/ not present — refresh-v3 expects an existing install."
@@ -1862,6 +1881,8 @@ run_refresh_v3() {
     install_v3_seed_specialists
     section "Session directories"
     install_session_dirs
+    section "Project memory"
+    install_project_memory
     section "Wiring settings.json"
     install_settings
     section "MCP servers"
