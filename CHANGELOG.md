@@ -242,6 +242,8 @@ Running `install.sh --mode refresh-v3` in any Forge-installed project picks up t
 
 **Project-level overrides:** if a project ships its own override of any patched skill (e.g. a project-specific `/new-feature` at `.claude/skills/new-feature/SKILL.md` that supersedes the framework version), the override is preserved — `install.sh` only replaces framework-shipped skill files, not project-specific overrides. Whether the override carries the `/create-pr` handoff is the project's call.
 
+> **Correction (2026-08-29):** the paragraph above is wrong and was wrong when written. A consumer skill directory whose name collides with a framework skill **is** overwritten by refresh — `install.sh` warns exactly this at the collision check. Only `skills/<name>.local/` and `skills/<name>/SKILL.local.md` survive. Left in place rather than rewritten, since the changelog records what was claimed at the time.
+
 ### Not changed
 
 - `/create-pr` itself — only callers were updated.

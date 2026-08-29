@@ -38,6 +38,27 @@ When you fix a method, before declaring done:
 
 Caller-sweep and sibling-sweep are orthogonal and both required: callers find who reaches the code, siblings find who shares the mistake.
 
+## One rule, two lists: the lists drift
+
+Caller-sweep and sibling-sweep both trace *code*. Neither catches the third shape: **one rule encoded as a list in more than one place.** The rule is stated correctly at every site; one list is simply shorter than the other, and the gap is invisible because both sites look right in isolation.
+
+It fails silently by construction — the short list does not error, it just omits. Nothing tests the item that isn't there.
+
+Three instances, one day, all in this framework:
+
+| Rule | Long list | Short list | Cost |
+|------|-----------|-----------|------|
+| "merge the framework's permissions" | `allow`, `ask`, `deny` shipped | merge named `allow` and `deny` | `ask` reached no consumer — "destructive needs approval" enforced by nothing in permissive modes |
+| "never delete user-owned files" | rsync excluded 8 user-owned paths | cut-paths denylist named 4 roots | a manifest entry could delete what refresh preserved |
+| "the framework does not own this file" | rsync excluded the preflight shim | the generator copied over it unconditionally | two projects lost working shims; each then failed on `pip: command not found` |
+
+Before declaring a rule applied:
+
+- **Find every list that encodes it.** Grep the rule's *subject*, not the code you changed — `permissions`, `exclude`, `protected`, the filename. Two lists that must agree are a defect waiting for the next addition.
+- **Ask what happens when someone adds a fourth item.** If the answer is "they must remember to add it in two places," the design is the bug. Iterate the source of truth instead of enumerating from it — a new item should ship *by existing*.
+- **Check for a second writer.** An exclude list only binds the writer it belongs to. The preflight shim was correctly excluded from the rsync and destroyed anyway, because a generator wrote to the same path and had never heard of the exclude.
+- **Distrust a comment that justifies an exception.** "out_dir is generated and gitignored" was written to explain why the overwrite was safe. It was false on both counts, and it stopped anyone from re-examining the line for a year. Verify the premise, not the conclusion.
+
 ## The check, restated
 
-Ground-truth the claim → read the real diff → grep every caller → sweep every sibling → run the sibling paths → *then* declare. Skip any step and "done" is a guess wearing a verdict.
+Ground-truth the claim → read the real diff → grep every caller → sweep every sibling → find every list that encodes the same rule → run the sibling paths → *then* declare. Skip any step and "done" is a guess wearing a verdict.
