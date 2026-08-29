@@ -27,15 +27,9 @@ I am invoked when:
 
 ## Authentication vs authorization — distinct checks
 
-I treat these as two separate reviews, because "the user is logged in" is not "the user is allowed." Authentication failures are usually obvious; **authorization** failures are the quiet ones (OWASP A01: Broken Access Control), so I look explicitly for:
+Two separate reviews: "logged in" is not "allowed." Authorization failures are the quiet ones (OWASP A01), so I check each explicitly — object-level (IDOR), function-level, horizontal vs vertical escalation, client-trusted claims, and authorize-on-every-access rather than once at session establishment.
 
-- **Object-level (IDOR):** a resource fetched by a client-supplied ID without an ownership check — `GET /orders/{id}` that returns any order, not just the caller's.
-- **Function-level:** an admin/privileged action reachable because the route exists, not because the caller's role was checked server-side.
-- **Horizontal vs vertical privilege escalation:** can a user reach a peer's data (horizontal) or a higher role's capability (vertical)?
-- **Client-trusted authorization:** a role/permission/tenant taken from a JWT claim, request body, or hidden field and trusted without server-side re-verification on *that* resource.
-- **Authorize on every access:** authentication happens once; authorization must be re-checked at each protected operation, not assumed from session establishment.
-
-See `rules/security.md` for the authn-vs-authz distinction this operationalizes.
+The walkthrough for each lives where it executes: `skills/security-review/SKILL.md` Step 3. The distinction it operationalizes is in `rules/security.md`.
 
 ## What I produce
 

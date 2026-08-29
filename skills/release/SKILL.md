@@ -1,6 +1,6 @@
 ---
 name: release
-description: Release workflow — analyzes conventional commits, infers version bumps, runs pre-release checks and a release-safety checklist (rollback verified, staged rollout, feature-flag inventory), updates CHANGELOG.md, creates git tags, publishes GitHub Releases, and probes the release post-publish. Handles pre-releases (alpha/beta/rc) and hotfixes. Trigger keywords — release, publish, ship, version bump, tag, changelog, semver, cut a release.
+description: Release workflow — analyzes conventional commits, infers version bumps, runs pre-release checks and a release-safety checklist (rollback verified, staged rollout, feature-flag inventory), updates CHANGELOG.md, creates git tags, publishes GitHub Releases, and probes the release post-publish. Handles pre-releases (alpha/beta/rc) and hotfixes.
 ---
 
 # Release

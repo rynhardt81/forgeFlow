@@ -1,6 +1,6 @@
 ---
 name: audit-code-map
-description: Generate or refresh `docs/code-map.md` — a structural map of the project's classes, top-level functions, and import graph across Python, TypeScript/JavaScript, Go, and Rust. Use when the user wants a code map, structure overview, dependency graph, module inventory, "show me how everything is wired", DRY hotspot scout, or a refreshable architecture summary. Trigger keywords — code map, structure map, module map, dependency graph, import graph, where is X defined, how are these wired, audit code structure, scan codebase, regenerate code map.
+description: Generate or refresh `docs/code-map.md` — a structural map of the project's classes, top-level functions, and import graph across Python, TypeScript/JavaScript, Go, and Rust. Use when the user wants a code map, structure overview, dependency graph, module inventory, "show me how everything is wired", DRY hotspot scout, or a refreshable architecture summary.
 ---
 
 ## Quick Scan

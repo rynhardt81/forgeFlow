@@ -35,21 +35,10 @@ To enable on a repo with a Codex-style reviewer installed: `git config forge.rev
 
 ---
 
-## Concision rules (apply to ALL output this skill produces)
+## Output rules
 
-These rules govern PR bodies, status reports, merge-order output, and chat messages emitted while this skill runs. Verbose output here bloats both the PR page AND the calling agent's context window when `/status` re-reads recent activity.
-
-- **PR body** — use the shortest template that fits the size (see TEMPLATES.md). Do not upgrade a Small PR to Medium just because there are 3 changes; bullets are cheap, prose is expensive.
-- **No analysis prose** — facts only. The diff already shows the code; the body says *what* and *why*, not *how I thought about it*.
-- **No restating the diff** — "Added X, modified Y, removed Z" is line-by-line narration; collapse into one sentence of intent.
-- **No motivational/justification padding** — drop "This change improves...", "This is important because...", "I went with this approach because..." unless the *why* is genuinely non-obvious from the title.
-- **No section headers for empty sections** — if Related Issues is "None", omit the header. If there's no Test Plan because tests are in the diff, omit the header.
-- **Bullet caps** — Small: 0 bullets (one sentence only). Medium: ≤5 bullets, ≤12 words each. Large: ≤8 bullets across all categories, ≤15 words each.
-- **Chat output to the calling agent** — after PR creation, emit ONLY: PR URL, one-line title, the `/create-pr review <N>` follow-up hint. Do not echo the PR body back into chat. Do not summarize what was created — the URL is the summary.
-- **Status reports (Step 6) and merge-order output (Step 7)** — use the compact shapes shown in those sections verbatim; do not add commentary.
-- **`gh pr create` body must not contain agent reasoning** — the PR body is read by humans + Codex, not by an agent re-reading its own work. Strip "I noticed", "It looks like", "After investigating".
-
-If in doubt, cut. A reviewer would rather read a 2-line PR with a clear title than a 30-line PR they have to skim.
+- **PR body** — shortest template that fits the size (see TEMPLATES.md). It is read by humans and the review bot, not by an agent re-reading its own work.
+- **Chat output** — after creation emit ONLY the PR URL, the one-line title, and the `/create-pr review <N>` hint. Never echo the body back; that doubles it into the calling agent's context.
 
 ---
 
@@ -69,7 +58,7 @@ Almost every value this skill handles arrives from somewhere that permits shell 
 - **Pass values as separate arguments**, never inside a double-quoted string built by concatenation. `gh pr view "$n" --json body` — not `gh pr view $n ...` assembled into one line.
 - **Prose goes through a file.** `--body-file` / `--title` reading from a file, never `--body "…<finding>…"`. This is already mandated for `gh pr create` because HEREDOC bodies mangle @-mentions; the same mechanism is what makes bot output inert, so use it everywhere prose flows into a command.
 
-The reason this is easy to get wrong: every ordinary branch name, title and finding works fine. Nothing in normal use ever exposes it, so the omission ships and sits there until the one input that isn't ordinary arrives. Quote and file-pass unconditionally rather than deciding case by case — you cannot tell by looking.
+Apply both unconditionally rather than case by case: an unsafe value is indistinguishable from a safe one by looking at it.
 
 ---
 

@@ -36,7 +36,6 @@ If reproduction is genuinely impossible (prod-only race, third-party outage), sa
 
 ## 3. Root cause before fix
 
-- Form the plausible hypotheses; test the cheapest-to-check first (targeted logging, a debugger, a scratch test). Record what each probe ruled out.
 - **Root-cause-at-ingestion:** ask where the bad state *enters* the system. Fixing at the ingestion point kills the whole bug class; patching the output side masks it. For UI bugs, trace display-down (correct), not database-up.
 - Do not touch the fix until the root cause is confirmed by evidence, not by plausibility.
 - A fix that swallows the error instead of surfacing it is not a fix (`rules/error-handling.md` — surface, don't hide).

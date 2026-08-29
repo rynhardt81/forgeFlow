@@ -1,6 +1,6 @@
 ---
 name: audit-rules
-description: Audit CLAUDE.md and .claude/rules/*.md for stale, contradictory, or over-prompting rules. Surfaces rules untouched for 6+ months and rules that constrain rather than help on current model capability. Outputs a review report — never modifies governance files directly. Trigger keywords — audit rules, audit governance, review CLAUDE.md, prune rules, stale rules, over-prompting check, BitterPill, BPE.
+description: Audit CLAUDE.md and .claude/rules/*.md for stale, contradictory, or over-prompting rules. Surfaces rules untouched for 6+ months and rules that constrain rather than help on current model capability. Outputs a review report — never modifies governance files directly.md, prune rules, stale rules, over-prompting check, BitterPill, BPE.
 allowed-tools: Read, Glob, Grep, Bash, Write, TodoWrite
 ---
 

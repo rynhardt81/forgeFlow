@@ -1,6 +1,6 @@
 ---
 name: frontend-design
-description: Design direction for building distinctive, intentional UI — aesthetic choices, typography, color, motion — instead of templated defaults. Trigger phrases — design this page, make it look good, UI polish, visual design, looks generic. NOT FOR component data/state logic, or for picking from the design catalog (use /ui-ux-pro-max for searchable styles/palettes/font pairings).
+description: Design direction for building distinctive, intentional UI — aesthetic choices, typography, color, motion — instead of templated defaults. NOT FOR component data/state logic, or for picking from the design catalog (use /ui-ux-pro-max for searchable styles/palettes/font pairings).
 ---
 
 # Frontend Design

@@ -1,6 +1,6 @@
 ---
 name: vet-idea
-description: Vet an idea, decision, or plan BEFORE building it. Runs a single model through five fixed adversarial advisor roles, a peer-review pass, and a chairman synthesis that emits a halt-capable GO / NO-GO / RECONSIDER verdict. Advisory and non-mutating — outputs a report, never writes task state. Trigger keywords — vet idea, should I build this, is this worth it, go no-go, council, advisors, worth the effort, before I start.
+description: Vet an idea, decision, or plan BEFORE building it. Runs a single model through five fixed adversarial advisor roles, a peer-review pass, and a chairman synthesis that emits a halt-capable GO / NO-GO / RECONSIDER verdict. Advisory and non-mutating — outputs a report, never writes task state.
 allowed-tools: Read, Glob, Grep, Bash, Write, TodoWrite
 ---
 

@@ -2,6 +2,18 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
+## [Unreleased]
+
+### Changed
+
+- **Algorithm doctrine v1.1.0 → v1.2.0 history relocated here** from `ALGORITHM/v1.2.0.md`. A doctrine file read at the start of every Algorithm task was carrying ~450 tokens of changelog. Its one operative clause (the finished-work-report carve-out) moved into the Doctrine section. The removals it recorded, for the record:
+  - Removed all output ceremony: emoji phase banners, the mandatory final summary format, fixed-word-count scaffolds. Telemetry showed they aggravated the failure modes the doctrine exists to prevent (premature completion claims, truncated answers). The *checks* survive as prose; the formats do not.
+  - Removed ISC count floors and thinking floors — criterion count is judgment, not a quota.
+  - Removed time budgets from effort tiers — tiers describe scope, not stopwatch targets.
+  - Escalation default inverted: Algorithm mode fires on explicit signals, not "anything else".
+  - Folded in phased hardening (formerly `rules/phased-hardening.md`) under Anti-criteria.
+  - Unchanged: phase order, reproduce-first, inline verification mandate, live-probe rule, re-read gate, Background Agent Checkpoint Discipline, plan-means-stop, Tier-2 authority.
+
 ## [v4.2.0] — 2026-08-02
 
 > Minor release, dominated by the preflight CI-mirror hardening. Eight rounds of adversarial review found the local mirror could transcribe destructive commands, report green on a failed step, and skip whole jobs it should have run. Also adds a pre-push review gate that moves the review-fix loop off GitHub Actions, and `/setup-review-bot` to configure it.

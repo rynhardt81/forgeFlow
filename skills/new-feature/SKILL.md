@@ -1,6 +1,6 @@
 ---
 name: new-feature
-description: Orchestrates full feature development workflow from discovery through commit. Infers scope (small/medium/large) from the feature description and adapts phases accordingly. Auto-invokes ISA at E3+ and hands off to /create-pr for shipping (its Step 3.7 pre-flight reviews the diff before push). Use when the user wants to add any new feature, capability, or functionality — regardless of size. Triggers on phrases like "add feature", "new feature", "implement X", "build X", "create X functionality". NOT FOR draining a forge-registry epic (use /run-epic).
+description: Orchestrates full feature development workflow from discovery through commit. Infers scope (small/medium/large) from the feature description and adapts phases accordingly. Auto-invokes ISA at E3+ and hands off to /create-pr for shipping (its Step 3.7 pre-flight reviews the diff before push). Use when the user wants to add any new feature, capability, or functionality — regardless of size. NOT FOR draining a forge-registry epic (use /run-epic).
 ---
 
 ## Quick Scan
@@ -36,13 +36,8 @@ If the MCP server isn't registered, run `/audit-code-map --emit-json` and follow
 
 ## Step 1: Analyze and Propose
 
-1. Analyze the feature description
-2. Infer scope — **small**: one domain, 1-3 files, no schema/API surface change; **medium**: crosses one boundary (UI↔API or API↔data) or adds API surface; **large**: crosses two or more boundaries, touches schema, or changes auth/money paths. When in doubt, pick the larger scope.
-3. Present to user:
-   - "**Feature:** [restate clearly]"
-   - "**Inferred scope:** [small/medium/large]"
-   - "**Recommended phases:** [list]"
-   - "Proceed with this plan?"
+1. Infer scope — **small**: one domain, 1-3 files, no schema/API surface change; **medium**: crosses one boundary (UI↔API or API↔data) or adds API surface; **large**: crosses two or more boundaries, touches schema, or changes auth/money paths. When in doubt, pick the larger scope.
+2. Present the feature, the inferred scope, and the recommended phases; get approval before building.
 
 ## Step 2: Execute Phases
 
@@ -92,7 +87,6 @@ If the user has explicitly asked for no PR (rare; usually a local-only experimen
 
 ## Key Rules
 
-- Always use TodoWrite to track progress through phases
 - Always invoke skills via Skill tool, not by memory
 - Always check for project-level agents before falling back to built-in
 - Never skip verification phase

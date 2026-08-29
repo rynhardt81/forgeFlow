@@ -1,6 +1,6 @@
 ---
 name: build
-description: Production build and containerization guidance. Detects the project's stack and points at the right build path — native platform tooling first (Expo/EAS, Vercel, plain bundlers), a Dockerfile only when the deployment target actually needs one. Trigger phrases — production build, containerize, dockerize, build for deploy. NOT FOR CI mirroring (use /preflight-ci) or releasing versions (use /release).
+description: Production build and containerization guidance. Detects the project's stack and points at the right build path — native platform tooling first (Expo/EAS, Vercel, plain bundlers), a Dockerfile only when the deployment target actually needs one. NOT FOR CI mirroring (use /preflight-ci) or releasing versions (use /release).
 ---
 
 # Build

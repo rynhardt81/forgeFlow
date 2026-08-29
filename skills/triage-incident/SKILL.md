@@ -1,6 +1,6 @@
 ---
 name: triage-incident
-description: Production incident triage — from "something is broken for users" to fixed, verified, and learned-from. Pulls the error signal (Sentry/logs/user report), reproduces before touching code, routes the fix through /fix-bug's prod fast path, and closes with a postmortem entry. Trigger phrases — production is down, users are reporting, crash spike, incident, Sentry alert, it broke in prod. NOT FOR bugs found in development (use /fix-bug directly) or CI failures (use /diagnose-ci).
+description: Production incident triage — from "something is broken for users" to fixed, verified, and learned-from. Pulls the error signal (Sentry/logs/user report), reproduces before touching code, routes the fix through /fix-bug's prod fast path, and closes with a postmortem entry. NOT FOR bugs found in development (use /fix-bug directly) or CI failures (use /diagnose-ci).
 ---
 
 ## Quick Scan

@@ -1,6 +1,6 @@
 ---
 name: remember
-description: Save and retrieve project knowledge that persists across sessions — bug patterns, technical decisions, key facts, and code patterns. Use whenever the user wants to record a lesson learned, save a debugging insight, document a technical choice, note a convention, or search past memories. Triggers on "remember this", "save this for later", "note that", "don't forget", "have we seen this before".
+description: Save and retrieve project knowledge that persists across sessions — bug patterns, technical decisions, key facts, and code patterns. Use whenever the user wants to record a lesson learned, save a debugging insight, document a technical choice, note a convention, or search past memories.
 ---
 
 # Remember

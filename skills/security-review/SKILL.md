@@ -1,6 +1,6 @@
 ---
 name: security-review
-description: Portable security review for a feature, endpoint, or change before it ships. Orchestrates the existing OWASP review (@security-boss) and secrets scan (security_secrets validator), then adds the pass they miss — an explicit business-logic-flaw walkthrough (IDOR, race/TOCTOU, state-machine bypass, privilege escalation, price/quantity tampering). Advisory and non-mutating — produces a findings report; real findings are filed as tasks. Trigger keywords — security review, review for vulnerabilities, business logic flaws, IDOR, before shipping check security, threat review.
+description: Portable security review for a feature, endpoint, or change before it ships. Orchestrates the existing OWASP review (@security-boss) and secrets scan (security_secrets validator), then adds the pass they miss — an explicit business-logic-flaw walkthrough (IDOR, race/TOCTOU, state-machine bypass, privilege escalation, price/quantity tampering). Advisory and non-mutating — produces a findings report; real findings are filed as tasks.
 allowed-tools: Read, Glob, Grep, Bash, Write, TodoWrite, Task
 ---
 
