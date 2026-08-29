@@ -771,18 +771,20 @@ fw_hooks = framework.get("hooks", {})
 pr_hooks = project.setdefault("hooks", {})
 for event, entries in fw_hooks.items():
     pr_hooks[event] = entries   # framework's wiring wins per-event
-fw_allow = framework.get("permissions", {}).get("allow", [])
-pr_allow = project.setdefault("permissions", {}).setdefault("allow", [])
-for p in fw_allow:
-    if p not in pr_allow:
-        pr_allow.append(p)
-# Same union for deny — without this, deny rules added to the framework
-# template never reach existing consumers via refresh (only fresh installs).
-fw_deny = framework.get("permissions", {}).get("deny", [])
-pr_deny = project["permissions"].setdefault("deny", [])
-for p in fw_deny:
-    if p not in pr_deny:
-        pr_deny.append(p)
+# Union every permission tier, not an enumerated pair. The earlier version
+# listed allow and deny by name and silently dropped "ask" when it was added
+# to the framework template — a rule applied at one site and missed at its
+# sibling. Iterating the framework's own tiers means a new tier ships by
+# existing, with no second site to remember.
+fw_perms = framework.get("permissions", {})
+pr_perms = project.setdefault("permissions", {})
+for tier, entries in fw_perms.items():
+    if not isinstance(entries, list):
+        continue          # non-list keys (notes, scalars) are not merged
+    target = pr_perms.setdefault(tier, [])
+    for p in entries:
+        if p not in target:
+            target.append(p)
 Path(sys.argv[2]).write_text(json.dumps(project, indent=2) + "\n")
 MERGE_EOF
         ok "Merged hooks & permissions into .claude/settings.json"
