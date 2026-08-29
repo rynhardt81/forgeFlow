@@ -87,6 +87,7 @@ States: `pending → ready → in_progress → pr_pending → completed`. Never 
 ## Operational rules
 
 - The forge CLI is the only sanctioned mutation path for task state.
+- **Every subagent dispatch routes by effort tier** — `skills/_shared/model-routing.md` is binding on all of them, not just `/run-epic --parallel`. Name the tier and model at dispatch (E1 → `haiku`, E2 → `sonnet`, E3 → inherit, E4 → main loop only); never route up by default. Hard floors (schema, auth, money paths, security review) never scale down.
 - Custom specialists live in `.claude/agents/specialists/` to survive refresh.
 - Framework-wired hooks are informational and never blocking, and no hook ever spawns an LLM subprocess. Blocking layers exist only as explicit opt-ins: `/damage-control` hooks and `consistency-banner --strict`.
 - For UI/web verification use a real browser probe — never theorize from code.

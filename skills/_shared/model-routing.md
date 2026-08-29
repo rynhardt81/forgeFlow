@@ -1,6 +1,8 @@
 # Shared Model-Routing Policy
 
-> Single source of truth for per-task model selection when a skill dispatches subagents. Consumed by `/run-epic --parallel` (background task agents) and available to any skill that spawns Task-tool agents. Update this file; consumers inherit.
+> Single source of truth for per-task model selection. **Binding on every subagent dispatch** — `/run-epic --parallel`, any skill that spawns Task-tool agents, and ad-hoc `Agent` calls from the main loop alike. Update this file; consumers inherit.
+
+**At dispatch, name the tier and the model.** One line before the call — "E2 → sonnet" — so an unjustified route is visible rather than silent. Routing up *by default* is the failure this file exists to prevent: a bigger model on a mechanical task costs more, is slower, and buys nothing. Route down to the tier, and up only for a hard floor below or a stated reason.
 
 The main session stays on the session model. Subagents doing bounded work often don't need it — routing smaller models to simpler tasks cuts cost and latency. Quality gates never scale down: verification evidence rules are identical whatever model executed.
 
