@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "_note": "Claude Forge v4 — session context, task-registry consistency, and advisory validators. Never blocks. No hook spawns an LLM subprocess.",
-  "_deny_note": "Block explicit Read/cat/head/grep on paths that waste context: build outputs, caches, generated code, minified bundles. .gitignored paths are already excluded by built-in search; these deny rules cover paths that show up in greps when checked in OR when an explicit cat/head fires. Recursive searches still match inside these paths — deny only blocks explicit file opens.",
+  "_deny_note": "Block explicit Read/cat/head/grep on paths that waste context: build outputs, caches, generated code, minified bundles. .gitignored paths are already excluded by built-in search; these deny rules cover paths that show up in greps when checked in OR when an explicit cat/head fires. Recursive searches still match inside these paths — deny only blocks explicit file opens. dist/ and build/ are denied BY EXTENSION, not wholesale: a blanket Read(./**/dist/**) also blocked node_modules/next/dist/docs/, which is documentation and none of the four things this note says the rule exists to block. Cache dirs keep their blanket rule because they never carry docs.",
   "hooks": {
     "SessionStart": [
       {
@@ -156,8 +156,14 @@
       "Bash(ssh *)"
     ],
     "deny": [
-      "Read(./**/dist/**)",
-      "Read(./**/build/**)",
+      "Read(./**/dist/**/*.js)",
+      "Read(./**/dist/**/*.cjs)",
+      "Read(./**/dist/**/*.mjs)",
+      "Read(./**/dist/**/*.css)",
+      "Read(./**/build/**/*.js)",
+      "Read(./**/build/**/*.cjs)",
+      "Read(./**/build/**/*.mjs)",
+      "Read(./**/build/**/*.css)",
       "Read(./**/.next/**)",
       "Read(./**/.nuxt/**)",
       "Read(./**/.turbo/**)",
