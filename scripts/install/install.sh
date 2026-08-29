@@ -771,6 +771,61 @@ fw_hooks = framework.get("hooks", {})
 pr_hooks = project.setdefault("hooks", {})
 for event, entries in fw_hooks.items():
     pr_hooks[event] = entries   # framework's wiring wins per-event
+
+# Prune wiring the framework dropped. Setting per-event never removes an event
+# the framework no longer ships, so a cut hook left its entry behind while the
+# cut-paths sweep deleted the script underneath it — wiring pointing at nothing,
+# firing every session.
+#
+# Scoped deliberately: only entries whose command references a path under
+# .claude/hooks/ that is now absent. A consumer's own hooks, and anything
+# outside framework territory, are never touched on this evidence.
+import re as _re
+_project_dir = Path(sys.argv[2]).resolve().parent.parent
+_pruned = []
+
+def _dead_framework_hook(cmd):
+    if not isinstance(cmd, str):
+        return False
+    m = _re.search(r'\$(?:CLAUDE_PROJECT_DIR|\{CLAUDE_PROJECT_DIR\})/(\.claude/hooks/[^\s"\']+)', cmd)
+    if not m:
+        return False
+    return not (_project_dir / m.group(1)).exists()
+
+for event in list(pr_hooks):
+    matchers = pr_hooks.get(event)
+    if not isinstance(matchers, list):
+        continue
+    kept_matchers = []
+    removed_here = False
+    for matcher in matchers:
+        if not isinstance(matcher, dict):
+            kept_matchers.append(matcher)
+            continue
+        hooks = matcher.get("hooks")
+        if not isinstance(hooks, list):
+            kept_matchers.append(matcher)
+            continue
+        kept = [h for h in hooks
+                if not (isinstance(h, dict) and _dead_framework_hook(h.get("command")))]
+        if len(kept) != len(hooks):
+            removed_here = True
+            _pruned += [h.get("command") for h in hooks if h not in kept]
+        if kept:
+            matcher["hooks"] = kept
+            kept_matchers.append(matcher)
+    if kept_matchers or not removed_here:
+        # An event that was already empty stays. PreCompact and Stop ship as []
+        # on purpose; deleting them would drop framework config, and the next
+        # merge re-adds them — churn in a tracked file on every refresh.
+        if kept_matchers:
+            pr_hooks[event] = kept_matchers
+    else:
+        del pr_hooks[event]
+        _pruned.append(f"(event {event}, now empty)")
+
+for _c in _pruned:
+    print(f"  pruned dead hook wiring: {_c}", file=sys.stderr)
 # Union every permission tier, not an enumerated pair. The earlier version
 # listed allow and deny by name and silently dropped "ask" when it was added
 # to the framework template — a rule applied at one site and missed at its
@@ -1685,11 +1740,20 @@ install_v3_cleanup_cut_paths() {
 
     # Anti-clobber denylist (ISC-10): any manifest entry whose normalized path
     # starts with one of these is refused. These are user-owned roots.
+    # Kept in step with the rsync's user-owned excludes. These two lists encode
+    # the same intent — "the framework does not own this" — and drifted apart:
+    # the rsync excluded rules/*.local.md, SKILL.local.md, settings.local.json
+    # and the preflight shim, while the denylist named only four roots, so a
+    # manifest entry could delete what refresh was careful not to overwrite.
     local protected_roots=(
         "agents/specialists"
         "docs/tasks"
+        "docs/epics"
         "docs/project-memory"
         "daily"
+        "ISA.md"
+        "settings.local.json"
+        "scripts/preflight/_local_shims.sh"
     )
 
     local raw rel
@@ -1717,6 +1781,16 @@ install_v3_cleanup_cut_paths() {
         esac
         # Strip trailing slash for uniform comparison.
         rel="${rel%/}"
+
+        # User-owned sidecars are pattern-shaped, not rooted — rules/<n>.local.md,
+        # skills/<n>/SKILL.local.md, skills/<n>.local/ — so a prefix root cannot
+        # express them. Match the shapes directly.
+        case "$rel" in
+            *.local.md|*.local.json|*.local|*.local/*)
+                fail "cut-paths manifest rejected: '$rel' is a user-owned sidecar (never framework-managed)"
+                exit 1
+                ;;
+        esac
 
         # Enforce denylist (ISC-10).
         local protected="" guard

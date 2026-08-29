@@ -102,3 +102,67 @@ def test_no_interpreter_wildcard_in_allow():
         m = re.match(r"^Bash\(([^\s)]+)", rule)
         if m and m.group(1) in interpreters:
             pytest.fail(f"interpreter wildcard in allow: {rule}")
+
+
+# --- dead framework hook wiring ------------------------------------------------
+
+def _consumer_layout(tmp_path: Path, project: dict) -> tuple[Path, Path]:
+    """Build <project>/.claude/settings.json so the merge can resolve hook paths."""
+    claude = tmp_path / ".claude"
+    (claude / "hooks" / "session").mkdir(parents=True)
+    pr = claude / "settings.json"
+    pr.write_text(json.dumps(project), encoding="utf-8")
+    return claude, pr
+
+
+def _hook(cmd: str) -> dict:
+    return {"matcher": "*", "hooks": [{"type": "command", "command": cmd}]}
+
+
+def run_merge_at(fw_path: Path, pr_path: Path, framework: dict, tmp_path: Path) -> dict:
+    fw_path.write_text(json.dumps(framework), encoding="utf-8")
+    script = tmp_path / "merge_hooks.py"
+    script.write_text(merge_block(), encoding="utf-8")
+    proc = subprocess.run([sys.executable, str(script), str(fw_path), str(pr_path)],
+                          capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(pr_path.read_text(encoding="utf-8"))
+
+
+def test_dead_framework_hook_is_pruned(tmp_path):
+    """A hook whose script the cut-paths sweep deleted must not stay wired."""
+    claude, pr = _consumer_layout(tmp_path, {"hooks": {
+        "SessionStart": [_hook("python3 $CLAUDE_PROJECT_DIR/.claude/hooks/session/gone.py")]}})
+    merged = run_merge_at(tmp_path / "fw.json", pr, {"hooks": {}}, tmp_path)
+    assert "SessionStart" not in merged.get("hooks", {}), "dead wiring survived the merge"
+
+
+def test_live_framework_hook_is_kept(tmp_path):
+    claude, pr = _consumer_layout(tmp_path, {"hooks": {
+        "SessionStart": [_hook("python3 $CLAUDE_PROJECT_DIR/.claude/hooks/session/live.py")]}})
+    (claude / "hooks" / "session" / "live.py").write_text("", encoding="utf-8")
+    merged = run_merge_at(tmp_path / "fw.json", pr, {"hooks": {}}, tmp_path)
+    assert merged["hooks"]["SessionStart"], "a hook whose script exists was pruned"
+
+
+def test_consumer_hooks_outside_framework_territory_are_never_pruned(tmp_path):
+    """Only .claude/hooks/ paths are framework territory. Nothing else is evidence."""
+    claude, pr = _consumer_layout(tmp_path, {"hooks": {
+        "Stop": [_hook("bash scripts/my-own-hook.sh")],
+        "PreToolUse": [_hook("python3 $CLAUDE_PROJECT_DIR/tools/mine.py")]}})
+    merged = run_merge_at(tmp_path / "fw.json", pr, {"hooks": {}}, tmp_path)
+    assert merged["hooks"]["Stop"], "consumer's own hook was pruned"
+    assert merged["hooks"]["PreToolUse"], "consumer hook outside .claude/hooks was pruned"
+
+
+def test_deliberately_empty_events_are_kept(tmp_path):
+    """PreCompact/Stop ship as [] to clear v3 wiring — settings.json says so.
+
+    Deleting them drops framework config, and the next merge re-adds it: churn
+    in a tracked file on every refresh. Only an event this prune emptied goes.
+    """
+    claude, pr = _consumer_layout(tmp_path, {"hooks": {"PreCompact": [], "Stop": []}})
+    merged = run_merge_at(tmp_path / "fw.json", pr,
+                          {"hooks": {"PreCompact": [], "Stop": []}}, tmp_path)
+    assert merged["hooks"].get("PreCompact") == [], "deliberately-empty event was deleted"
+    assert merged["hooks"].get("Stop") == [], "deliberately-empty event was deleted"
