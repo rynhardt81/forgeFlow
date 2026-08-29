@@ -158,9 +158,17 @@ memories/
 
 # --- Forge Flow's own development artifacts ---------------------------------
 # This repo IS the framework, so it also runs it on itself. Anything produced by
-# that self-hosting is development state, not something a consumer needs — and
-# the installer already excludes all of it from the rsync. Tracked assets are
-# limited to what a project needs for Forge Flow to work.
+# that self-hosting is development STATE and does not belong in git: ISA.md, the
+# generated code map, docs/tasks/T*/, registry.json, memories/, daily/, .claude/.
+#
+# The rule is about state, not about whether a file is copied into a consumer.
+# tests/ and .github/ are not rsynced into a target project and are tracked
+# anyway, deliberately: they are the verification surface. Every gate this
+# framework claims is proved by breaking the code and watching a test fail, and
+# a fresh clone must be able to establish that a release is safe. Do not remove
+# them on the grounds that they "don't ship" — decided 2026-08-29.
+#
+# scripts/install/ likewise: not copied, but it is HOW a project installs.
 ISA.md
 docs/code-map.md
 docs/code-map.json
