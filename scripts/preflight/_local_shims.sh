@@ -18,8 +18,11 @@
 #      it's a no-op when the real binary is on PATH.
 #   2. Define functions, not aliases (aliases don't expand in non-interactive
 #      shells, which is what preflight scripts run under).
-#   3. This file is project-local and survives `install.sh --mode refresh-v3`
-#      (the framework will not overwrite an existing copy).
+#   3. This file is yours. It survives `install.sh --mode refresh` (the rsync
+#      excludes it) AND `/preflight-ci --regenerate` (the generator seeds it
+#      only when absent, and never overwrites a copy that differs). Edit the
+#      copy in `.forge/preflight/` — that is the one the generated scripts
+#      source, and it belongs in version control.
 
 # --- pg reachability -------------------------------------------------------
 # Used by the generated preflight guard for DB-dependent jobs: when the compose

@@ -101,7 +101,7 @@ The list is deliberately narrow. A compose `down` **without** a volume flag stop
 
 Every generated script sources `_local_shims.sh` from its own directory, after the banner and before any env exports. It ships **empty** and is the project-local extension point for portability gaps between the CI runner and your local toolchain — e.g. `pip` → `python3 -m pip` when only `pip3` is on PATH, or `python` → `python3` on systems without the unversioned symlink. Each shim must be idempotent (`command -v <bin> >/dev/null 2>&1 || <bin>() { ... }`) so it's a no-op in CI.
 
-The shim file is checked into the repo (the `.gitignore` exception ships with `/preflight-ci`) and **survives `install.sh --mode refresh-v3`** — the framework will not overwrite an existing copy. If the file is ever deleted, every generated script fails fast with a clear remediation hint pointing back to `/preflight-ci --regenerate`.
+Check the shim file into the repo — it is project work, not a build artefact (`.forge/` is not ignored wholesale; only `.forge/venv/` is). It **survives both `install.sh --mode refresh` and `/preflight-ci --regenerate`**: the rsync excludes it, and the generator seeds it only when absent and never overwrites a copy that differs. If the framework's own copy gains a new helper, regenerate prints a note so you can merge it by hand. If the file is ever deleted, every generated script fails fast with a clear remediation hint pointing back to `/preflight-ci --regenerate`.
 
 ### Compose-aware rewrites and `.env` sourcing
 

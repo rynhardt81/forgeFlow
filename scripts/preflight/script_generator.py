@@ -572,6 +572,38 @@ def _job_db_host_port(job: Job) -> tuple[str, str] | None:
     return None
 
 
+def sync_local_shims(shim_src: Path, shim_dst: Path, project_root: Path | None = None) -> str:
+    """Put a portability shim in out_dir without ever destroying the project's.
+
+    Every generated script sources `_local_shims.sh` from its own directory and
+    hard-exits when it is absent, so out_dir must always end up with one.
+
+    It must never be overwritten when it already exists and differs. The earlier
+    version copied unconditionally on the premise that out_dir "is generated and
+    gitignored" — false on both counts: the file is tracked, and it is the path
+    the skill docs and the shim header tell people to edit. Regenerating wiped
+    real pip shims in two projects, each then failing on `pip: command not found`.
+
+    Returns "seeded", "unchanged", "preserved", or "no-source".
+    """
+    if not shim_src.exists():
+        return "no-source"
+    if not shim_dst.exists():
+        shutil.copyfile(shim_src, shim_dst)
+        return "seeded"
+    if shim_dst.read_bytes() == shim_src.read_bytes():
+        return "unchanged"
+    src_name = _display_path(shim_src, project_root) if project_root else shim_src
+    dst_name = _display_path(shim_dst, project_root) if project_root else shim_dst
+    print(
+        f"note: kept your existing {dst_name} (it differs from {src_name}). "
+        "Regenerate never overwrites it. If the framework copy has new helpers "
+        "you want, merge them in by hand.",
+        file=sys.stderr,
+    )
+    return "preserved"
+
+
 def render_script(
     job: Job,
     workflow_file: Path,
@@ -1055,13 +1087,13 @@ def generate_scripts(
     # and told the reader to run the regenerate that had just produced them.
     # Copied here because this is the only writer into out_dir.
     #
-    # Overwritten rather than seeded only-if-missing: the source is the
-    # project-local, user-extended copy (install.sh seeds that one and refresh
-    # excludes it), while out_dir is generated and gitignored — so copying every
-    # time is what makes an edited shim actually reach the scripts.
-    shim_src = Path(__file__).parent / "_local_shims.sh"
-    if shim_src.exists():
-        shutil.copyfile(shim_src, out_dir / "_local_shims.sh")
+    # Extracted so the preservation contract is directly testable — the bug it
+    # replaces was invisible precisely because nothing exercised this path.
+    sync_local_shims(
+        Path(__file__).parent / "_local_shims.sh",
+        out_dir / "_local_shims.sh",
+        project_root,
+    )
 
     written: list[Path] = []
     for job in jobs:
