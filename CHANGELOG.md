@@ -2,10 +2,33 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
-## [Unreleased]
+## [v4.3.0] — 2026-08-29
+
+> Correctness release. Four defects that all failed *silently* — a permission tier that never reached any consumer, a generator that destroyed project files it promised to preserve, reflection learnings written where refresh overwrites them, and hook wiring left pointing at deleted scripts. Plus a token-weight pass that removes framework text explaining how to reason, keeping every verification gate.
+
+### Added
+
+- **Four-field report contract** (`skills/_shared/report-format.md`) — finished work reports as Problem/Task · Action · Result + evidence pointer · Recommends, at a `low`/`medium`/`high` feedback level set by `/fb` or a project `CLAUDE.md`. Levels cap prose and never evidence: the Result pointer is mandatory at every level, so the format cannot decay into assertion-without-proof. Applies to delegated and finished work only — questions and mid-work narration stay plain prose.
+- **"No claim without a probe"** (`CLAUDE.md`) — the universal the eight scoped evidence rules were all instances of. Native mode with no ISA and no subagent was covered by none of them. Marked load-bearing: not removable on the grounds that a newer model does it natively.
+- **Bash permission tiers** (`hooks/settings.json`) — `ask` on `rm`, `git push`, `git reset --hard`, `git clean`, `chmod -R`, `chown`, `npm publish`, `docker rm/rmi`, `kubectl delete`, `ssh`; `deny` on `rm -rf /`, `rm -rf ~`, bare `find`. `ask` is what makes "destructive needs approval" hold in permissive modes, where an unlisted command simply runs. Interpreters are deliberately absent from `allow`: patterns are prefix matches, so `Bash(python3 x.py *)` would also match `python3 x.py && rm -rf ~`.
+- **One-rule-two-lists doctrine** (`rules/agent-verification.md`) — the failure shape neither caller-sweep nor sibling-sweep catches: one rule encoded as a list in two places, correct at every site, one list shorter. Three instances shipped in this release cycle.
+
+### Fixed
+
+- **The `ask` permission tier never reached a single consumer.** `install_settings` enumerated `allow` and `deny` by name and silently dropped every other tier. Now iterates the framework's own tiers, so a future tier ships by existing. Falsifiable gate added (`tests/wiring/test_settings_merge_tiers.py`).
+- **`/preflight-ci --regenerate` destroyed project-local shims.** It copied the framework's `_local_shims.sh` over `<out_dir>/_local_shims.sh` unconditionally, on a code comment's false premise that out_dir "is generated and gitignored" — it is tracked, and it is the path the docs tell people to edit. Reported in one project, found armed in a second carrying 176 lines of real shims. Now: absent → seed, identical → no-op, different → keep the project's copy and say so.
+- **`/reflect` wrote learnings into framework `SKILL.md` files**, which every refresh overwrites — the exact thing `CLAUDE.md` forbids. Learnings now go to the `SKILL.local.md` sidecar, which is refresh-proof.
+- **Hook wiring the framework dropped was never pruned**, leaving entries pointing at scripts the cut-paths sweep had deleted. Pruning is scoped to missing paths under `.claude/hooks/`; a consumer's own hooks and deliberately-empty events (`PreCompact`, `Stop`) are never touched.
+- **The cut-paths anti-clobber denylist was shorter than the rsync's excludes** — a manifest entry could delete what refresh was careful to preserve. Added `docs/epics`, `ISA.md`, `settings.local.json` and the preflight shim, plus a pattern guard for `*.local.md` / `*.local.json` / `*.local/` sidecars.
+- **`docs/permission-profiles.md` documented a feature removed in v4** — `/permissions`, `templates/permission-profiles.json`, `.claude/permission-state.json`, none of which exist. Rewritten to describe the system that does.
+- Project-memory index is repaired on refresh and never silently absent.
+- The skills manifest's workflow order is restored.
 
 ### Changed
 
+- **Model routing is binding on every subagent dispatch**, not just `/run-epic --parallel`. Ad-hoc `Agent` calls consulted nothing and defaulted to the session model. Tier and model are now named at the call site.
+- **Model-obsolete scaffolding removed** (T916) — trigger-keyword lists from 10 skill descriptions (9,510 → 8,387 chars, ~280 tokens every session in every project), the `ui-ux-pro-max` WCAG/HIG tutorial (−2,396 chars, the searchable CSV catalog untouched), `create-pr`'s concision bullets and shell-injection persuasion (−1,808 chars, both binding rules kept), `security-boss`'s OWASP tutorial (−667 chars), and the ALGORITHM read-back rows the harness's `Edit`/`Write` error contract already guarantees. 16 ISCs verified, 4 of them anti-criteria protecting every gate.
+- **Forge Flow's own development artifacts are no longer tracked** — `ISA.md` and `docs/code-map.md` are this repo self-hosting, never shipped to consumers. Only what a project needs for Forge Flow to work is in git.
 - **Algorithm doctrine v1.1.0 → v1.2.0 history relocated here** from `ALGORITHM/v1.2.0.md`. A doctrine file read at the start of every Algorithm task was carrying ~450 tokens of changelog. Its one operative clause (the finished-work-report carve-out) moved into the Doctrine section. The removals it recorded, for the record:
   - Removed all output ceremony: emoji phase banners, the mandatory final summary format, fixed-word-count scaffolds. Telemetry showed they aggravated the failure modes the doctrine exists to prevent (premature completion claims, truncated answers). The *checks* survive as prose; the formats do not.
   - Removed ISC count floors and thinking floors — criterion count is judgment, not a quota.
@@ -13,6 +36,7 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
   - Escalation default inverted: Algorithm mode fires on explicit signals, not "anything else".
   - Folded in phased hardening (formerly `rules/phased-hardening.md`) under Anti-criteria.
   - Unchanged: phase order, reproduce-first, inline verification mandate, live-probe rule, re-read gate, Background Agent Checkpoint Discipline, plan-means-stop, Tier-2 authority.
+
 
 ## [v4.2.0] — 2026-08-02
 
