@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_note": "Claude Forge v4 \u2014 session context, task-registry consistency, and advisory validators. Never blocks. No hook spawns an LLM subprocess.",
-  "_deny_note": "Block explicit Read/cat/head/grep on paths that waste context: build outputs, caches, generated code, minified bundles. .gitignored paths are already excluded by built-in search; these deny rules cover paths that show up in greps when checked in OR when an explicit cat/head fires. Recursive searches still match inside these paths \u2014 deny only blocks explicit file opens.",
+  "_note": "Claude Forge v4 — session context, task-registry consistency, and advisory validators. Never blocks. No hook spawns an LLM subprocess.",
+  "_deny_note": "Block explicit Read/cat/head/grep on paths that waste context: build outputs, caches, generated code, minified bundles. .gitignored paths are already excluded by built-in search; these deny rules cover paths that show up in greps when checked in OR when an explicit cat/head fires. Recursive searches still match inside these paths — deny only blocks explicit file opens.",
   "hooks": {
     "SessionStart": [
       {
@@ -139,7 +139,21 @@
       "Edit(docs/project-memory/**)",
       "Write(docs/project-memory/**)",
       "Read(daily/**)",
-      "Write(daily/**)"
+      "Write(daily/**)",
+      "Bash(awk *)"
+    ],
+    "ask": [
+      "Bash(rm *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean *)",
+      "Bash(chmod -R *)",
+      "Bash(chown *)",
+      "Bash(npm publish *)",
+      "Bash(docker rm *)",
+      "Bash(docker rmi *)",
+      "Bash(kubectl delete *)",
+      "Bash(ssh *)"
     ],
     "deny": [
       "Read(./**/dist/**)",
@@ -163,8 +177,12 @@
       "Read(./**/*.generated.*)",
       "Read(./**/*.min.js)",
       "Read(./**/*.min.css)",
-      "Read(./**/*.map)"
+      "Read(./**/*.map)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(find *)"
     ]
   },
-  "_precompact_stop_note": "PreCompact/Stop are deliberately EMPTY arrays, not absent: the installer's per-event merge overwrites consumer settings per event, so these clear the v3 memory-capture/claude-md-reflect wiring on upgrade. Do not remove."
+  "_precompact_stop_note": "PreCompact/Stop are deliberately EMPTY arrays, not absent: the installer's per-event merge overwrites consumer settings per event, so these clear the v3 memory-capture/claude-md-reflect wiring on upgrade. Do not remove.",
+  "_permissions_note": "Bash rules: read-only commands (rg/fd/grep/ls/cat/head/tail/git+gh read-only subcommands) are auto-allowed by Claude Code and need no entry. `ask` gates destructive commands even in permissive modes, where a default prompt would not fire. Interpreters (python3/node/bun/npx) are deliberately absent from `allow`: patterns are prefix matches, so `Bash(python3 script.py *)` would also match `python3 script.py && rm -rf ~`. `find` is denied per the house rule that bare `find` has hung this machine — use `fd`. Override per-project in .claude/settings.local.json."
 }
