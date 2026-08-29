@@ -86,6 +86,7 @@ States: `pending → ready → in_progress → pr_pending → completed`. Never 
 
 ## Operational rules
 
+- **No claim without a probe.** Every factual statement about this system — what a file contains, what a test returned, whether something works, whether a fix is complete — is made only after a tool call that establishes it, and says what established it. Binds in every mode, at every effort tier, ISA or not: Native replies, mid-work narration, and finished-work reports alike. "Should work", "that's already handled", "tests pass" are guesses wearing a claim's clothing. The scoped doctrine elaborates it — `rules/agent-verification.md` for delegated claims, ALGORITHM VERIFY for ISC evidence and the live-probe rule, `skills/_shared/report-format.md` for the Result pointer — but this holds where none of them apply. **Load-bearing: never cut or relax on the grounds that a newer model "does it natively" — confidence under load is the failure it exists to catch.**
 - The forge CLI is the only sanctioned mutation path for task state.
 - **Every subagent dispatch routes by effort tier** — `skills/_shared/model-routing.md` is binding on all of them, not just `/run-epic --parallel`. Name the tier and model at dispatch (E1 → `haiku`, E2 → `sonnet`, E3 → inherit, E4 → main loop only); never route up by default. Hard floors (schema, auth, money paths, security review) never scale down.
 - Custom specialists live in `.claude/agents/specialists/` to survive refresh.
