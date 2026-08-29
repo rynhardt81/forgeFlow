@@ -305,7 +305,7 @@ Use the Task tool:
 - Always include the Claude Code attribution; extract and link related issues.
 - For multi-PR sequences, present a merge order; never auto-merge without explicit instruction.
 
-## Learned Preferences
+## Gotchas
 
 - **2026-07-16 — Poll ALL THREE codex surfaces, not just issue-comments.** Codex
   (`chatgpt-codex-connector[bot]`, match `'codex' in login` case-insensitively)

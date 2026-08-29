@@ -65,7 +65,7 @@ The SessionStart hook (`hooks/session/session-context.py`) auto-creates a minima
 - **Continuation context:** when stopping mid-task, populate the task file's Continuation Context (stopped-at + next action).
 - **Append only:** never overwrite `progress-notes.md` — always append.
 - **Session-file discipline:** update the session file as work progresses (Working On, Completed, Handoff Notes); move to `completed/` at session end.
-- **Learnings:** append to the target skill's `## Learned Preferences` section (or `.claude/memories/general.md` if no skill matches), date-stamped. Never auto-delete existing learnings.
+- **Learnings:** append to the target skill's `SKILL.local.md` sidecar (or `.claude/memories/general.md` if no skill matches), date-stamped. Never auto-delete existing learnings. **Never write a learning into a framework `SKILL.md`** — refresh overwrites it and the learning is gone silently; the sidecar is excluded from the rsync and survives. Create the sidecar if absent; every framework SKILL.md already carries the pointer line that loads it.
 - **Deduplicate:** check for semantic duplicates before adding a learning; skip exact/subset matches.
 - **Flag conflicts, don't replace:** a learning that contradicts an existing one gets flagged for manual resolution.
 - **Always commit** continuity updates with clear messages.
@@ -82,7 +82,7 @@ The SessionStart hook (`hooks/session/session-context.py`) auto-creates a minima
 │   │   ├── completed/session-{id}.md
 │   │   └── latest.md           # Most recent completed
 │   └── .session-skills         # Skills used (temp)
-└── skills/[skill-name]/SKILL.md  # Learned preferences
+└── skills/[skill-name]/SKILL.local.md  # Learnings (survives refresh)
 
 docs/
 ├── tasks/

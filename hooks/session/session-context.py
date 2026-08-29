@@ -259,17 +259,6 @@ def main():
         except (OSError, IOError):
             pass
 
-        # Check for Phase 3 in-progress
-        phase3_file = claude_dir / 'memories' / 'phase3-progress.json'
-        phase3_data = read_json_safe(phase3_file)
-        if phase3_data and phase3_data.get('status') == 'in_progress':
-            ep = phase3_data.get('epicsPlanned', 0)
-            ec = phase3_data.get('epicsCreated', 0)
-            tp = phase3_data.get('tasksPlanned', 0)
-            tc = phase3_data.get('tasksCreated', 0)
-            context.append(f'P3:INCOMPLETE E{ec}/{ep} T{tc}/{tp}')
-            context.append('->Resume Phase 3: Read .claude/memories/phase3-progress.json')
-
         # Check for active skill
         active_skill = extract_from_table(session_content, 'Active Skill', 'Skill')
         if active_skill:

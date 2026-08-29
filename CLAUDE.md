@@ -61,6 +61,8 @@ Scaffold specialists: `python3 .claude/scripts/forge/forge.py specialist add <na
 
 Manual and intentional: `/remember bug|decision|pattern|fact "..."` writes to `docs/project-memory/`; the SessionStart hook injects `index.md` + `key-facts.md` back. Schema: `MEMORY-SCHEMA.md`. There is no automatic transcript capture, and **no hook ever spawns an LLM subprocess**.
 
+**Three stores, three jobs — don't cross-file.** `docs/project-memory/` is the project's durable record: committed, team-shared, cross-machine. The harness's own auto-memory (`~/.claude/projects/<slug>/memory/`) is per-machine and uncommitted — working context, not the record; a fact the team needs goes in the former. `memories/` and `daily/` are **continuity, not memory** — resume state and reflection logs that `/reflect resume|handoff` reads. `/reflect` learnings go to a skill's `SKILL.local.md`; never a framework `SKILL.md`, which refresh overwrites.
+
 ## Task lifecycle
 
 Atomic state via `python3 .claude/scripts/forge/forge.py`:

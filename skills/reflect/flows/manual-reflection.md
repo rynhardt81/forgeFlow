@@ -9,7 +9,7 @@ Handles `/reflect` (no arguments) — session end and learning capture.
 1. **Complete the Session End Protocol** (below)
 2. Scan the conversation for learnings: corrections from the user, repeated failures and their fixes, preferences stated, approaches that worked
 3. Identify skills used this session; categorize findings by confidence (High/Medium/Low)
-4. Match each learning to the relevant skill (append to its `## Learned Preferences`, dated) or to `.claude/memories/general.md`
+4. Match each learning to the relevant skill (append to its `SKILL.local.md` sidecar, dated — never the framework `SKILL.md`, which refresh overwrites) or to `.claude/memories/general.md`
 5. Present a batch review of proposed changes; apply on approval — dedup first, flag contradictions instead of replacing (see SKILL.md Key Rules)
 6. Commit with a descriptive message (e.g. `reflect: session YYYY-MM-DD with N learnings`)
 
