@@ -155,3 +155,12 @@ memories/
 
 # Superpowers plugin session state — session ephemera, never framework content
 .superpowers/
+
+# --- Forge Flow's own development artifacts ---------------------------------
+# This repo IS the framework, so it also runs it on itself. Anything produced by
+# that self-hosting is development state, not something a consumer needs — and
+# the installer already excludes all of it from the rsync. Tracked assets are
+# limited to what a project needs for Forge Flow to work.
+ISA.md
+docs/code-map.md
+docs/code-map.json
