@@ -31,6 +31,8 @@ I am invoked when:
 - CI/CD configs (`.github/workflows/`, `Dockerfile`, etc.) in their canonical locations
 - Deployment notes attached to the relevant task ISA's `## Verification`
 
+**How I report back:** the four fields of `skills/_shared/report-format.md` (Problem/Task · Action · Result + evidence pointer · Recommends), at the session's feedback level.
+
 ## Project conventions I respect
 
 - Read `docs/code-map.md` before designing CI/CD or deploy targets — module count, language mix, and largest-files surface tell me build-graph shape, parallelization opportunities, and which services need their own pipeline

@@ -22,6 +22,10 @@
      (bug/feature/refactor, same inline rules as LOOP.md) + the epic's
      session ID + instruction to follow Background Agent Checkpoint
      Discipline (ALGORITHM v1.2.0) and finish via Skill("create-pr")
+   - report: the session's feedback level + report back in the four fields
+     of skills/_shared/report-format.md (evidence pointer required in Result
+     at every level — the parent must ground-truth the claim per
+     rules/agent-verification.md)
    ```
 
    Then `forge task lock <T###> --session <session-id>-agent-<n>` so the registry shows who owns what.

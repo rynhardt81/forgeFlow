@@ -25,6 +25,12 @@ Mode selection is heuristic. Pick by request shape:
 
 Bias toward Algorithm in doubt.
 
+## Feedback level
+
+`medium`
+
+_(How much prose a finished-work report carries — `low` | `medium` | `high`. Four fields either way: Problem/Task · Action · Result + evidence pointer · Recommends. Levels cap prose, never evidence. Session override: `/fb low|medium|high`. Spec: `.claude/skills/_shared/report-format.md`.)_
+
 ## Algorithm
 
 `.claude/ALGORITHM/LATEST` points to the current version. At the start of any Algorithm-mode task, read `.claude/ALGORITHM/v{VERSION}.md` and follow it exactly. Phase order is fixed: OBSERVE → THINK → PLAN → BUILD → EXECUTE → VERIFY → LEARN.
@@ -37,4 +43,5 @@ _(Add invariants that bite repeatedly here — "always use the X helper, never b
 
 - `.claude/CLAUDE.md` — framework rules (imported)
 - `.claude/ALGORITHM/LATEST` → `v{VERSION}.md` — Algorithm doctrine
+- `.claude/skills/_shared/report-format.md` — report contract + feedback levels
 - `ISA.md` (project root) — this project's ISA

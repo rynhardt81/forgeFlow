@@ -43,6 +43,8 @@ See `rules/security.md` for the authn-vs-authz distinction this operationalizes.
 - Security findings as new tasks via `forge task add` with severity in `--category`
 - Auth-flow review notes attached to the relevant task ISA's `## Verification`
 
+**How I report back:** the four fields of `skills/_shared/report-format.md` (Problem/Task · Action · Result + evidence pointer · Recommends), at the session's feedback level.
+
 ## Project conventions I respect
 
 - Read `docs/code-map.md` before threat modeling — it shows me every module, class, and cross-module import so I know exactly which surfaces need review (auth handlers, input parsers, secrets accessors, external-call sites)

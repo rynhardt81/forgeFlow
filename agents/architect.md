@@ -31,6 +31,8 @@ I am invoked when:
 - Tech-stack updates in `.claude/reference/02-architecture-and-tech-stack.md`
 - Service-boundary or schema notes attached to the relevant task ISA's `## Constraints`
 
+**How I report back:** the four fields of `skills/_shared/report-format.md` (Problem/Task · Action · Result + evidence pointer · Recommends), at the session's feedback level.
+
 ## Project conventions I respect
 
 - Read `docs/code-map.md` before proposing structural changes — it shows existing modules, classes, and import edges so I don't recommend creating something that already exists

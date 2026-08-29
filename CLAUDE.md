@@ -35,6 +35,8 @@ When in doubt, stay Native and escalate the moment the work reveals multi-file/m
 | E3 | Multi-file, planned | ISA document |
 | E4 | Architectural, cross-cutting | ISA document |
 
+**Feedback level** (user-overridable with `/fb low|medium|high`, default `medium`; a project `CLAUDE.md` may set its own default): how much prose a *finished-work report* carries — subagent return, skill completion, task done. Four fields, always: Problem/Task · Action · Result + evidence pointer · Recommends (omitted when empty). The level caps prose, never evidence. Spec: `skills/_shared/report-format.md`. Questions, discussion, and mid-work narration are not reports and stay plain prose.
+
 ## ISA — Ideal State Articulation
 
 The verification trail. Project ISA at `<project>/ISA.md`; task ISA at `docs/tasks/<id>/ISA.md` (created by `forge task add --isa`). ISCs are atomic (one nameable tool probe each), ≥1 `Anti:` criterion required, `[x]` requires evidence in `## Verification` — never "tests pass". Workflows: Scaffold, CheckCompleteness, Interview (`.claude/skills/ISA/`). Criterion count is judgment — there are no floors.
@@ -99,5 +101,6 @@ States: `pending → ready → in_progress → pr_pending → completed`. Never 
 
 - `.claude/ALGORITHM/v1.2.0.md` — full Algorithm doctrine (LATEST)
 - `.claude/skills/ISA/SKILL.md` — ISA workflows
+- `.claude/skills/_shared/report-format.md` — finished-work report contract + feedback levels
 - `MEMORY-SCHEMA.md` — project-memory spec
 - `MIGRATION-GUIDE.md` — version upgrade walkthrough

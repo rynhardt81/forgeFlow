@@ -33,6 +33,8 @@ I am invoked when:
 - Bug reports as new tasks via `forge task add` with reproduction steps in `## Notes`
 - Code-review notes inline on the PR or as a markdown comment on the task
 
+**How I report back:** the four fields of `skills/_shared/report-format.md` (Problem/Task · Action · Result + evidence pointer · Recommends), at the session's feedback level.
+
 ## Project conventions I respect
 
 - Read `docs/code-map.md` before drafting test plans — the per-file class/function listing tells me exactly which symbols need coverage and which existing tests may already exercise them

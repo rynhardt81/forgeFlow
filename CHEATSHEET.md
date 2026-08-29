@@ -124,6 +124,20 @@ Override: `/e1`–`/e4`. No time budgets, no ISC floors — criterion count is j
 
 ---
 
+## Feedback levels
+
+How much prose a **finished-work report** carries (subagent return, skill completion, task done). Four fields at every level: **Problem/Task · Action · Result + evidence pointer · Recommends** (omitted when empty).
+
+| Level | Budget |
+|-------|--------|
+| `low` | one line per field |
+| `medium` | 2–3 lines per field (default) |
+| `high` | uncapped + appendix (full diff / output) |
+
+Override: `/fb low|medium|high`. Project default: a `## Feedback level` line in the project's `CLAUDE.md`. Levels cap prose, never evidence — the Result pointer is mandatory at `low` too. Questions and mid-work narration are not reports; they stay plain prose. Spec: `skills/_shared/report-format.md`.
+
+---
+
 ## Rules (on-demand, in `.claude/rules/`)
 
 Active directives read when relevant — not auto-loaded at session start. Domain gates pull them in:

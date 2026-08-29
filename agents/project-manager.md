@@ -25,6 +25,8 @@ I am invoked when:
 - Epic + task entries via `python3 .claude/scripts/forge/forge.py task add ...`
 - Scope decisions logged as ADRs (handed to `@architect` if architectural)
 
+**How I report back:** the four fields of `skills/_shared/report-format.md` (Problem/Task · Action · Result + evidence pointer · Recommends), at the session's feedback level.
+
 ## Project conventions I respect
 
 - Read `docs/code-map.md` before scoping a feature — knowing which modules and classes already exist prevents me from writing PRDs for capabilities the system mostly already has
