@@ -190,5 +190,12 @@
     ]
   },
   "_precompact_stop_note": "PreCompact/Stop are deliberately EMPTY arrays, not absent: the installer's per-event merge overwrites consumer settings per event, so these clear the v3 memory-capture/claude-md-reflect wiring on upgrade. Do not remove.",
-  "_permissions_note": "Bash rules: read-only commands (rg/fd/grep/ls/cat/head/tail/git+gh read-only subcommands) are auto-allowed by Claude Code and need no entry. `ask` gates destructive commands even in permissive modes, where a default prompt would not fire. Interpreters (python3/node/bun/npx) are deliberately absent from `allow`: patterns are prefix matches, so `Bash(python3 script.py *)` would also match `python3 script.py && rm -rf ~`. `find` is denied per the house rule that bare `find` has hung this machine — use `fd`. Override per-project in .claude/settings.local.json."
+  "_permissions_note": "Bash rules: read-only commands (rg/fd/grep/ls/cat/head/tail/git+gh read-only subcommands) are auto-allowed by Claude Code and need no entry. `ask` gates destructive commands even in permissive modes, where a default prompt would not fire. Interpreters (python3/node/bun/npx) are deliberately absent from `allow`: patterns are prefix matches, so `Bash(python3 script.py *)` would also match `python3 script.py && rm -rf ~`. `find` is denied per the house rule that bare `find` has hung this machine — use `fd`. Override per-project in .claude/settings.local.json.",
+  "_retired_permissions": {
+    "deny": [
+      "Read(./**/dist/**)",
+      "Read(./**/build/**)"
+    ]
+  },
+  "_retired_permissions_note": "Rules the framework has WITHDRAWN. The settings merge is a union — it adds framework rules and never removes them — so a rule dropped from this file otherwise survives in every consumer forever. Listing it here removes it on the next refresh. Only ever list rules the framework itself shipped; a consumer's own rules are never touched. Entries can be deleted once every project has refreshed past them."
 }

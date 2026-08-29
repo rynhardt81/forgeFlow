@@ -840,6 +840,21 @@ for tier, entries in fw_perms.items():
     for p in entries:
         if p not in target:
             target.append(p)
+
+# Withdrawn rules. The union above can only ever ADD, so a rule the framework
+# drops survives in every consumer forever — that is how a blanket deny on
+# dist/ outlived its removal and kept blocking documentation. The framework
+# names what it retired; nothing else is removed, so consumer rules are safe.
+for tier, retired in (framework.get("_retired_permissions") or {}).items():
+    if not isinstance(retired, list):
+        continue
+    target = pr_perms.get(tier)
+    if not isinstance(target, list):
+        continue
+    for r in retired:
+        while r in target:
+            target.remove(r)
+            print(f"  retired permission rule: {r}", file=sys.stderr)
 Path(sys.argv[2]).write_text(json.dumps(project, indent=2) + "\n")
 MERGE_EOF
         ok "Merged hooks & permissions into .claude/settings.json"

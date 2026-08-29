@@ -166,3 +166,49 @@ def test_deliberately_empty_events_are_kept(tmp_path):
                           {"hooks": {"PreCompact": [], "Stop": []}}, tmp_path)
     assert merged["hooks"].get("PreCompact") == [], "deliberately-empty event was deleted"
     assert merged["hooks"].get("Stop") == [], "deliberately-empty event was deleted"
+
+
+# --- withdrawn rules ------------------------------------------------------------
+
+def test_retired_rule_is_removed_from_the_consumer(tmp_path):
+    """The union can only add. A rule the framework drops must still leave.
+
+    A blanket `Read(./**/dist/**)` was narrowed in the framework and survived in
+    every consumer anyway, still blocking documentation, because merging only
+    ever appended.
+    """
+    framework = {"permissions": {"deny": ["Read(./**/dist/**/*.js)"]},
+                 "_retired_permissions": {"deny": ["Read(./**/dist/**)"]}}
+    project = {"permissions": {"deny": ["Read(./**/dist/**)", "Read(./**/coverage/**)"]}}
+    merged = run_merge(tmp_path, framework, project)
+    deny = merged["permissions"]["deny"]
+    assert "Read(./**/dist/**)" not in deny, "withdrawn rule survived the merge"
+    assert "Read(./**/dist/**/*.js)" in deny, "replacement rule did not arrive"
+    assert "Read(./**/coverage/**)" in deny, "an unrelated rule was collateral damage"
+
+
+def test_retirement_never_touches_a_consumers_own_rule(tmp_path):
+    """Only rules the framework names are removed."""
+    framework = {"permissions": {"deny": []}, "_retired_permissions": {"deny": ["Read(./**/dist/**)"]}}
+    project = {"permissions": {"deny": ["Read(./secrets/**)", "Bash(terraform destroy *)"]}}
+    merged = run_merge(tmp_path, framework, project)
+    assert merged["permissions"]["deny"] == ["Read(./secrets/**)", "Bash(terraform destroy *)"]
+
+
+def test_retirement_is_idempotent(tmp_path):
+    """Refreshing twice must not error or reintroduce anything."""
+    framework = {"permissions": {"deny": ["Read(./**/dist/**/*.js)"]},
+                 "_retired_permissions": {"deny": ["Read(./**/dist/**)"]}}
+    pr = tmp_path / "s.json"
+    pr.write_text(json.dumps({"permissions": {"deny": ["Read(./**/dist/**)"]}}), encoding="utf-8")
+    first = run_merge_at(tmp_path / "fw.json", pr, framework, tmp_path)
+    second = run_merge_at(tmp_path / "fw.json", pr, framework, tmp_path)
+    assert first["permissions"]["deny"] == second["permissions"]["deny"] == ["Read(./**/dist/**/*.js)"]
+
+
+def test_shipped_settings_retires_the_blanket_dist_rules():
+    """The live template must actually declare the two rules this release drops."""
+    d = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    retired = d.get("_retired_permissions", {}).get("deny", [])
+    for r in ("Read(./**/dist/**)", "Read(./**/build/**)"):
+        assert r in retired, f"{r} was narrowed but never retired — consumers keep the old rule"
