@@ -334,6 +334,50 @@ def test_list_tasks_filters(tmp_path):
     assert [t["id"] for t in locked] == ["T3"]
 
 
+def _backlog_repo(tmp_path):
+    return make_repo(tmp_path, base_registry(
+        epics=[
+            {"id": "E1", "status": "in_progress", "tasks": ["T1"]},
+            {"id": "E99", "status": "backlog", "tasks": ["T9"]},
+        ],
+        tasks=[
+            {"id": "T1", "status": "ready", "dependencies": [], "lock": None, "epic": "E1"},
+            {"id": "T9", "status": "ready", "dependencies": [], "lock": None, "epic": "E99"},
+        ],
+    ))
+
+
+def test_backlog_epic_ids(tmp_path):
+    repo = _backlog_repo(tmp_path)
+    registry = ops.load_registry(_registry_path(repo))
+    assert ops.backlog_epic_ids(registry) == {"E99"}
+
+
+def test_backlog_epic_ids_empty_when_none(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[{"id": "E1", "status": "in_progress", "tasks": []}]))
+    assert ops.backlog_epic_ids(ops.load_registry(_registry_path(repo))) == set()
+
+
+def test_list_tasks_excludes_backlog_by_default(tmp_path):
+    repo = _backlog_repo(tmp_path)
+    ready = ops.list_tasks(_registry_path(repo), status_filter="ready")
+    assert [t["id"] for t in ready] == ["T1"]
+
+
+def test_list_tasks_include_backlog_opt_in(tmp_path):
+    repo = _backlog_repo(tmp_path)
+    ready = ops.list_tasks(_registry_path(repo), status_filter="ready", include_backlog=True)
+    assert [t["id"] for t in ready] == ["T1", "T9"]
+
+
+def test_list_tasks_explicit_epic_filter_still_shows_backlog(tmp_path):
+    # Asking for E99 by name is an explicit request -- honour it.
+    repo = _backlog_repo(tmp_path)
+    got = ops.list_tasks(_registry_path(repo), epic_filter="E99")
+    assert [t["id"] for t in got] == ["T9"]
+
+
 # --- Atomic write durability ---------------------------------------------
 
 

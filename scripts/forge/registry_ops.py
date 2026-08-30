@@ -123,6 +123,11 @@ LEGAL_TRANSITIONS: dict[str, frozenset[str]] = {
 # continuation task still has live work.
 EPIC_TERMINAL_TASK_STATES = frozenset({"completed", "superseded", "closed"})
 
+# Epic status meaning "parked -- its tasks are deferred and out of the ready
+# queue until the owner promotes the epic". A task is deferred iff its epic
+# carries this status; tasks have no backlog field of their own.
+EPIC_BACKLOG_STATUS = "backlog"
+
 
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*(?:\n|$)", re.DOTALL)
 # `[ \t]*` (not `\s*`) at end so we don't consume the closing newline
@@ -1527,15 +1532,36 @@ def _flip_unblocked_pending(
 # --- Read-only queries -----------------------------------------------------
 
 
+def backlog_epic_ids(registry: dict[str, Any]) -> set[str]:
+    """Return the ids of epics parked in `backlog` status.
+
+    A task is *deferred* iff its epic is in this set -- that is the single
+    source of truth for deferral; tasks carry no backlog field of their own.
+    """
+    return {
+        e["id"]
+        for e in registry.get("epics", [])
+        if e.get("status") == EPIC_BACKLOG_STATUS and e.get("id")
+    }
+
+
 def list_tasks(
     registry_path: Path,
     *,
     status_filter: str | None = None,
     epic_filter: str | None = None,
     locked_only: bool = False,
+    include_backlog: bool = False,
 ) -> list[dict[str, Any]]:
-    """Return tasks matching the filters. Read-only."""
+    """Return tasks matching the filters. Read-only.
+
+    Tasks belonging to a `backlog` epic are excluded unless
+    `include_backlog=True` -- deferred work is not queue work. Naming an epic
+    explicitly via `epic_filter` overrides this: asking for E99 by id is an
+    explicit request to see it.
+    """
     registry = load_registry(registry_path)
+    hidden = set() if (include_backlog or epic_filter) else backlog_epic_ids(registry)
     out = []
     for t in registry.get("tasks", []):
         if status_filter and t.get("status") != status_filter:
@@ -1543,6 +1569,8 @@ def list_tasks(
         if epic_filter and t.get("epic") != epic_filter:
             continue
         if locked_only and not t.get("lock"):
+            continue
+        if t.get("epic") in hidden:
             continue
         out.append(t)
     return out
