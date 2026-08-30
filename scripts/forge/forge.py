@@ -240,8 +240,16 @@ def cmd_epic_complete(args, project_root: Path) -> int:
 
     if args.json:
         print(json.dumps(dict(epic), indent=2))
-    else:
-        print(f"completed {epic['id']}: {epic['name']} (status={epic['status']})")
+        return 0
+
+    print(f"completed {epic['id']}: {epic['name']} (status={epic['status']})")
+    # An epic boundary is the natural hardening checkpoint, so report what is
+    # parked and name the promote command. Advisory: it says what is there and
+    # what the command is, never that you should run it.
+    registry = ops.load_registry(_registry_path(project_root))
+    _print_deferred_footer(args, registry)
+    for eid in sorted(ops.backlog_epic_ids(registry)):
+        print(f"  Promote with: forge epic status {eid} in_progress")
     return 0
 
 

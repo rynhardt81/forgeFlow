@@ -506,3 +506,72 @@ def test_save_registry_atomic_on_write_failure(tmp_path, monkeypatch):
     # No stray tmp file left behind.
     leftovers = list(tmp_path.glob(".registry-*.tmp"))
     assert leftovers == []
+
+
+# --- active task depending on a backlog-epic task (advisory) --------------
+
+
+def _backlog_dep_registry(dep_status="ready", dep_epic="E99"):
+    return base_registry(
+        epics=[
+            {"id": "E1", "status": "in_progress", "tasks": ["T1"]},
+            {"id": "E99", "status": "backlog", "tasks": ["T9"]},
+        ],
+        tasks=[
+            {"id": "T1", "status": "pending", "epic": "E1",
+             "dependencies": ["T9"], "lock": None},
+            {"id": "T9", "status": dep_status, "epic": dep_epic,
+             "dependencies": [], "lock": None},
+        ],
+    )
+
+
+def test_active_task_depending_on_backlog_task_is_advisory(tmp_path):
+    registry = _backlog_dep_registry()
+    repo = make_repo(tmp_path, registry)
+    findings, _, _ = cc.run_all_checks(
+        registry, repo / "docs" / "epics", lock_timeout=3600)
+    hits = [f for f in findings if f.cls == cc.CLS_ACTIVE_DEPS_ON_BACKLOG]
+    assert len(hits) == 1
+    assert hits[0].severity == cc.SEV_INFO
+    assert hits[0].auto_fixable is False
+    assert "T1" in hits[0].message and "T9" in hits[0].message
+    assert not [f for f in findings if f.severity == cc.SEV_BLOCKING]
+
+
+def test_no_backlog_dep_finding_when_dependency_is_done(tmp_path):
+    """A completed dependency unblocks regardless of its epic being parked."""
+    registry = _backlog_dep_registry(dep_status="completed")
+    repo = make_repo(tmp_path, registry)
+    findings, _, _ = cc.run_all_checks(
+        registry, repo / "docs" / "epics", lock_timeout=3600)
+    assert [f for f in findings if f.cls == cc.CLS_ACTIVE_DEPS_ON_BACKLOG] == []
+
+
+def test_no_backlog_dep_finding_between_two_backlog_tasks(tmp_path):
+    """Both sides parked -- nothing is being blocked from the live queue."""
+    registry = base_registry(
+        epics=[{"id": "E99", "status": "backlog", "tasks": ["T8", "T9"]}],
+        tasks=[
+            {"id": "T8", "status": "pending", "epic": "E99",
+             "dependencies": ["T9"], "lock": None},
+            {"id": "T9", "status": "ready", "epic": "E99",
+             "dependencies": [], "lock": None},
+        ],
+    )
+    repo = make_repo(tmp_path, registry)
+    findings, _, _ = cc.run_all_checks(
+        registry, repo / "docs" / "epics", lock_timeout=3600)
+    assert [f for f in findings if f.cls == cc.CLS_ACTIVE_DEPS_ON_BACKLOG] == []
+
+
+def test_no_backlog_dep_finding_when_no_backlog_epics(tmp_path):
+    registry = base_registry(
+        epics=[{"id": "E1", "status": "in_progress", "tasks": ["T1"]}],
+        tasks=[{"id": "T1", "status": "ready", "epic": "E1",
+                "dependencies": [], "lock": None}],
+    )
+    repo = make_repo(tmp_path, registry)
+    findings, _, _ = cc.run_all_checks(
+        registry, repo / "docs" / "epics", lock_timeout=3600)
+    assert [f for f in findings if f.cls == cc.CLS_ACTIVE_DEPS_ON_BACKLOG] == []

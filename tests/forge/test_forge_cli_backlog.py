@@ -119,3 +119,50 @@ def test_ls_no_promotion_recommendation_in_v1(tmp_path):
 
 def test_ls_exit_code_unaffected_by_footer(tmp_path):
     assert _run(_repo(tmp_path), "task", "ls", "--ready").returncode == 0
+
+
+def test_epic_complete_suggests_promotion(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[
+            {"id": "E1", "name": "Core", "status": "in_progress", "tasks": ["T1"]},
+            {"id": "E99", "name": "Hardening", "status": "backlog", "tasks": ["T9"]},
+        ],
+        tasks=[
+            {"id": "T1", "status": "completed", "epic": "E1",
+             "dependencies": [], "lock": None},
+            {"id": "T9", "status": "ready", "epic": "E99", "dependencies": [],
+             "lock": None, "createdAt": "2026-01-01T00:00:00Z"},
+        ],
+    ))
+    r = _run(repo, "epic", "complete", "E1")
+    assert r.returncode == 0, r.stderr
+    assert "1 deferred in E99-hardening" in r.stdout
+    assert "forge epic status E99 in_progress" in r.stdout
+
+
+def test_epic_complete_silent_when_no_backlog(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[{"id": "E1", "name": "Core", "status": "in_progress", "tasks": ["T1"]}],
+        tasks=[{"id": "T1", "status": "completed", "epic": "E1",
+                "dependencies": [], "lock": None}],
+    ))
+    r = _run(repo, "epic", "complete", "E1")
+    assert r.returncode == 0, r.stderr
+    assert "deferred" not in r.stdout
+
+
+def test_epic_complete_json_stays_parseable(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[
+            {"id": "E1", "name": "Core", "status": "in_progress", "tasks": ["T1"]},
+            {"id": "E99", "name": "Hardening", "status": "backlog", "tasks": ["T9"]},
+        ],
+        tasks=[
+            {"id": "T1", "status": "completed", "epic": "E1",
+             "dependencies": [], "lock": None},
+            {"id": "T9", "status": "ready", "epic": "E99",
+             "dependencies": [], "lock": None},
+        ],
+    ))
+    r = _run(repo, "epic", "complete", "E1", "--json")
+    json.loads(r.stdout)

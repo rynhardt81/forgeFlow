@@ -82,6 +82,7 @@ CLS_FILE_VS_REGISTRY_STATUS = "file-vs-registry-status"
 CLS_FILE_VS_REGISTRY_NAME = "file-vs-registry-name"
 CLS_STALE_LOCK = "stale-lock"
 CLS_TASK_WITHOUT_ISA = "task-without-isa"
+CLS_ACTIVE_DEPS_ON_BACKLOG = "active-task-deps-on-backlog"
 
 DEFAULT_LOCK_TIMEOUT = 3600
 
@@ -663,6 +664,53 @@ def check_task_without_isa(
     return findings
 
 
+def check_active_deps_on_backlog(registry: dict[str, Any]) -> list[Finding]:
+    """Advisory: an active task is blocked by a task parked in a backlog epic.
+
+    REPORT-ONLY — `severity=SEV_INFO`, `auto_fixable=False`. The dependency
+    cannot complete while its epic is parked, so the dependent task never
+    becomes ready and nothing else surfaces that. Not auto-fixed because the
+    resolution is a human call: promote the dependency's epic, or drop the dep.
+
+    Silent when both sides are parked — nothing live is being blocked.
+    """
+    backlog = {
+        e["id"] for e in registry.get("epics", [])
+        if e.get("status") == "backlog" and e.get("id")
+    }
+    if not backlog:
+        return []
+    parked = {
+        t["id"] for t in registry.get("tasks", [])
+        if t.get("epic") in backlog
+        and t.get("status") not in DONE_FOR_DEPS
+        and t.get("id")
+    }
+    if not parked:
+        return []
+    findings = []
+    for t in registry.get("tasks", []):
+        if t.get("epic") in backlog:
+            continue
+        blocked_by = sorted(set(t.get("dependencies") or []) & parked)
+        if not blocked_by:
+            continue
+        findings.append(Finding(
+            cls=CLS_ACTIVE_DEPS_ON_BACKLOG,
+            severity=SEV_INFO,
+            message=(
+                f"advisory: {t.get('id')} depends on "
+                f"{', '.join(blocked_by)} in a backlog epic — it cannot become "
+                f"ready until that epic is promoted. Promote it "
+                f"(`forge epic status <id> in_progress`), or drop the "
+                f"dependency. (report-only; not auto-fixed)"
+            ),
+            auto_fixable=False,
+            target=t.get("id"),
+        ))
+    return findings
+
+
 # --- Orchestration ---------------------------------------------------------
 
 
@@ -686,6 +734,7 @@ def run_all_checks(
     findings.extend(check_stale_lock(registry, lock_timeout))
     # epics_dir is <project_root>/docs/epics — project root is its grandparent.
     findings.extend(check_task_without_isa(registry, epics_dir.parent.parent))
+    findings.extend(check_active_deps_on_backlog(registry))
     return findings, task_files, epic_ids
 
 
