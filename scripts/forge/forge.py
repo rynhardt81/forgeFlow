@@ -245,6 +245,30 @@ def cmd_epic_complete(args, project_root: Path) -> int:
     return 0
 
 
+def cmd_task_move(args, project_root: Path) -> int:
+    """Reassign a task to a different epic (registry + body file + frontmatter).
+
+    Chiefly for moving derived work into or out of a backlog epic -- a task's
+    epic is otherwise fixed at `task add` time.
+    """
+    try:
+        task = ops.move_task(
+            _registry_path(project_root), project_root, args.id, args.epic
+        )
+    except (ops.TaskNotFound, ops.EpicNotFound, ops.RegistryOpError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.RegistryLockTimeout as e:
+        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(dict(task), indent=2))
+    else:
+        print(f"{task['id']}: moved to {task['epic']} ({task.get('file', 'no body file')})")
+    return 0
+
+
 def cmd_epic_status(args, project_root: Path) -> int:
     """Move an epic between pending / in_progress / backlog.
 
@@ -1062,6 +1086,19 @@ def build_parser() -> argparse.ArgumentParser:
     ls.add_argument("--locked", action="store_true", help="Only locked tasks")
     ls.add_argument("--json", action="store_true")
     ls.set_defaults(func=cmd_ls)
+
+    mv = task.add_parser(
+        "move",
+        help=(
+            "Reassign a task to a different epic. Moves the body file and "
+            "rewrites its `epic:` frontmatter so discovery and the consistency "
+            "checker stay in sync. Refuses a locked task."
+        ),
+    )
+    mv.add_argument("id", help="Task ID, e.g. T042")
+    mv.add_argument("--epic", required=True, help="Target epic ID, e.g. E99")
+    mv.add_argument("--json", action="store_true")
+    mv.set_defaults(func=cmd_task_move)
 
     sh = task.add_parser("show", help="Show full registry entry for a task")
     sh.add_argument("id")

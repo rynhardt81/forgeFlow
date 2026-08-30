@@ -146,6 +146,7 @@ _FRONTMATTER_STATUS_RE = re.compile(
 _FRONTMATTER_NAME_RE = re.compile(
     r"^(name[ \t]*:[ \t]*)(.+?)[ \t]*$", re.MULTILINE
 )
+_FRONTMATTER_EPIC_RE = re.compile(r"^(epic:\s*)(.*)$", re.MULTILINE)
 
 
 # --- Errors ----------------------------------------------------------------
@@ -400,6 +401,24 @@ def _rewrite_frontmatter_name(content: str, new_name: str) -> tuple[str, bool]:
     quoted = _yaml_quote_if_needed(new_name)
     new_block, n = _FRONTMATTER_NAME_RE.subn(
         lambda m: f"{m.group(1)}{quoted}", block, count=1
+    )
+    if n == 0 or new_block == block:
+        return content, False
+    return content[: fm.start(1)] + new_block + content[fm.end(1) :], True
+
+
+def _rewrite_frontmatter_epic(content: str, new_epic: str) -> tuple[str, bool]:
+    """Rewrite `epic:` inside the first frontmatter block.
+
+    Returns (new_content, changed). No-op when the file has no frontmatter or
+    no `epic:` field -- same contract as the status and name rewriters.
+    """
+    fm = _FRONTMATTER_RE.match(content)
+    if not fm:
+        return content, False
+    block = fm.group(1)
+    new_block, n = _FRONTMATTER_EPIC_RE.subn(
+        lambda m: f"{m.group(1)}{new_epic}", block, count=1
     )
     if n == 0 or new_block == block:
         return content, False
@@ -1232,6 +1251,78 @@ def rename_task(
         task["name"] = new_name
         save_registry(registry_path, registry)
         mirror_name_to_file(project_root, task, new_name)
+    return task
+
+
+def move_task(
+    registry_path: Path,
+    project_root: Path,
+    task_id: str,
+    new_epic_id: str,
+) -> dict[str, Any]:
+    """Reassign a task to a different epic. Atomic across registry and disk.
+
+    Four mutations, all required for the task to stay findable:
+      1. the task's `epic` field;
+      2. both epics' `tasks` lists;
+      3. the body file, moved into the target epic's `tasks/` dir, and the
+         recorded `file` path;
+      4. the body file's `epic:` frontmatter.
+
+    `_discover_task_file` globs by epic dir and the consistency checker mirrors
+    frontmatter against the registry, so skipping (3) or (4) produces drift.
+
+    Refuses a locked task (unlock it first) and an unknown target epic. Moving
+    a task to the epic it is already in is a no-op.
+    """
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        task = find_task(registry, task_id)
+        old_epic_id = task.get("epic")
+        if old_epic_id == new_epic_id:
+            return task
+        if task.get("lock"):
+            raise RegistryOpError(
+                f"Task {task_id} is locked by session "
+                f"{task['lock'].get('session', '?')}; unlock it before moving."
+            )
+        target = find_epic(registry, new_epic_id)
+        if target is None:
+            raise EpicNotFound(
+                f"Epic {new_epic_id} is not in the registry. Create it first "
+                f"with `forge epic add {new_epic_id} --name \"...\"`."
+            )
+
+        # Resolve the body file BEFORE mutating `epic` -- discovery globs by
+        # epic dir, so afterwards it would look in the wrong place.
+        rel = task_file_path(registry, task)
+        src: Path | None = (project_root / rel) if rel else None
+        if src is None or not src.exists():
+            src = _discover_task_file(project_root, task)
+
+        task["epic"] = new_epic_id
+        source = find_epic(registry, old_epic_id)
+        if source is not None and task_id in source.get("tasks", []):
+            source["tasks"].remove(task_id)
+        if task_id not in target.setdefault("tasks", []):
+            target["tasks"].append(task_id)
+
+        if src is not None and src.exists():
+            dest_dir = _resolve_epic_dir(
+                project_root, new_epic_id, create_if_missing=True
+            ) / "tasks"
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest = dest_dir / src.name
+            content = src.read_text(encoding="utf-8")
+            new_content, _ = _rewrite_frontmatter_epic(content, new_epic_id)
+            dest.write_text(new_content, encoding="utf-8")
+            if dest.resolve() != src.resolve():
+                src.unlink()
+            task["file"] = str(dest.relative_to(project_root))
+            task.pop("path", None)
+
+        recompute_stats(registry)
+        save_registry(registry_path, registry)
     return task
 
 

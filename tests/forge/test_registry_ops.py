@@ -992,3 +992,70 @@ def test_set_epic_status_rejects_garbage(tmp_path):
     repo = _epic_repo(tmp_path)
     with pytest.raises(ValueError):
         ops.set_epic_status(_registry_path(repo), repo, "E99", "parked")
+
+
+# --- move_task -----------------------------------------------------------
+
+
+def _move_repo(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[
+            {"id": "E1", "name": "Core", "status": "in_progress", "tasks": []},
+            {"id": "E99", "name": "Hardening", "status": "backlog", "tasks": []},
+        ],
+    ))
+    ops.add_task(_registry_path(repo), task_id="T1", epic_id="E1", name="Widget")
+    task = ops.find_task(ops.load_registry(_registry_path(repo)), "T1")
+    ops.create_task_body_file(repo, task)
+    return repo
+
+
+def test_move_task_reassigns_epic_and_both_lists(tmp_path):
+    repo = _move_repo(tmp_path)
+    moved = ops.move_task(_registry_path(repo), repo, "T1", "E99")
+    assert moved["epic"] == "E99"
+    out = _read(repo)
+    e1 = next(e for e in out["epics"] if e["id"] == "E1")
+    e99 = next(e for e in out["epics"] if e["id"] == "E99")
+    assert "T1" not in e1["tasks"]
+    assert "T1" in e99["tasks"]
+
+
+def test_move_task_moves_body_file_and_updates_path(tmp_path):
+    repo = _move_repo(tmp_path)
+    old = next(repo.rglob("T1-*.md"))
+    moved = ops.move_task(_registry_path(repo), repo, "T1", "E99")
+    assert not old.exists(), "source copy must not be left behind"
+    new_path = repo / moved["file"]
+    assert new_path.exists()
+    assert "E99-" in str(new_path)
+    assert ops._discover_task_file(repo, moved) == new_path
+
+
+def test_move_task_rewrites_epic_frontmatter(tmp_path):
+    repo = _move_repo(tmp_path)
+    moved = ops.move_task(_registry_path(repo), repo, "T1", "E99")
+    text = (repo / moved["file"]).read_text()
+    assert "epic: E99" in text
+    assert "epic: E1\n" not in text
+
+
+def test_move_task_refuses_locked_task(tmp_path):
+    repo = _move_repo(tmp_path)
+    ops.lock_task(_registry_path(repo), repo, "T1", session_id="sess-1")
+    with pytest.raises(ops.RegistryOpError, match="locked"):
+        ops.move_task(_registry_path(repo), repo, "T1", "E99")
+
+
+def test_move_task_unknown_target_epic(tmp_path):
+    repo = _move_repo(tmp_path)
+    with pytest.raises(ops.EpicNotFound):
+        ops.move_task(_registry_path(repo), repo, "T1", "E00")
+
+
+def test_move_task_same_epic_is_noop(tmp_path):
+    repo = _move_repo(tmp_path)
+    before = _read(repo)
+    moved = ops.move_task(_registry_path(repo), repo, "T1", "E1")
+    assert moved["epic"] == "E1"
+    assert _read(repo)["epics"] == before["epics"]
