@@ -36,7 +36,18 @@ def render_index(project_root: Path) -> str:
     stats = data.get("stats", {})
     epic_count = len(data.get("epics", []))
     task_count = len(data.get("tasks", []))
-    summary = _summary_strip(epic_count, task_count, stats)
+    # Deferred = tasks in a backlog epic. Counted here rather than imported
+    # from registry_ops so the dashboard renderer stays dependency-free.
+    _parked = {
+        e.get("id") for e in data.get("epics", [])
+        if e.get("status") == "backlog" and e.get("id")
+    }
+    deferred_count = sum(
+        1 for t in data.get("tasks", [])
+        if t.get("epic") in _parked
+        and t.get("status") not in ("completed", "superseded", "closed")
+    )
+    summary = _summary_strip(epic_count, task_count, stats, deferred_count)
 
     # Render tree
     tree = _render_value(data, open_depth=2)
@@ -60,7 +71,9 @@ def render_index(project_root: Path) -> str:
     return _wrap(body, title="Registry")
 
 
-def _summary_strip(epic_count: int, task_count: int, stats: dict) -> str:
+def _summary_strip(
+    epic_count: int, task_count: int, stats: dict, deferred_count: int = 0
+) -> str:
     tasks_stats = stats.get("tasks", {}) if isinstance(stats, dict) else {}
     chips = []
     for label, val in [
@@ -75,6 +88,12 @@ def _summary_strip(epic_count: int, task_count: int, stats: dict) -> str:
         chips.append(f'<span class="reg-chip task-{html_escape.escape(str(status))}">'
                      f'<span class="reg-chip-key">{html_escape.escape(str(status))}</span>'
                      f'<span class="reg-chip-val">{count}</span></span>')
+    if deferred_count:
+        chips.append(
+            '<span class="reg-chip task-backlog">'
+            '<span class="reg-chip-key">deferred</span>'
+            f'<span class="reg-chip-val">{deferred_count}</span></span>'
+        )
     if not chips:
         return ""
     return f'<div class="reg-summary">{"".join(chips)}</div>'

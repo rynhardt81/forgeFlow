@@ -1059,3 +1059,19 @@ def test_move_task_same_epic_is_noop(tmp_path):
     moved = ops.move_task(_registry_path(repo), repo, "T1", "E1")
     assert moved["epic"] == "E1"
     assert _read(repo)["epics"] == before["epics"]
+
+
+def test_move_task_drops_stale_file_path_when_body_missing(tmp_path):
+    """Anti-criterion: never leave a `file` path pointing into the old epic."""
+    repo = make_repo(tmp_path, base_registry(
+        epics=[
+            {"id": "E1", "name": "Core", "status": "in_progress", "tasks": ["T1"]},
+            {"id": "E99", "name": "Hardening", "status": "backlog", "tasks": []},
+        ],
+        tasks=[{"id": "T1", "status": "ready", "epic": "E1", "dependencies": [],
+                "lock": None, "file": "docs/epics/E1-core/tasks/T1-gone.md"}],
+    ))
+    moved = ops.move_task(_registry_path(repo), repo, "T1", "E99")
+    assert moved["epic"] == "E99"
+    assert "file" not in moved, "stale path into the old epic must be dropped"
+    assert "path" not in moved

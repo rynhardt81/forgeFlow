@@ -1320,6 +1320,12 @@ def move_task(
                 src.unlink()
             task["file"] = str(dest.relative_to(project_root))
             task.pop("path", None)
+        else:
+            # No body file found: drop any recorded path rather than leave one
+            # pointing into the old epic's dir. `task reconcile-files --apply`
+            # regenerates a stub in the right place.
+            task.pop("file", None)
+            task.pop("path", None)
 
         recompute_stats(registry)
         save_registry(registry_path, registry)
