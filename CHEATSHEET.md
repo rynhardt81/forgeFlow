@@ -58,7 +58,9 @@ python3 .claude/scripts/forge/forge.py task add T### --epic E0X --name "..." \
 python3 .claude/scripts/forge/forge.py task lock T### --session <id>   # file-scope conflicts fail here
 python3 .claude/scripts/forge/forge.py task pr T###
 python3 .claude/scripts/forge/forge.py task complete T###
-python3 .claude/scripts/forge/forge.py task ls --ready
+python3 .claude/scripts/forge/forge.py task ls --ready [--all]  # --all includes backlog epics
+python3 .claude/scripts/forge/forge.py task move T### --epic E0X       # reassign epic (registry + file + frontmatter)
+python3 .claude/scripts/forge/forge.py epic status E0X backlog         # park an epic; in_progress promotes it back
 python3 .claude/scripts/forge/forge.py task show T###
 python3 .claude/scripts/forge/forge.py task reconcile-files [--apply]
 python3 .claude/scripts/forge/forge.py version                         # installed framework version
@@ -66,6 +68,14 @@ python3 .claude/scripts/forge/forge.py doctor [--json] [--all DIR]     # install
 ```
 
 States: `pending → ready → in_progress → pr_pending → completed`.
+
+**Deferring derived work.** When a task surfaces a bug or hardening gap, `skills/_shared/task-triage.md` decides where it goes: *what breaks if this ships later?* → **Blocker** (fold in, or `--deps`) · **Next** (active epic) · **Deferred** (`--epic E99`, the default). Tasks in a `backlog` epic are out of `task ls --ready` and out of `/run-epic`'s selection, but every listing reports how many are parked and how old. Promote a batch with `epic status E99 in_progress`. Hard floors — schema, auth, money, security — are never deferred by default.
+
+```bash
+python3 .claude/scripts/forge/forge.py epic add E99 --name "Hardening" --status backlog
+python3 .claude/scripts/forge/forge.py task add T900 --epic E99 --name "..."
+python3 .claude/scripts/forge/forge.py epic status E99 in_progress     # promote the batch
+```
 
 ```bash
 # Specialists (per-project domain experts, never touched by refresh)

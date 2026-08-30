@@ -14,7 +14,7 @@ A project-portable framework for AI-assisted, full-cycle software development wi
 
 | Primitive | What it does |
 |-----------|--------------|
-| **Forge CLI** | Atomic task-state operations — add, lock, pr, complete, reconcile — with file-scope conflict detection at lock time and a consistency hook that auto-fixes registry drift on every write |
+| **Forge CLI** | Atomic task-state operations — add, lock, pr, complete, move, reconcile — with file-scope conflict detection at lock time and a consistency hook that auto-fixes registry drift on every write. Derived work (bugs, review findings, hardening) defers to a `backlog` epic by default, so reactive work can't crowd out the roadmap |
 | **ISA (Ideal State Articulation)** | A per-task/per-project verification trail: testable criteria (each with a nameable tool probe), required `Anti:` criteria, and a hard rule that `[x]` needs tool evidence — never "tests pass" |
 | **Algorithm** | Phase discipline for genuinely complex work — OBSERVE → THINK → PLAN → BUILD → EXECUTE → VERIFY → LEARN — with reproduce-first gates for bugs, schema gates for migrations, and checkpoint discipline for background agents |
 | **CI economics** | `/preflight-ci` mirrors your GitHub Actions locally before push; `/diagnose-ci` root-causes failed runs locally instead of retry-pushing; `/create-pr` gates pushes on a pre-flight review |

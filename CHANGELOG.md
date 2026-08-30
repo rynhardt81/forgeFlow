@@ -2,6 +2,28 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
+## [v4.4.0] — 2026-08-30
+
+> Queue release. Derived work — bugs, review findings, hardening gaps — used to land in the same flat pile as planned work, and `task ls --ready` did not even sort it. Reactive work therefore crowded out the roadmap by default. It now defers by default instead, into a `backlog` epic the owner promotes on their own schedule.
+
+### Added
+
+- **Backlog epics** (`registry_ops.backlog_epic_ids`, `EPIC_BACKLOG_STATUS`) — a task is *deferred* iff its epic's status is `backlog`. Single source of truth: no new task field, no new task status, `LEGAL_TRANSITIONS` untouched. `list_tasks()` excludes deferred tasks by default; `include_backlog=True` opts a view back in, and naming an epic explicitly always shows it.
+- **`forge epic status <id> pending|in_progress|backlog`** — parks or promotes a whole epic in one command. `completed` stays exclusive to `epic complete`, which keeps its all-tasks-terminal guard, and is terminal.
+- **`forge task move <id> --epic <id>`** — reassigns a task's epic. Four mutations, all required: the `epic` field, both epics' `tasks` lists, the body file (moved into the target epic's dir), and the file's `epic:` frontmatter — `_discover_task_file` globs by epic dir and the consistency checker mirrors frontmatter, so any omission produces drift. Refuses a locked task. Mis-filed tasks were previously permanent.
+- **Shared triage rule** (`skills/_shared/task-triage.md`) — one question, three answers: *what breaks if this ships later?* → **Blocker** (fold into the current task, or make it a `--deps` edge) · **Next** (active epic) · **Deferred** (`--epic E99`). Deferred is the default. Hard floors — schema, auth, money paths, security — are never deferred by default. Pointed at from all six sites that file derived tasks: `/fix-bug`, `/create-pr` deferrals, `/security-review`, `/triage-incident`, `/run-epic`, and ALGORITHM's phased hardening.
+- **Deferred-work reporting, count-only** — `task ls` prints one advisory line per backlog epic (`— 12 deferred in E99-hardening, oldest 24d`), including when the queue is empty, which is when it matters most; `epic complete` reports the same and names the promote command; `/audit-task-status` gains a **Backlog health** section; the dashboard registry view gains a `deferred` chip. No thresholds, no nags — it reports, it never tells you when to act. Revisit after two or three epics have run, with observed numbers.
+- **Advisory consistency finding `active-task-deps-on-backlog`** — an active task depending on a task in a parked epic can never become ready, and nothing else surfaced that. `SEV_INFO`, never blocking, never auto-fixed: the resolution is a human call.
+
+### Changed
+
+- **`forge task ls` now sorts** by (epic priority, task priority, id). It previously returned registry insertion order, which made `run-epic/LOOP.md`'s documented "highest-priority ready task wins" false — the loop takes `.[0]`, so that sentence is only now accurate. New `--all` flag includes backlog epics.
+- `visualize` gives a `backlog` epic its own muted column.
+
+### Fixed
+
+- `move_task` with a recorded `file` that is not on disk now drops the stale path instead of leaving one pointing into the old epic's directory; `task reconcile-files --apply` regenerates it.
+
 ## [v4.3.0] — 2026-08-29
 
 > Correctness release. Four defects that all failed *silently* — a permission tier that never reached any consumer, a generator that destroyed project files it promised to preserve, reflection learnings written where refresh overwrites them, and hook wiring left pointing at deleted scripts. Plus a token-weight pass that removes framework text explaining how to reason, keeping every verification gate.
