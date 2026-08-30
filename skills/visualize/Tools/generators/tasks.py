@@ -36,6 +36,9 @@ STATE_COLORS = {
     "pr_pending":   "#9333ea",
     "completed":    "#16a34a",
     "blocked":      "#dc2626",
+    # Parked: deferred work, deliberately out of the ready queue.
+    # Muted so it reads as "not the work in front of you".
+    "backlog":      "#57534e",
 }
 
 

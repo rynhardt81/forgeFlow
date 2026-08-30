@@ -10,6 +10,17 @@ python3 .claude/scripts/forge/forge.py task ls --epic <E##> --ready --json | jq 
 
 Highest-priority ready task wins; tie-break lowest ID (oldest first). `null` → no ready tasks → exit the loop.
 
+`task ls` orders by (epic priority, task priority, id), so `.[0]` is genuinely the
+highest-priority task — do not re-sort in the loop.
+
+**Backlog epics.** Tasks in a `backlog` epic are excluded from every unscoped
+queue view, so the loop never picks up deferred work incidentally. Naming a
+backlog epic directly (`--epic E99`) is an explicit request and IS honoured —
+but the intended path is to promote it first (`forge epic status E99
+in_progress`), which is the decision to spend a cycle on hardening. Never add
+`--all` here to "see more work": that is precisely the failure the backlog
+exists to prevent. See `skills/_shared/task-triage.md`.
+
 ## Lock
 
 ```bash

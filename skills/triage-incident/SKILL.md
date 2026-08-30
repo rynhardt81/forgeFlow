@@ -47,6 +47,7 @@ The incident is not over when the fix merges — probe the live surface: the fai
 Write `docs/debug/incident-YYYY-MM-DD-<slug>.md` (≤1 page): timeline, impact (users × duration), root cause, why it wasn't caught earlier, what prevents the class (not just the instance). Then:
 - `/remember bug "<one-line root cause>"` → project memory
 - File prevention follow-ups as real tasks: `python3 .claude/scripts/forge/forge.py task add ...`
+  **Before filing, apply `skills/_shared/task-triage.md`** — answer "what breaks if this ships later?" Deferred is the default (`--epic E99` parks it out of the ready queue); hard floors (schema/auth/money/security) are never deferred. Prevention items are usually Deferred; a live, recurring failure class is not.
 - If the root cause implicates doctrine (a gate that should have fired), surface it — that's a `doctrine` learning per ALGORITHM LEARN.
 
 ## Key Rules

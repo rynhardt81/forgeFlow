@@ -35,6 +35,8 @@ python3 .claude/scripts/forge/forge.py task add T### \
     --scope-dirs <paths>
 ```
 
+**Before filing, apply `skills/_shared/task-triage.md`** — answer "what breaks if this ships later?" Deferred is the default (`--epic E99` parks it out of the ready queue); hard floors (schema/auth/money/security) are never deferred. A mid-epic discovery that is not a blocker for the current task is almost always Deferred — that is the whole point of not derailing the epic.
+
 The task *type* (bug/feature/refactor) is not a CLI flag — it lives in the name prefix (next section) and is re-derived at classification time when the task is picked.
 
 **Naming convention** for auto-filed tasks: prefix with the trigger context.

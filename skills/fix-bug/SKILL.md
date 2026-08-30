@@ -80,7 +80,7 @@ When the bug is live in production (outage, data corruption, all-users breakage)
 2. Assess blast radius; if rollback or a feature flag mitigates faster than a fix, do that first.
 3. Minimal diff — the smallest change that stops the bleeding.
 4. Verify with a live probe against the affected environment (the step-2 table applies).
-5. The regression test ships in the hotfix PR when it can be written quickly (the reproduction from step 4 usually IS the test). If shipping speed genuinely can't wait, file the follow-up task via `forge task add` BEFORE merging and name it in the PR body — an unfiled deferral is a dropped gate, not a fast path.
+5. The regression test ships in the hotfix PR when it can be written quickly (the reproduction from step 4 usually IS the test). If shipping speed genuinely can't wait, file the follow-up task via `forge task add` BEFORE merging and name it in the PR body — an unfiled deferral is a dropped gate, not a fast path. **Before filing, apply `skills/_shared/task-triage.md`** — answer "what breaks if this ships later?" Deferred is the default (`--epic E99` parks it out of the ready queue); hard floors (schema/auth/money/security) are never deferred.
 6. Ship, then note the backport to main in the PR body. Deep root-causing lands in the same follow-up task.
 
 For full incident handling (stabilize → postmortem → prevention tasks), use `/triage-incident`.

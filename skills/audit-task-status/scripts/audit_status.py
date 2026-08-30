@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import datetime, timezone
 import re
 import sys
 from collections import Counter, defaultdict
@@ -220,6 +221,71 @@ def epic_row_statuses(text: str) -> dict[str, str]:
     return rows
 
 
+# Category codes that mark a hard-floor finding. `/security-review` files with
+# the severity in --category (see skills/security-review/SKILL.md), and hard
+# floors are never deferred by default (skills/_shared/task-triage.md). A
+# hard-floor task sitting in a backlog epic is therefore a triage-rule
+# violation, not workload -- we flag it rather than counting it.
+_HARD_FLOOR_CATEGORY_TOKENS = ("critical", "high", "security", "sec-")
+
+
+def backlog_health(root: Path) -> dict:
+    """Size, age and rule-violation report for every backlog epic.
+
+    Count-only by design (plans/011 spec 3.3): it reports what is parked and
+    how old, and never recommends a promotion. The one judgement it makes is
+    flagging a deferred hard-floor task, which the triage rule forbids.
+    """
+    reg = root / "docs" / "tasks" / "registry.json"
+    if not reg.exists():
+        return {"epics": [], "violations": []}
+    raw = json.loads(reg.read_text())
+    if not isinstance(raw, dict):
+        return {"epics": [], "violations": []}
+
+    parked_epics = {
+        e["id"]: e.get("name", "")
+        for e in raw.get("epics", [])
+        if e.get("status") == "backlog" and e.get("id")
+    }
+    if not parked_epics:
+        return {"epics": [], "violations": []}
+
+    terminal = {"completed", "superseded", "closed"}
+    now = datetime.now(timezone.utc)
+    epics, violations = [], []
+    for eid, ename in parked_epics.items():
+        ages = []
+        count = 0
+        for t in raw.get("tasks", []):
+            if t.get("epic") != eid or t.get("status") in terminal:
+                continue
+            count += 1
+            created = t.get("createdAt")
+            if created:
+                try:
+                    ages.append(
+                        (now - datetime.fromisoformat(
+                            created.replace("Z", "+00:00"))).days
+                    )
+                except ValueError:
+                    pass
+            cat = str(t.get("category", "")).lower()
+            if any(tok in cat for tok in _HARD_FLOOR_CATEGORY_TOKENS):
+                violations.append({
+                    "id": t.get("id"), "epic": eid, "category": t.get("category"),
+                })
+        if count:
+            epics.append({
+                "epic": eid,
+                "name": ename,
+                "deferred": count,
+                "oldest_days": max(ages) if ages else None,
+                "median_days": sorted(ages)[len(ages) // 2] if ages else None,
+            })
+    return {"epics": epics, "violations": violations}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--project-root", type=Path, default=None)
@@ -343,6 +409,7 @@ def main() -> int:
         "epic_counters": epic_counter_report,
         "tasks_without_body_file": missing_files,
         "registry_task_count": len(reg),
+        "backlog_health": backlog_health(root),
     }
 
     if args.json:
@@ -397,6 +464,25 @@ def main() -> int:
             print(
                 "    (registry-health, not a status bug — fix via "
                 "`forge task reconcile-files [--apply]` if the user wants)"
+            )
+
+        bh = result["backlog_health"]
+        total_deferred = sum(e["deferred"] for e in bh["epics"])
+        print(f"\n[5] Backlog health: {total_deferred} deferred")
+        for e in bh["epics"]:
+            age = (
+                f", oldest {e['oldest_days']}d, median {e['median_days']}d"
+                if e["oldest_days"] is not None else ""
+            )
+            print(f"    {e['epic']}-{e['name']}: {e['deferred']} deferred{age}")
+        if not bh["epics"]:
+            print("    ✅ nothing parked")
+        for v in bh["violations"]:
+            print(
+                f"    ⚠ TRIAGE-RULE VIOLATION: {v['id']} is deferred in "
+                f"{v['epic']} with category={v['category']!r} — hard floors "
+                f"(schema/auth/money/security) are never deferred by default. "
+                f"See skills/_shared/task-triage.md."
             )
 
     status_drift = (

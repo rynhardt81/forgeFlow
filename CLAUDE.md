@@ -70,8 +70,12 @@ Atomic state via `python3 .claude/scripts/forge/forge.py`:
 - `epic add E0X --name "..."` (+`--description`, `--deps`, `--priority`, `--category`, `--status`) — create the epic (registry entry + `docs/epics/<id>-<slug>/` dir + body file) **before** filing tasks under it
 - `task add T### --epic E0X --name "..."` (+`--isa`, `--deps`, `--scope-dirs`, `--scope-files`, `--priority`, `--preflight`) — the epic must already exist, else it raises `EpicNotFound` (override with `--allow-missing-epic` only for staged imports / fixtures)
 - `task lock T### --session <id>` — file-scope conflicts fail here
+- `task move T### --epic E0X` — reassign a task's epic (registry + body file + frontmatter); refuses a locked task
+- `epic status E0X pending|in_progress|backlog` — park or promote a whole epic (`epic complete` still owns `completed`)
 - `task pr T###` / `task complete T###` / `task ls --ready` / `task show T###`
 - `task reconcile-files [--apply]`
+
+**Derived work defers by default.** When executing a task surfaces a bug, review finding, or hardening gap, `skills/_shared/task-triage.md` is binding: answer *"what breaks if this ships later?"* — Blocker (fold in, or `--deps`), Next (active epic), or **Deferred** (`--epic E99`, the default). Tasks in a `backlog` epic are excluded from `task ls --ready` and from `/run-epic`'s selection; `task ls` reports how many are parked and how old. Promote a batch with `epic status E99 in_progress`. Hard floors — schema, auth, money paths, security — are never deferred by default.
 
 States: `pending → ready → in_progress → pr_pending → completed`. Never hand-edit `docs/tasks/registry.json` — create epics with `epic add` and tasks with `task add`; the consistency-banner hook auto-fixes drift on every write and at SessionStart.
 

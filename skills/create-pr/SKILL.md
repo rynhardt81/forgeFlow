@@ -145,7 +145,7 @@ Plugin absent → **cross-check before trusting it** (agent-verification.md: an 
 
 **Fan-out:** single message, multiple Task tool uses — one per matched agent. Each gets the diff + changed-file list and returns findings as `MUST-FIX` (bug, security, broken test, regression) / `NICE-TO-HAVE` (style, naming, small refactor) / `NO-ACTION`. Aggregate into a compact per-agent count table + MUST-FIX detail lines.
 
-**Push gate:** cannot create the PR with unresolved MUST-FIX. Options: fix it (re-run checks + 3.7 on the new diff), defer (file a follow-up via `forge task add`, document in the PR body), or `--proceed-anyway` (override reason recorded in the body's Pre-flight notes). NICE-TO-HAVE → Pre-flight notes section (TEMPLATES.md), doesn't gate. NO-ACTION → dropped.
+**Push gate:** cannot create the PR with unresolved MUST-FIX. Options: fix it (re-run checks + 3.7 on the new diff), defer (file a follow-up via `forge task add`, document in the PR body; **Before filing, apply `skills/_shared/task-triage.md`** — answer "what breaks if this ships later?" Deferred is the default (`--epic E99` parks it out of the ready queue); hard floors (schema/auth/money/security) are never deferred.), or `--proceed-anyway` (override reason recorded in the body's Pre-flight notes). NICE-TO-HAVE → Pre-flight notes section (TEMPLATES.md), doesn't gate. NO-ACTION → dropped.
 
 ## Step 3.8: Local review-bot gate (pre-push)
 

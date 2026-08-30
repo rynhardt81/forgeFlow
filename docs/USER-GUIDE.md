@@ -143,6 +143,37 @@ python3 .claude/scripts/forge/forge.py task pr T001
 python3 .claude/scripts/forge/forge.py task complete T001
 ```
 
+#### Deferring derived work
+
+Executing a task surfaces more work — bugs, review findings, hardening gaps. Filed straight into the queue they crowd out the roadmap, so Forge Flow parks them instead.
+
+Create one backlog epic per project:
+
+```bash
+python3 .claude/scripts/forge/forge.py epic add E99 --name "Hardening" --status backlog
+```
+
+File deferred findings into it. They stay out of `task ls --ready`, out of `/run-epic`'s next-task selection, and out of every other queue view — but not out of sight: each listing reports what is parked.
+
+```bash
+python3 .claude/scripts/forge/forge.py task add T900 --epic E99 --name "Rate-limit the export endpoint"
+python3 .claude/scripts/forge/forge.py task ls --ready
+#   T001  ready          [E01] Add CLI parser
+# — 1 deferred in E99-hardening, oldest 3d
+
+python3 .claude/scripts/forge/forge.py task ls --ready --all   # see the parked work
+```
+
+When you decide it is hardening time, promote the whole batch in one command:
+
+```bash
+python3 .claude/scripts/forge/forge.py epic status E99 in_progress
+```
+
+Mis-filed? `task move T900 --epic E01` reassigns it — registry, body file and frontmatter together.
+
+**What to defer** is governed by `skills/_shared/task-triage.md`: answer *"what breaks if this ships later?"* — **Blocker** (fold into the current task, or make it a `--deps` edge), **Next** (active epic), or **Deferred** (`--epic E99`). Deferred is the default. Hard floors — schema, auth, money paths, security — are never deferred by default; `/audit-task-status` flags one that is.
+
 ### Skills
 
 Invoke with `/skill-name` inside Claude Code — workflow primitives like `/new-feature`, `/fix-bug`, `/create-pr`.
