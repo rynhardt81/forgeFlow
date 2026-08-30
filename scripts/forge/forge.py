@@ -455,6 +455,47 @@ def cmd_status(args, project_root: Path) -> int:
     return 0
 
 
+def _print_deferred_footer(args, registry: dict) -> None:
+    """Print one advisory line per backlog epic: how much is parked, how old.
+
+    Count-only by design (plans/011 spec 3.3) -- it reports, it never
+    recommends. Suppressed for --json (a footer would break parsing), for
+    --all (nothing is hidden), and when nothing is deferred.
+    """
+    if getattr(args, "json", False) or getattr(args, "all", False):
+        return
+    backlog = ops.backlog_epic_ids(registry)
+    if not backlog:
+        return
+    now = datetime.now(timezone.utc)
+    for epic in registry.get("epics", []):
+        eid = epic.get("id")
+        if eid not in backlog:
+            continue
+        parked = [
+            t for t in registry.get("tasks", [])
+            if t.get("epic") == eid
+            and t.get("status") not in ops.EPIC_TERMINAL_TASK_STATES
+        ]
+        if not parked:
+            continue
+        name = epic.get("name") or ""
+        label = f"{eid}-{ops._slugify(name)}" if name else eid
+        ages = []
+        for t in parked:
+            created = t.get("createdAt")
+            if not created:
+                continue
+            try:
+                ages.append(
+                    (now - datetime.fromisoformat(created.replace("Z", "+00:00"))).days
+                )
+            except ValueError:
+                continue
+        age = f", oldest {max(ages)}d" if ages else ""
+        print(f"— {len(parked)} deferred in {label}{age}")
+
+
 def cmd_ls(args, project_root: Path) -> int:
     status = None
     if args.ready: status = "ready"
@@ -467,11 +508,13 @@ def cmd_ls(args, project_root: Path) -> int:
         status = args.status
 
     try:
+        registry = ops.load_registry(_registry_path(project_root))
         tasks = ops.list_tasks(
             _registry_path(project_root),
             status_filter=status,
             epic_filter=args.epic,
             locked_only=args.locked,
+            include_backlog=args.all,
         )
     except FileNotFoundError:
         print(f"error: registry not found at {_registry_path(project_root)}", file=sys.stderr)
@@ -481,8 +524,21 @@ def cmd_ls(args, project_root: Path) -> int:
         print(json.dumps(tasks, indent=2))
         return 0
 
+    # Stable, meaningful order: highest-priority epic first, then task
+    # priority within it, then id. Before this the listing was registry
+    # insertion order, which made "what next?" a coin toss.
+    epic_prio = {e.get("id"): e.get("priority", 1) for e in registry.get("epics", [])}
+    tasks.sort(key=lambda t: (
+        epic_prio.get(t.get("epic"), 1),
+        t.get("priority", 1),
+        t.get("id", ""),
+    ))
+
     if not tasks:
+        # Footer still prints: an empty queue with parked work is exactly
+        # when the deferred count matters most.
         print("(no tasks match)")
+        _print_deferred_footer(args, registry)
         return 0
     width = max(len(t.get("id", "")) for t in tasks)
     for t in tasks:
@@ -492,6 +548,7 @@ def cmd_ls(args, project_root: Path) -> int:
         ep = t.get("epic", "")
         lock = "🔒 " if t.get("lock") else "  "
         print(f"{lock}{tid}  {st:<14} [{ep}] {nm}")
+    _print_deferred_footer(args, registry)
     return 0
 
 
@@ -1075,6 +1132,11 @@ def build_parser() -> argparse.ArgumentParser:
     S.set_defaults(func=cmd_status)
 
     ls = task.add_parser("ls", help="List tasks (read-only)")
+    ls.add_argument(
+        "--all",
+        action="store_true",
+        help="Include tasks in backlog epics (hidden by default).",
+    )
     ls.add_argument("--ready", action="store_true")
     ls.add_argument("--pending", action="store_true")
     ls.add_argument("--in-progress", dest="in_progress", action="store_true")
