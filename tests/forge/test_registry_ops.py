@@ -1075,3 +1075,141 @@ def test_move_task_drops_stale_file_path_when_body_missing(tmp_path):
     assert moved["epic"] == "E99"
     assert "file" not in moved, "stale path into the old epic must be dropped"
     assert "path" not in moved
+
+
+# --- v4.4.1: backlog epic priority (F1) ----------------------------------
+
+
+def test_backlog_epic_defaults_to_low_rank_priority(tmp_path):
+    """The command task-triage.md tells consumers to paste must not invert
+    the queue on promotion. Lower = higher, so backlog defaults to 99."""
+    repo = make_repo(tmp_path, base_registry())
+    epic = ops.add_epic(_registry_path(repo), epic_id="E99", name="Hardening",
+                        status="backlog")
+    assert epic["priority"] == 99
+
+
+def test_non_backlog_epic_still_defaults_to_one(tmp_path):
+    repo = make_repo(tmp_path, base_registry())
+    epic = ops.add_epic(_registry_path(repo), epic_id="E01", name="Core")
+    assert epic["priority"] == 1
+
+
+def test_explicit_priority_wins_over_backlog_default(tmp_path):
+    repo = make_repo(tmp_path, base_registry())
+    epic = ops.add_epic(_registry_path(repo), epic_id="E99", name="Hardening",
+                        status="backlog", priority=1)
+    assert epic["priority"] == 1, "an explicit --priority must not be overridden"
+
+
+def test_promoted_backlog_stays_behind_roadmap(tmp_path):
+    """End-to-end of the reported bug: promotion must not jump the queue."""
+    repo = make_repo(tmp_path, base_registry())
+    rp = _registry_path(repo)
+    ops.add_epic(rp, epic_id="E14", name="Roadmap", status="in_progress", priority=14)
+    ops.add_epic(rp, epic_id="E99", name="Hardening", status="backlog")
+    ops.add_task(rp, task_id="T140", epic_id="E14", name="roadmap item")
+    ops.add_task(rp, task_id="T900", epic_id="E99", name="deferred")
+    ops.set_epic_status(rp, repo, "E99", "in_progress")
+    reg = ops.load_registry(rp)
+    prio = {e["id"]: e["priority"] for e in reg["epics"]}
+    assert prio["E99"] > prio["E14"], "promoted backlog must rank below roadmap"
+
+
+# --- v4.4.1: epic set-priority (F2) --------------------------------------
+
+
+def test_set_epic_priority(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[{"id": "E99", "name": "H", "status": "backlog", "priority": 99, "tasks": []}]))
+    epic = ops.set_epic_priority(_registry_path(repo), "E99", 2)
+    assert epic["priority"] == 2
+    assert _read(repo)["epics"][0]["priority"] == 2
+
+
+def test_set_epic_priority_unknown_epic(tmp_path):
+    repo = make_repo(tmp_path, base_registry())
+    with pytest.raises(ops.EpicNotFound):
+        ops.set_epic_priority(_registry_path(repo), "E00", 2)
+
+
+def test_set_epic_priority_rejects_non_positive(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[{"id": "E99", "name": "H", "status": "backlog", "priority": 99, "tasks": []}]))
+    with pytest.raises(ValueError):
+        ops.set_epic_priority(_registry_path(repo), "E99", 0)
+
+
+# --- v4.4.1: task set-deps (F5a) -----------------------------------------
+
+
+def _deps_repo(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        epics=[{"id": "E1", "name": "Core", "status": "in_progress", "tasks": []}]))
+    rp = _registry_path(repo)
+    for tid in ("T1", "T2", "T3"):
+        ops.add_task(rp, task_id=tid, epic_id="E1", name=tid)
+    return repo
+
+
+def test_set_deps_adds_edge_and_demotes_ready_to_pending(tmp_path):
+    """A ready task given an unmet dep must go back to pending, or ready lies."""
+    repo = _deps_repo(tmp_path)
+    task = ops.set_task_deps(_registry_path(repo), repo, "T1", ["T2"])
+    assert task["dependencies"] == ["T2"]
+    assert task["status"] == "pending"
+
+
+def test_set_deps_removing_last_unmet_dep_promotes_to_ready(tmp_path):
+    repo = _deps_repo(tmp_path)
+    rp = _registry_path(repo)
+    ops.set_task_deps(rp, repo, "T1", ["T2"])
+    task = ops.set_task_deps(rp, repo, "T1", [])
+    assert task["dependencies"] == []
+    assert task["status"] == "ready"
+
+
+def test_set_deps_keeps_ready_when_dep_already_done(tmp_path):
+    repo = _deps_repo(tmp_path)
+    rp = _registry_path(repo)
+    ops.lock_task(rp, repo, "T2", session_id="s")
+    ops.complete_task(rp, repo, "T2")
+    task = ops.set_task_deps(rp, repo, "T1", ["T2"])
+    assert task["status"] == "ready", "a satisfied dep must not demote the task"
+
+
+def test_set_deps_refuses_self_dependency(tmp_path):
+    repo = _deps_repo(tmp_path)
+    with pytest.raises(ops.RegistryOpError, match="cycle|itself"):
+        ops.set_task_deps(_registry_path(repo), repo, "T1", ["T1"])
+
+
+def test_set_deps_refuses_cycle(tmp_path):
+    repo = _deps_repo(tmp_path)
+    rp = _registry_path(repo)
+    ops.set_task_deps(rp, repo, "T2", ["T3"])       # T2 -> T3
+    with pytest.raises(ops.RegistryOpError, match="cycle"):
+        ops.set_task_deps(rp, repo, "T3", ["T2"])   # would close T3 -> T2 -> T3
+
+
+def test_set_deps_refuses_unknown_id(tmp_path):
+    repo = _deps_repo(tmp_path)
+    with pytest.raises(ops.TaskNotFound):
+        ops.set_task_deps(_registry_path(repo), repo, "T1", ["T999"])
+
+
+def test_set_deps_refuses_locked_task(tmp_path):
+    repo = _deps_repo(tmp_path)
+    rp = _registry_path(repo)
+    ops.lock_task(rp, repo, "T1", session_id="s")
+    with pytest.raises(ops.RegistryOpError, match="locked"):
+        ops.set_task_deps(rp, repo, "T1", ["T2"])
+
+
+def test_set_deps_never_touches_a_completed_task(tmp_path):
+    repo = _deps_repo(tmp_path)
+    rp = _registry_path(repo)
+    ops.lock_task(rp, repo, "T1", session_id="s")
+    ops.complete_task(rp, repo, "T1")
+    with pytest.raises(ops.RegistryOpError):
+        ops.set_task_deps(rp, repo, "T1", ["T2"])

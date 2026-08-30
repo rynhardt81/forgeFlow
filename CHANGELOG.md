@@ -2,6 +2,28 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
+## [v4.4.1] — 2026-08-30
+
+> Patch. A consumer install ran v4.4.0's intended workflow and filed a field report; five findings, four confirmed against the code. The headline one is a shipped bug that fired on the exact command the release's own triage rule tells people to paste.
+
+### Fixed
+
+- **A promoted backlog epic jumped the entire queue.** `add_epic` defaulted `priority=1` (lower = higher), so `epic add E99 --status backlog` — the copy-pasteable command in `skills/_shared/task-triage.md` — produced an epic that outranked every roadmap epic under v4.4.0's new `(epic priority, task priority, id)` sort. Invisible while parked; fired the moment anyone followed the promote advice, re-introducing the exact pathology v4.4.0 exists to prevent. A `backlog` epic now defaults to **priority 99**, and an explicit `--priority` still wins. Reproduced before fixing, regression-tested end to end.
+- **`DONE_FOR_DEPS` was declared twice** — `registry_ops.py` and `check_consistency.py` — with a comment naming code review as the thing keeping them in sync. That is the one-rule-two-lists shape `rules/agent-verification.md` exists to prevent, and plan 007's helper consolidation had simply missed it. `check_consistency` now imports the constant; a test asserts they are the same object.
+- The `active-task-deps-on-backlog` advisory told you to "drop the dependency" when no command could do that. It now names `forge task set-deps`.
+
+### Added
+
+- **`forge epic set-priority <id> <n>`** — v4.4.0 made epic priority the primary sort key for `task ls`, its first time being load-bearing, while leaving it with no mutator. Combined with the bug above, that meant the CLI created a wrong priority it could not then correct, and `CLAUDE.md` forbids hand-editing the registry.
+- **`forge task set-deps <id> --deps ...`** — a task's dependencies were fixed at `task add` time, which made the triage rule's **Blocker** answer ("express it as a `--deps` edge") unreachable for anything already in the queue. Refuses cycles (with the offending path), unknown ids, locked tasks and terminal tasks. Reconciles status in both directions: an unmet dep returns a `ready` task to `pending`; removing the last unmet dep promotes `pending` to `ready`.
+- **`/audit-task-status` epic-priority audit** — flags active epics that all share one priority, or whose priorities equal their id numbers. Either shape means the sort key was never chosen, and v4.4.0 made it decisive. Backlog epics are excluded; their 99 is deliberate.
+- **`epic status ... in_progress` states its own semantics** — promotion makes work *eligible*, not *urgent*, and now says so, naming `set-priority` for when you want otherwise.
+
+### Changed
+
+- `DONE_FOR_DEPS`'s docstring now spells out a consequence that had never been written down: because `pr_pending` counts as satisfied, **every dependency gate releases when a PR is opened, not when it merges.**
+- `skills/_shared/task-triage.md` documents the backlog as a **WIP cap**, not just a hardening bucket: park every epic you are not currently draining and `task ls --ready` becomes the next-task list, with the judgement moved from selection time to promotion time. Credit to the field report for the framing.
+
 ## [v4.4.0] — 2026-08-30
 
 > Queue release. Derived work — bugs, review findings, hardening gaps — used to land in the same flat pile as planned work, and `task ls --ready` did not even sort it. Reactive work therefore crowded out the roadmap by default. It now defers by default instead, into a `backlog` epic the owner promotes on their own schedule.

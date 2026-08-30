@@ -61,6 +61,8 @@ python3 .claude/scripts/forge/forge.py task complete T###
 python3 .claude/scripts/forge/forge.py task ls --ready [--all]  # --all includes backlog epics
 python3 .claude/scripts/forge/forge.py task move T### --epic E0X       # reassign epic (registry + file + frontmatter)
 python3 .claude/scripts/forge/forge.py epic status E0X backlog         # park an epic; in_progress promotes it back
+python3 .claude/scripts/forge/forge.py epic set-priority E0X <n>       # primary sort key for task ls (lower = higher)
+python3 .claude/scripts/forge/forge.py task set-deps T### --deps T###  # edit deps after creation; refuses cycles
 python3 .claude/scripts/forge/forge.py task show T###
 python3 .claude/scripts/forge/forge.py task reconcile-files [--apply]
 python3 .claude/scripts/forge/forge.py version                         # installed framework version
@@ -74,7 +76,7 @@ States: `pending → ready → in_progress → pr_pending → completed`.
 ```bash
 python3 .claude/scripts/forge/forge.py epic add E99 --name "Hardening" --status backlog
 python3 .claude/scripts/forge/forge.py task add T900 --epic E99 --name "..."
-python3 .claude/scripts/forge/forge.py epic status E99 in_progress     # promote the batch
+python3 .claude/scripts/forge/forge.py epic status E99 in_progress     # promote the batch (lands BEHIND the roadmap: backlog epics default to priority 99)
 ```
 
 ```bash

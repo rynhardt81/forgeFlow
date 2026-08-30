@@ -15,7 +15,7 @@ Before filing anything, answer one question — **"what breaks if this ships lat
 Then it is **not a new task**. Two correct moves:
 
 - Fold it into the current task. A guard the current change needs is part of the current change.
-- Express it as a real dependency: `forge task add T### --deps <the task it blocks>`. Ordering constraints already have a mechanism; a new queue entry is not one.
+- Express it as a real dependency. At creation: `forge task add T### --deps <the task it blocks>`. For a task **already in the queue**: `forge task set-deps T### --deps T###,T###` — which refuses cycles and unknown ids, and moves the task between `ready` and `pending` so its status stays honest.
 
 Filing a blocker as a free-floating task is how a hard ordering constraint becomes a thing you have to remember.
 
@@ -53,6 +53,8 @@ Deferring a hard-floor finding is a deliberate, stated exception, not a default.
 forge epic add E99 --name "Hardening" --status backlog
 ```
 
+A `backlog` epic defaults to **priority 99** — last. That is deliberate: promoting a backlog makes its work *eligible*, not *urgent*, so a promoted E99 sits behind your roadmap epics until you say otherwise. If you want a hardening cycle to actually come first, say so: `forge epic set-priority E99 1`.
+
 Tasks in a `backlog` epic are excluded from `task ls --ready`, from `/run-epic`'s next-task selection, and from every other queue view. They are not lost: every `task ls --ready` prints how many are parked and how old the oldest is, and completing an epic reports the same and names the promote command.
 
 Promote a whole batch when you decide it is hardening time:
@@ -62,6 +64,19 @@ forge epic status E99 in_progress
 ```
 
 **Split the bucket only when one bucket actually hurts** — when an all-at-once promotion is too large to swallow. Domain buckets (`E98-security-backlog`, `E97-perf-backlog`) are legal, and `forge task move T### --epic E98` moves already-filed tasks into them. Do not guess at the split up front.
+
+## Beyond hardening: the backlog as a WIP cap
+
+Nothing about a `backlog` epic is specific to hardening. Park **every epic you are not currently draining**, and the ready queue stops being "everything that could be done" and becomes "the next thing to do" — with no judgement required at selection time, because the judgement already happened when you chose what to promote.
+
+This is the stronger use. A hardening bucket keeps derived work from crowding the roadmap; a WIP cap keeps the *roadmap* from crowding itself. Both are the same mechanism and the same two commands:
+
+```bash
+forge epic status E15 backlog        # not this cycle
+forge epic status E14 in_progress    # this cycle
+```
+
+`task ls --ready` then answers "what now?" directly, and the footer keeps everything you parked in view.
 
 ## Worked examples
 

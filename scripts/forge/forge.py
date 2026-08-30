@@ -253,6 +253,42 @@ def cmd_epic_complete(args, project_root: Path) -> int:
     return 0
 
 
+def cmd_epic_set_priority(args, project_root: Path) -> int:
+    """Set an epic's priority — the primary sort key for `task ls`."""
+    try:
+        epic = ops.set_epic_priority(_registry_path(project_root), args.id, args.priority)
+    except (ops.EpicNotFound, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.RegistryLockTimeout as e:
+        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(dict(epic), indent=2))
+    else:
+        print(f"{epic['id']}: priority -> {epic['priority']}")
+    return 0
+
+
+def cmd_task_set_deps(args, project_root: Path) -> int:
+    """Replace a task's dependency list, reconciling ready/pending."""
+    deps = [d.strip() for d in (args.deps or "").split(",") if d.strip()]
+    try:
+        task = ops.set_task_deps(_registry_path(project_root), project_root, args.id, deps)
+    except (ops.TaskNotFound, ops.RegistryOpError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.RegistryLockTimeout as e:
+        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+        return 1
+    if args.json:
+        print(json.dumps(dict(task), indent=2))
+    else:
+        shown = ", ".join(task["dependencies"]) if task["dependencies"] else "(none)"
+        print(f"{task['id']}: deps -> {shown} (status={task['status']})")
+    return 0
+
+
 def cmd_task_move(args, project_root: Path) -> int:
     """Reassign a task to a different epic (registry + body file + frontmatter).
 
@@ -297,8 +333,16 @@ def cmd_epic_status(args, project_root: Path) -> int:
 
     if args.json:
         print(json.dumps(dict(epic), indent=2))
-    else:
-        print(f"{epic['id']}: status -> {epic['status']}")
+        return 0
+
+    print(f"{epic['id']}: status -> {epic['status']}")
+    # Promotion makes work ELIGIBLE, not URGENT. Say so, or the ordering is a
+    # surprise the first time someone promotes a backlog.
+    if args.status == "in_progress" and epic.get("priority", 1) > 1:
+        print(
+            f"  priority {epic['priority']} — stays behind lower-numbered epics. "
+            f"Reorder with: forge epic set-priority {epic['id']} <n>"
+        )
     return 0
 
 
@@ -1170,6 +1214,23 @@ def build_parser() -> argparse.ArgumentParser:
     mv.add_argument("--json", action="store_true")
     mv.set_defaults(func=cmd_task_move)
 
+    sd = task.add_parser(
+        "set-deps",
+        help=(
+            "Replace a task's dependency list. Refuses cycles, unknown ids, a "
+            "locked task and a terminal task. Reconciles status both ways: an "
+            "unmet dep returns a ready task to pending; removing the last "
+            "unmet dep promotes a pending task to ready."
+        ),
+    )
+    sd.add_argument("id", help="Task ID, e.g. T042")
+    sd.add_argument(
+        "--deps", default="",
+        help="Comma-separated task IDs. Empty string clears all dependencies.",
+    )
+    sd.add_argument("--json", action="store_true")
+    sd.set_defaults(func=cmd_task_set_deps)
+
     sh = task.add_parser("show", help="Show full registry entry for a task")
     sh.add_argument("id")
     sh.set_defaults(func=cmd_show)
@@ -1252,7 +1313,11 @@ def build_parser() -> argparse.ArgumentParser:
     ea.add_argument("--name", required=True, help="Epic name (one line)")
     ea.add_argument("--description", default="", help="One-paragraph epic summary")
     ea.add_argument("--deps", help="Comma-separated dependency epic IDs")
-    ea.add_argument("--priority", type=int, default=1, help="Priority (lower = higher)")
+    ea.add_argument(
+        "--priority", type=int, default=None,
+        help="Priority (lower = higher). Default: 1, or 99 for --status backlog "
+             "so a promoted backlog does not jump ahead of the roadmap.",
+    )
     ea.add_argument("--category", default="", help="Category code (A-T)")
     ea.add_argument(
         "--status",
@@ -1294,6 +1359,19 @@ def build_parser() -> argparse.ArgumentParser:
     es.add_argument("status", choices=["pending", "in_progress", "backlog"])
     es.add_argument("--json", action="store_true")
     es.set_defaults(func=cmd_epic_status)
+
+    esp = epic.add_parser(
+        "set-priority",
+        help=(
+            "Set an epic's priority (lower = higher). Epic priority is the "
+            "primary sort key for `task ls`, so this is how you reorder the "
+            "queue without hand-editing the registry."
+        ),
+    )
+    esp.add_argument("id", help="Epic ID, e.g. E99")
+    esp.add_argument("priority", type=int, help="Priority, >= 1 (lower = higher)")
+    esp.add_argument("--json", action="store_true")
+    esp.set_defaults(func=cmd_epic_set_priority)
 
     # agent
     agent = sub.add_parser(

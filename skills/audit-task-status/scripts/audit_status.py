@@ -229,6 +229,53 @@ def epic_row_statuses(text: str) -> dict[str, str]:
 _HARD_FLOOR_CATEGORY_TOKENS = ("critical", "high", "security", "sec-")
 
 
+def epic_priority_smells(root: Path) -> list[str]:
+    """Flag epic priorities that look like nobody ever set them.
+
+    Epic priority became the PRIMARY sort key for `task ls` in v4.4.0 -- its
+    first time being load-bearing. A project whose priorities are all equal, or
+    which track the epic ids, is ordering its queue by an accident. Advisory:
+    we cannot know the right order, only that this one was not chosen.
+    """
+    reg = root / "docs" / "tasks" / "registry.json"
+    if not reg.exists():
+        return []
+    raw = json.loads(reg.read_text())
+    if not isinstance(raw, dict):
+        return []
+    # Backlog epics are excluded: their priority (99) is a deliberate default
+    # meaning "eligible, not urgent", and E99-at-99 would otherwise trip the
+    # priority-tracks-id heuristic every single time.
+    epics = [e for e in raw.get("epics", [])
+             if e.get("id") and e.get("status") not in ("completed", "backlog")]
+    if len(epics) < 2:
+        return []
+
+    out = []
+    prios = [e.get("priority", 1) for e in epics]
+    if len(set(prios)) == 1:
+        out.append(
+            f"all {len(epics)} active epics share priority {prios[0]} — epic "
+            f"priority is the primary sort key for `task ls`, so ordering "
+            f"falls through to task priority and id. Set them with "
+            f"`forge epic set-priority <id> <n>`."
+        )
+    else:
+        # priority == the numeric part of the id => almost certainly never chosen
+        tracking = [
+            e["id"] for e in epics
+            if (m := re.search(r"\d+", e["id"])) and e.get("priority") == int(m.group())
+        ]
+        if len(tracking) >= 2 and len(tracking) == len(epics):
+            out.append(
+                f"every active epic's priority equals its id number "
+                f"({', '.join(tracking)}) — the queue is ordered by epic "
+                f"creation order, not by importance. Audit with "
+                f"`forge epic set-priority <id> <n>`."
+            )
+    return out
+
+
 def backlog_health(root: Path) -> dict:
     """Size, age and rule-violation report for every backlog epic.
 
@@ -410,6 +457,7 @@ def main() -> int:
         "tasks_without_body_file": missing_files,
         "registry_task_count": len(reg),
         "backlog_health": backlog_health(root),
+        "epic_priority_smells": epic_priority_smells(root),
     }
 
     if args.json:
@@ -484,6 +532,13 @@ def main() -> int:
                 f"(schema/auth/money/security) are never deferred by default. "
                 f"See skills/_shared/task-triage.md."
             )
+
+        smells = result["epic_priority_smells"]
+        print(f"\n[6] Epic priority audit: {len(smells)} finding(s)")
+        if not smells:
+            print("    ✅ epic priorities look deliberate")
+        for sm in smells:
+            print(f"    ⚠ {sm}")
 
     status_drift = (
         bool(file_mismatches)

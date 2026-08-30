@@ -71,7 +71,9 @@ Atomic state via `python3 .claude/scripts/forge/forge.py`:
 - `task add T### --epic E0X --name "..."` (+`--isa`, `--deps`, `--scope-dirs`, `--scope-files`, `--priority`, `--preflight`) — the epic must already exist, else it raises `EpicNotFound` (override with `--allow-missing-epic` only for staged imports / fixtures)
 - `task lock T### --session <id>` — file-scope conflicts fail here
 - `task move T### --epic E0X` — reassign a task's epic (registry + body file + frontmatter); refuses a locked task
-- `epic status E0X pending|in_progress|backlog` — park or promote a whole epic (`epic complete` still owns `completed`)
+- `epic status E0X pending|in_progress|backlog` — park or promote a whole epic (`epic complete` still owns `completed`); a `backlog` epic defaults to priority 99, so promoting it does not jump the queue
+- `epic set-priority E0X <n>` — epic priority is the primary sort key for `task ls`
+- `task set-deps T### --deps T###,T###` — edit dependencies after creation; refuses cycles, reconciles ready/pending
 - `task pr T###` / `task complete T###` / `task ls --ready` / `task show T###`
 - `task reconcile-files [--apply]`
 

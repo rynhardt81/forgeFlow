@@ -86,11 +86,11 @@ CLS_ACTIVE_DEPS_ON_BACKLOG = "active-task-deps-on-backlog"
 
 DEFAULT_LOCK_TIMEOUT = 3600
 
-# Status values that count as "done" for the purpose of unblocking
-# downstream dependencies. `pr_pending` qualifies because the
-# implementation is finished — only the merge step remains, and
-# downstream tasks can start in parallel with review.
-DONE_FOR_DEPS = frozenset({"completed", "pr_pending"})
+# Single-sourced from registry_ops (plan 007's consolidation missed this one).
+# A second copy "kept in sync by code review" is the one-rule-two-lists shape
+# rules/agent-verification.md exists to prevent. See that constant's docstring
+# for why pr_pending counts as satisfied.
+DONE_FOR_DEPS = registry_ops.DONE_FOR_DEPS
 
 
 @dataclass
@@ -703,7 +703,8 @@ def check_active_deps_on_backlog(registry: dict[str, Any]) -> list[Finding]:
                 f"{', '.join(blocked_by)} in a backlog epic — it cannot become "
                 f"ready until that epic is promoted. Promote it "
                 f"(`forge epic status <id> in_progress`), or drop the "
-                f"dependency. (report-only; not auto-fixed)"
+                f"dependency (`forge task set-deps {t.get('id')} --deps ...`). "
+                f"(report-only; not auto-fixed)"
             ),
             auto_fixable=False,
             target=t.get("id"),

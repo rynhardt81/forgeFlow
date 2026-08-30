@@ -98,9 +98,15 @@ def _render_template(name: str, substitutions: dict[str, str]) -> str:
     return template
 
 
-# Status values that count as "done" for the purpose of unblocking
-# downstream dependencies. Mirrors check_consistency.DONE_FOR_DEPS;
-# kept in sync by code review (these two constants must agree).
+# Status values that count as "done" for the purpose of unblocking downstream
+# dependencies. SINGLE SOURCE -- check_consistency imports this name rather
+# than redeclaring it; a second copy kept in sync "by code review" is the
+# one-rule-two-lists shape rules/agent-verification.md exists to prevent.
+#
+# `pr_pending` counts as satisfied DELIBERATELY: the implementation is finished
+# and only the merge remains, so dependents can start in parallel with review.
+# The practical consequence, which surprises people: **every dependency gate
+# releases when the PR is OPENED, not when it merges.**
 DONE_FOR_DEPS = frozenset({"completed", "pr_pending"})
 
 # Legal status transitions. Used by transition_task() to reject illegal
@@ -132,6 +138,15 @@ EPIC_BACKLOG_STATUS = "backlog"
 # absent -- it is reachable only through `complete_epic()`, which guards on all
 # tasks being terminal, and it is terminal once reached.
 EPIC_SETTABLE_STATUSES = frozenset({"pending", "in_progress", EPIC_BACKLOG_STATUS})
+
+# Default priority for a `backlog` epic (lower = higher). Deliberately the far
+# end of the range: promoting a backlog makes its work ELIGIBLE, not URGENT, so
+# a promoted epic sits behind the roadmap until someone runs `epic set-priority`.
+# Without this, the copy-pasteable command in skills/_shared/task-triage.md
+# creates a priority-1 epic that jumps the whole queue the moment it is
+# promoted -- reported from a consumer install against v4.4.0.
+BACKLOG_EPIC_DEFAULT_PRIORITY = 99
+DEFAULT_EPIC_PRIORITY = 1
 
 
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*(?:\n|$)", re.DOTALL)
@@ -721,11 +736,16 @@ def add_epic(
     name: str,
     description: str = "",
     dependencies: list[str] | None = None,
-    priority: int = 1,
+    priority: int | None = None,
     category: str = "",
     status: str = "pending",
 ) -> dict[str, Any]:
     """Add a new epic to the registry. Returns the created epic dict.
+
+    `priority=None` resolves by status: a `backlog` epic defaults to
+    BACKLOG_EPIC_DEFAULT_PRIORITY (last), everything else to
+    DEFAULT_EPIC_PRIORITY. An explicit value always wins. This keeps the
+    documented `epic add E99 --status backlog` from inverting the queue.
 
     The counterpart to `add_task` at the epic level — the sanctioned atomic
     path for creating an epic, so no caller ever has to hand-edit
@@ -737,6 +757,13 @@ def add_epic(
     the CLI's job (`cmd_epic_add`), same division of labour as `add_task` vs
     `create_task_body_file`.
     """
+    if priority is None:
+        priority = (
+            BACKLOG_EPIC_DEFAULT_PRIORITY
+            if status == EPIC_BACKLOG_STATUS
+            else DEFAULT_EPIC_PRIORITY
+        )
+
     with registry_write_lock(registry_path):
         registry = load_registry(registry_path)
         if find_epic(registry, epic_id) is not None:
@@ -1170,6 +1197,31 @@ def set_epic_status(
     return epic
 
 
+def set_epic_priority(
+    registry_path: Path,
+    epic_id: str,
+    priority: int,
+) -> dict[str, Any]:
+    """Set an epic's priority. Atomic.
+
+    Epic priority is the PRIMARY sort key for `task ls` as of v4.4.0, so it
+    needs a sanctioned mutator -- hand-editing registry.json is forbidden.
+    Lower ranks higher; must be >= 1.
+    """
+    if not isinstance(priority, int) or isinstance(priority, bool) or priority < 1:
+        raise ValueError(
+            f"set_epic_priority: priority must be an int >= 1, got {priority!r}"
+        )
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        epic = find_epic(registry, epic_id)
+        if epic is None:
+            raise EpicNotFound(f"Epic {epic_id} is not in the registry")
+        epic["priority"] = priority
+        save_registry(registry_path, registry)
+    return epic
+
+
 def complete_epic(
     registry_path: Path,
     project_root: Path,
@@ -1329,6 +1381,106 @@ def move_task(
 
         recompute_stats(registry)
         save_registry(registry_path, registry)
+    return task
+
+
+def _would_cycle(registry: dict[str, Any], task_id: str, new_deps: list[str]) -> list[str] | None:
+    """Return the offending path if `task_id` depending on `new_deps` closes a
+    cycle, else None. DFS over the registry's dependency edges.
+    """
+    edges = {
+        t["id"]: list(t.get("dependencies") or [])
+        for t in registry.get("tasks", []) if t.get("id")
+    }
+    edges[task_id] = list(new_deps)
+
+    seen: set[str] = set()
+    def walk(node: str, path: list[str]) -> list[str] | None:
+        if node == task_id and path:
+            return path + [node]
+        if node in seen:
+            return None
+        seen.add(node)
+        for nxt in edges.get(node, []):
+            hit = walk(nxt, path + [node])
+            if hit:
+                return hit
+        return None
+
+    for dep in new_deps:
+        seen.clear()
+        hit = walk(dep, [task_id])
+        if hit:
+            return hit
+    return None
+
+
+def set_task_deps(
+    registry_path: Path,
+    project_root: Path,
+    task_id: str,
+    dependencies: list[str],
+) -> dict[str, Any]:
+    """Replace a task's dependency list. Atomic, with status reconciliation.
+
+    Exists because a task's deps were previously fixed at `task add` time, so
+    the triage rule's Blocker answer ("make it a --deps edge") was unreachable
+    for anything already in the queue -- and the `active-task-deps-on-backlog`
+    advisory told you to drop a dependency with no command that could.
+
+    **Status moves in both directions**, or `ready` starts lying:
+      - a `ready` task given an unmet dep returns to `pending`;
+      - a `pending` task whose last unmet dep is removed (or satisfied)
+        promotes to `ready`.
+    A dep already in DONE_FOR_DEPS is satisfied and does not demote.
+
+    Refuses: a locked task, a terminal task, an unknown dependency id, and any
+    edge that would close a cycle.
+    """
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        task = find_task(registry, task_id)
+
+        if task.get("lock"):
+            raise RegistryOpError(
+                f"Task {task_id} is locked by session "
+                f"{task['lock'].get('session', '?')}; unlock it before editing deps."
+            )
+        if task.get("status") in EPIC_TERMINAL_TASK_STATES:
+            raise RegistryOpError(
+                f"Task {task_id} is {task.get('status')}; its dependencies are history."
+            )
+
+        deps = list(dict.fromkeys(dependencies or []))   # de-dup, keep order
+        if task_id in deps:
+            raise RegistryOpError(f"Task {task_id} cannot depend on itself (cycle).")
+        for d in deps:
+            find_task(registry, d)          # raises TaskNotFound on unknown id
+
+        cycle = _would_cycle(registry, task_id, deps)
+        if cycle is not None:
+            raise RegistryOpError(
+                f"Refusing: {task_id} -> {', '.join(deps)} closes a dependency "
+                f"cycle ({' -> '.join(cycle)})."
+            )
+
+        task["dependencies"] = deps
+
+        # Reconcile status with the new edges. Only the ready<->pending pair
+        # moves; in_progress/pr_pending/continuation are the user's business.
+        done = {
+            t["id"] for t in registry.get("tasks", [])
+            if t.get("status") in DONE_FOR_DEPS
+        }
+        unmet = [d for d in deps if d not in done]
+        if task.get("status") == "ready" and unmet:
+            task["status"] = "pending"
+        elif task.get("status") == "pending" and not unmet:
+            task["status"] = "ready"
+
+        recompute_stats(registry)
+        save_registry(registry_path, registry)
+        mirror_status_to_file(project_root, task, task["status"])
     return task
 
 
