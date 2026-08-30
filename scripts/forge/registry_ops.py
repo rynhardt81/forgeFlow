@@ -128,6 +128,11 @@ EPIC_TERMINAL_TASK_STATES = frozenset({"completed", "superseded", "closed"})
 # carries this status; tasks have no backlog field of their own.
 EPIC_BACKLOG_STATUS = "backlog"
 
+# Epic statuses settable via `forge epic status`. `completed` is deliberately
+# absent -- it is reachable only through `complete_epic()`, which guards on all
+# tasks being terminal, and it is terminal once reached.
+EPIC_SETTABLE_STATUSES = frozenset({"pending", "in_progress", EPIC_BACKLOG_STATUS})
+
 
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*(?:\n|$)", re.DOTALL)
 # `[ \t]*` (not `\s*`) at end so we don't consume the closing newline
@@ -1106,6 +1111,44 @@ def pr_task(
         save_registry(registry_path, registry)
         mirror_status_to_file(project_root, task, "pr_pending")
     return task, unblocked
+
+
+def set_epic_status(
+    registry_path: Path,
+    project_root: Path,
+    epic_id: str,
+    new_status: str,
+) -> dict[str, Any]:
+    """Move an epic between `pending`, `in_progress` and `backlog`. Atomic.
+
+    Parking an epic in `backlog` defers all its tasks out of the ready queue;
+    promoting it back returns them in one command. `completed` is not settable
+    here -- `complete_epic()` owns that transition and its all-tasks-terminal
+    guard -- and a completed epic is terminal.
+    """
+    if new_status not in EPIC_SETTABLE_STATUSES:
+        if new_status == "completed":
+            raise IllegalTransition(
+                "set_epic_status: use `forge epic complete` to complete an epic "
+                "(it guards on every task being terminal)."
+            )
+        raise ValueError(
+            f"set_epic_status: invalid status {new_status!r}; "
+            f"expected one of {sorted(EPIC_SETTABLE_STATUSES)}"
+        )
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        epic = find_epic(registry, epic_id)
+        if epic is None:
+            raise EpicNotFound(f"Epic {epic_id} is not in the registry")
+        if epic.get("status") == "completed":
+            raise IllegalTransition(
+                f"Epic {epic_id} is completed; completed is terminal."
+            )
+        epic["status"] = new_status
+        recompute_stats(registry)
+        save_registry(registry_path, registry)
+    return epic
 
 
 def complete_epic(

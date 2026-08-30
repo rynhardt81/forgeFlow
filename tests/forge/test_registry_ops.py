@@ -946,3 +946,49 @@ def test_set_scope_unknown_task_raises(tmp_path):
     repo = _pf_repo(tmp_path)
     with pytest.raises(ops.TaskNotFound):
         ops.set_scope(_registry_path(repo), repo, "T999", files="a.py")
+
+
+# --- set_epic_status -----------------------------------------------------
+
+
+def _epic_repo(tmp_path, status="in_progress"):
+    return make_repo(tmp_path, base_registry(
+        epics=[{"id": "E99", "name": "Hardening", "status": status, "tasks": []}],
+    ))
+
+
+def test_set_epic_status_to_backlog(tmp_path):
+    repo = _epic_repo(tmp_path)
+    epic = ops.set_epic_status(_registry_path(repo), repo, "E99", "backlog")
+    assert epic["status"] == "backlog"
+    assert _read(repo)["epics"][0]["status"] == "backlog"
+
+
+def test_set_epic_status_promotes_back(tmp_path):
+    repo = _epic_repo(tmp_path, status="backlog")
+    ops.set_epic_status(_registry_path(repo), repo, "E99", "in_progress")
+    assert _read(repo)["epics"][0]["status"] == "in_progress"
+
+
+def test_set_epic_status_rejects_completed(tmp_path):
+    repo = _epic_repo(tmp_path)
+    with pytest.raises(ops.IllegalTransition, match="epic complete"):
+        ops.set_epic_status(_registry_path(repo), repo, "E99", "completed")
+
+
+def test_set_epic_status_refuses_to_reopen_completed(tmp_path):
+    repo = _epic_repo(tmp_path, status="completed")
+    with pytest.raises(ops.IllegalTransition):
+        ops.set_epic_status(_registry_path(repo), repo, "E99", "in_progress")
+
+
+def test_set_epic_status_unknown_epic(tmp_path):
+    repo = _epic_repo(tmp_path)
+    with pytest.raises(ops.EpicNotFound):
+        ops.set_epic_status(_registry_path(repo), repo, "E00", "backlog")
+
+
+def test_set_epic_status_rejects_garbage(tmp_path):
+    repo = _epic_repo(tmp_path)
+    with pytest.raises(ValueError):
+        ops.set_epic_status(_registry_path(repo), repo, "E99", "parked")

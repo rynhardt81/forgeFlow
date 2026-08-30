@@ -245,6 +245,31 @@ def cmd_epic_complete(args, project_root: Path) -> int:
     return 0
 
 
+def cmd_epic_status(args, project_root: Path) -> int:
+    """Move an epic between pending / in_progress / backlog.
+
+    `backlog` defers every task under the epic out of the ready queue;
+    promoting the epic back returns them all in one command. `completed`
+    is not settable here -- `epic complete` owns it and its guard.
+    """
+    try:
+        epic = ops.set_epic_status(
+            _registry_path(project_root), project_root, args.id, args.status
+        )
+    except (ops.EpicNotFound, ops.IllegalTransition, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    except ops.RegistryLockTimeout as e:
+        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+        return 1
+
+    if args.json:
+        print(json.dumps(dict(epic), indent=2))
+    else:
+        print(f"{epic['id']}: status -> {epic['status']}")
+    return 0
+
+
 def cmd_reconcile_files(args, project_root: Path) -> int:
     """Create stub body files for registry-tracked tasks missing on disk."""
     result = ops.reconcile_task_files(
@@ -1124,9 +1149,10 @@ def build_parser() -> argparse.ArgumentParser:
     ea.add_argument("--category", default="", help="Category code (A-T)")
     ea.add_argument(
         "--status",
-        choices=["pending", "in_progress", "completed"],
+        choices=["pending", "in_progress", "backlog", "completed"],
         default="pending",
-        help="Initial epic status (default: pending)",
+        help="Initial epic status (default: pending). `backlog` parks the "
+             "epic's tasks out of the ready queue until you promote it.",
     )
     ea.add_argument(
         "--no-file",
@@ -1148,6 +1174,19 @@ def build_parser() -> argparse.ArgumentParser:
     ec.add_argument("id", help="Epic ID, e.g. E33")
     ec.add_argument("--json", action="store_true")
     ec.set_defaults(func=cmd_epic_complete)
+
+    es = epic.add_parser(
+        "status",
+        help=(
+            "Move an epic between pending / in_progress / backlog. `backlog` "
+            "defers all its tasks out of the ready queue; promoting it back "
+            "returns them in one command. Use `epic complete` to complete one."
+        ),
+    )
+    es.add_argument("id", help="Epic ID, e.g. E99")
+    es.add_argument("status", choices=["pending", "in_progress", "backlog"])
+    es.add_argument("--json", action="store_true")
+    es.set_defaults(func=cmd_epic_status)
 
     # agent
     agent = sub.add_parser(
