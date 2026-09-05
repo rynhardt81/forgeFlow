@@ -2,6 +2,12 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
+## [Unreleased]
+
+### Fixed
+
+- **A task could be left in a state the CLI could not resume.** The consistency checker's stale-lock fix clears the lock and leaves the task `in_progress` "for session resume", but `task lock` only accepted `ready` or `continuation` — so the resume it named was impossible without a detour through `unlock`. Found by a consumer resuming a handover. `lock` now accepts an `in_progress` task **with no lock**; one that still holds a lock is refused, naming the session and time that own it.
+
 ## [v4.5.0] — 2026-09-05
 
 > Minor. Borrowed from Anthropic's AI-native SDLC playbook (2026-09): three things it had that the framework did not; the rest it already does more strictly. Plus two consumer-found fixes from the refresh that followed — one crash, one months-old blindness.

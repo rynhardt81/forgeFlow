@@ -1051,18 +1051,26 @@ def lock_task(
 ) -> dict[str, Any]:
     """Lock a task: set lock object, transition to in_progress.
 
-    Legal source statuses: ready, continuation. Anything else raises
-    IllegalTransition (the caller should resolve first via unlock or
-    a status query).
+    Legal source statuses: ready, continuation, and in_progress *with no
+    lock* -- that last shape is what the consistency checker's stale-lock
+    fix leaves behind ("status remains in_progress for session resume"),
+    and before this the resume it promised was impossible through the CLI.
+    An in_progress task that still holds a lock is refused: another session
+    owns it. Anything else raises IllegalTransition.
     """
     with registry_write_lock(registry_path):
         registry = load_registry(registry_path)
         task = find_task(registry, task_id)
         current = task.get("status", "pending")
-        if current not in {"ready", "continuation"}:
+        resumable = current == "in_progress" and not task.get("lock")
+        if current not in {"ready", "continuation"} and not resumable:
+            held = task.get("lock") or {}
+            detail = (
+                f"held by session {held.get('session')!r} since {held.get('lockedAt')}"
+                if current == "in_progress" else "expected: ready or continuation"
+            )
             raise IllegalTransition(
-                f"Cannot lock {task_id} from status '{current}' "
-                f"(expected: ready or continuation)"
+                f"Cannot lock {task_id} from status '{current}' ({detail})"
             )
         task["status"] = "in_progress"
         task["lock"] = {

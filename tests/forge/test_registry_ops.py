@@ -177,6 +177,27 @@ def test_lock_task_from_continuation(tmp_path):
     assert task["status"] == "in_progress"
 
 
+def test_lock_task_resumes_unlocked_in_progress(tmp_path):
+    """The stale-lock auto-fix clears the lock and leaves in_progress 'for
+    session resume'. Locking must accept that shape or the resume is a lie
+    (found by a consumer resuming a handover, 2026-09-05)."""
+    repo = make_repo(tmp_path, base_registry(
+        tasks=[{"id": "T1", "status": "in_progress", "dependencies": [], "lock": None}],
+    ), task_files={"E1/T1": {"id": "T1", "status": "in_progress"}})
+    task = ops.lock_task(_registry_path(repo), repo, "T1", session_id="s3")
+    assert task["status"] == "in_progress"
+    assert task["lock"]["session"] == "s3"
+
+
+def test_lock_task_refuses_in_progress_held_by_another_session(tmp_path):
+    repo = make_repo(tmp_path, base_registry(
+        tasks=[{"id": "T1", "status": "in_progress", "dependencies": [],
+                "lock": {"session": "s1", "lockedAt": "2026-01-01T00:00:00Z"}}],
+    ), task_files={"E1/T1": {"id": "T1", "status": "in_progress"}})
+    with pytest.raises(ops.IllegalTransition, match="held by session 's1'"):
+        ops.lock_task(_registry_path(repo), repo, "T1", session_id="s2")
+
+
 def test_lock_task_illegal_from_pending(tmp_path):
     repo = make_repo(tmp_path, base_registry(
         tasks=[{"id": "T1", "status": "pending", "dependencies": ["T0"], "lock": None}],

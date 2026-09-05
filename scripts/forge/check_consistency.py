@@ -598,7 +598,7 @@ def check_stale_lock(
                 message=(
                     f"auto-fixable: {t.get('id')} lock is {int(age)}s old "
                     f"(>{lock_timeout}s timeout); clearing lock "
-                    f"(status remains in_progress for session resume)."
+                    f"(status remains in_progress; resume with: forge task lock {t.get('id')} --session <id>)."
                 ),
                 auto_fixable=True,
                 target=t.get("id"),
