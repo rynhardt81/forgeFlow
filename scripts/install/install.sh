@@ -669,6 +669,14 @@ install_session_dirs() {
 ensure_memory_index() {
     local target="$1" src="$2"
     if [ -f "$target/index.md" ]; then
+        # The index is derived from the entry files, so regenerating it is
+        # idempotent. This is what heals the v2 fossil (counts 0, entries
+        # present) that a keep-existing refresh used to carry forever.
+        if python3 "$FRAMEWORK_DIR/scripts/forge/forge.py" --project-root "$PROJECT_DIR" memory reindex >/dev/null 2>&1; then
+            ok "Rebuilt docs/project-memory/index.md from entry files"
+        else
+            warn "Could not rebuild docs/project-memory/index.md (run: forge memory reindex)"
+        fi
         return 0
     fi
     if [ -f "$src/index.md" ]; then

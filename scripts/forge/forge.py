@@ -1059,6 +1059,21 @@ def cmd_version(args, project_root: Path) -> int:
     return 0
 
 
+def cmd_memory_reindex(args, project_root: Path) -> int:
+    """Regenerate docs/project-memory/index.md from the entry files."""
+    import memory_index
+
+    try:
+        counts = memory_index.reindex(project_root)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    total = sum(counts.values())
+    detail = ", ".join(f"{k}s={v}" for k, v in counts.items())
+    print(f"index.md rebuilt: {total} entries ({detail})")
+    return 0
+
+
 def cmd_doctor(args, project_root: Path) -> int:
     """Read-only install health check — see scripts/forge/doctor.py."""
     import doctor
@@ -1476,6 +1491,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the installed framework version",
     )
     ver.set_defaults(func=cmd_version)
+
+    # memory — deterministic project-memory maintenance
+    mem = sub.add_parser("memory", help="Project-memory maintenance (reindex)")
+    mem_sub = mem.add_subparsers(dest="action", required=True)
+    mem_re = mem_sub.add_parser(
+        "reindex",
+        help="Regenerate docs/project-memory/index.md from bugs/decisions/patterns",
+        description=(
+            "The index is a catalog derived from the entry files, so this is "
+            "idempotent and safe to run any time. Fixes the v2 fossil index "
+            "whose counts read zero while entries exist."
+        ),
+    )
+    mem_re.set_defaults(func=cmd_memory_reindex)
 
     # doctor — read-only install health check
     doc = sub.add_parser(

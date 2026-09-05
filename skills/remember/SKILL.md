@@ -43,7 +43,7 @@ Not memory: architecture truth (Tier 2 `reference/02` wins) and **never secrets/
 Bugs also carry root cause + solution lines; decisions also carry the rejected option + why. `key-facts.md` entries are single bullet lines — if it needs a paragraph, it belongs in `decisions.md` with a one-line pointer in key-facts.
 
 4. **Present the draft** for confirmation before writing.
-5. **Append** to the target file and **update `docs/project-memory/index.md`** — the master catalog loaded at SessionStart. An entry missing from the index is invisible to future sessions.
+5. **Append** to the target file, then run `python3 .claude/scripts/forge/forge.py memory reindex` — it regenerates `docs/project-memory/index.md` from the entry headings (deterministic, idempotent). Never hand-edit the index; an entry missing from it is invisible to future sessions. The SessionStart hook warns when entries exist but the index is empty or a v2 fossil; the same command fixes that.
 
 ## Searching
 

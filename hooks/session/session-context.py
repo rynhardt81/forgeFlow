@@ -343,7 +343,7 @@ def main():
         context.append(
             f'⚠ project memory: {entries} entries exist in '
             'bugs/decisions/patterns but index.md is missing or empty — none of '
-            'them are loaded. Run /remember to rebuild the index.'
+            'them are loaded. Run `forge memory reindex` to rebuild it.'
         )
         write_env_var(env_file, 'FORGE_MEMORY_LOADED', 'false')
 
