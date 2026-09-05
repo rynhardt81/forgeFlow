@@ -2,9 +2,9 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
-## [Unreleased]
+## [v4.5.0] — 2026-09-05
 
-> Borrowed from Anthropic's AI-native SDLC playbook (2026-09). Three things it had that the framework did not; the rest it already does more strictly.
+> Minor. Borrowed from Anthropic's AI-native SDLC playbook (2026-09): three things it had that the framework did not; the rest it already does more strictly. Plus two consumer-found fixes from the refresh that followed — one crash, one months-old blindness.
 
 ### Added
 
