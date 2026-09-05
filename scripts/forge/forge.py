@@ -338,7 +338,7 @@ def cmd_epic_status(args, project_root: Path) -> int:
     print(f"{epic['id']}: status -> {epic['status']}")
     # Promotion makes work ELIGIBLE, not URGENT. Say so, or the ordering is a
     # surprise the first time someone promotes a backlog.
-    if args.status == "in_progress" and epic.get("priority", 1) > 1:
+    if args.status == "in_progress" and ops.priority_rank(epic.get("priority")) > 1:
         print(
             f"  priority {epic['priority']} — stays behind lower-numbered epics. "
             f"Reorder with: forge epic set-priority {epic['id']} <n>"
@@ -579,10 +579,13 @@ def cmd_ls(args, project_root: Path) -> int:
     # Stable, meaningful order: highest-priority epic first, then task
     # priority within it, then id. Before this the listing was registry
     # insertion order, which made "what next?" a coin toss.
-    epic_prio = {e.get("id"): e.get("priority", 1) for e in registry.get("epics", [])}
+    epic_prio = {
+        e.get("id"): ops.priority_rank(e.get("priority"))
+        for e in registry.get("epics", [])
+    }
     tasks.sort(key=lambda t: (
-        epic_prio.get(t.get("epic"), 1),
-        t.get("priority", 1),
+        epic_prio.get(t.get("epic"), ops.DEFAULT_EPIC_PRIORITY),
+        ops.priority_rank(t.get("priority")),
         t.get("id", ""),
     ))
 

@@ -148,6 +148,28 @@ EPIC_SETTABLE_STATUSES = frozenset({"pending", "in_progress", EPIC_BACKLOG_STATU
 BACKLOG_EPIC_DEFAULT_PRIORITY = 99
 DEFAULT_EPIC_PRIORITY = 1
 
+# v3 registries stored task priority as a word; v4 stores an int (lower =
+# higher). A consumer upgraded in place carries both, and v4.4.0's sort key
+# compared them raw -- `task ls` crashed with "'<' not supported between str
+# and int" on a registry with 181 word-valued tasks. Rank through this at
+# every comparison site; never compare the raw field.
+_WORD_PRIORITY = {"critical": 1, "high": 2, "medium": 3, "low": 4}
+
+
+def priority_rank(value) -> int:
+    """Comparable rank for a task/epic priority of any legacy shape."""
+    if isinstance(value, bool):
+        return DEFAULT_EPIC_PRIORITY
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in _WORD_PRIORITY:
+            return _WORD_PRIORITY[v]
+        if v.isdigit():
+            return int(v)
+    return DEFAULT_EPIC_PRIORITY
+
 
 _FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*(?:\n|$)", re.DOTALL)
 # `[ \t]*` (not `\s*`) at end so we don't consume the closing newline

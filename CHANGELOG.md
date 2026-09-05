@@ -14,6 +14,12 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 - **"What to run when" routing table** in the framework `CLAUDE.md` — request shape → skill, one place, read every session. Skills already chain to each other; this is the missing front door, and it names the skip rule (engineer at the terminal with a small clear change: no intent, go straight to `/new-feature`).
 - **The loop closes at the back.** `/triage-incident` and `/security-review` now route a follow-up larger than a bounded fix through `/intent` instead of filing it as a task, so redesigns re-enter through acceptance.
 - **Intent travels with the task.** `/intent promote` writes `Intent: intent/<slug>.md` into each task body; `/run-epic` reads the intent's Proposed outcome as the inherited done-criterion, and `/create-pr`'s pre-flight review asks whether the diff delivers it (a correct diff that does not do what was asked is MUST-FIX).
+### Fixed
+
+- **`task ls` crashed on a registry with v3 word priorities.** Consumers upgraded in place carry `"critical"`/`"high"`/`None` alongside v4 ints, and v4.4.0's sort key compared them raw — `TypeError` on a registry with 181 word-valued tasks, found on the first refresh after this release. `registry_ops.priority_rank` is now the one comparison path (words map critical→1 … low→4, digit strings parse, None/unknown fall to the default); both compare sites use it. Reproduced red, then green, with a regression test.
+
+### Added (continued)
+
 - **E99 backlog** with two deferred tasks from the same source: T917 config-regression evals (with the no-LLM-in-loops constraint written into the body) and T918 an opt-in hook that locks a committed failing test during `/fix-bug`.
 
 ## [v4.4.1] — 2026-08-30
