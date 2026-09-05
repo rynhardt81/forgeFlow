@@ -42,6 +42,7 @@ Preconditions: file exists, `Status: accepted`. Anything else — stop and say w
 
 3. **Draft tasks** — the smallest sequence that reaches Proposed outcome. Each task names files or directories it will touch (`--scope-dirs` / `--scope-files`) and gets `--isa` when it is E3 or above. Open questions in the intent that block a task become `--deps` on a spike task that answers them, not silent assumptions.
 4. **Show the epic and task list; confirm before filing.** One confirmation, then file every task through the CLI. Never hand-edit `docs/tasks/registry.json`.
+   After filing, append one line to each task body's `## Notes` section: `Intent: intent/<slug>.md`. That line is how the intent travels — `/run-epic` reads it into the task's done-criterion and `/create-pr` checks the diff against it. The task body is the carrier because every downstream skill already reads it.
 5. **Mark the intent** `Status: promoted → E0X` and commit both changes together as `intent: promote <slug> → E0X`. The intent stays in `intent/` — it is what `/create-pr`'s reviewer and the task ISA are checked against.
 
 ## Where it sits

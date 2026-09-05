@@ -68,7 +68,7 @@ For each surface, record: the invariant, the abuse it could allow, and whether t
 
 ## Step 4: Report and file findings
 
-Write the findings to `memories/security-review-{date}.md` (or `--output`). For each real finding: severity, the surface, the abuse, and the fix direction. **File genuine findings as tasks** via the `@security-boss` convention (`forge task add` with severity in `--category`) — so they enter the work queue rather than evaporate. Security findings are a **hard floor** under `skills/_shared/task-triage.md` — blocker-or-next, never deferred to the backlog epic by default. Print a one-paragraph summary and stop. **Advisory only** — never blocks a ship; the findings are the deliverable.
+Write the findings to `memories/security-review-{date}.md` (or `--output`). For each real finding: severity, the surface, the abuse, and the fix direction. **File genuine findings as tasks** via the `@security-boss` convention (`forge task add` with severity in `--category`) — so they enter the work queue rather than evaporate. Security findings are a **hard floor** under `skills/_shared/task-triage.md` — blocker-or-next, never deferred to the backlog epic by default. A finding wider than a bounded patch — an architectural gap or the same flaw repeated across a surface — is written as `/intent "<problem>"` with this report as evidence, then promoted once accepted; the task queue holds fixes, not redesigns. Print a one-paragraph summary and stop. **Advisory only** — never blocks a ship; the findings are the deliverable.
 
 ## When NOT to use
 

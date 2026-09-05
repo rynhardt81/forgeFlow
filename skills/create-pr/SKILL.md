@@ -143,6 +143,8 @@ Plugin absent → **cross-check before trusting it** (agent-verification.md: an 
 | Comments/docstrings touched | `comment-analyzer` |
 | Final pass after MUST-FIX cleared (on request) | `code-simplifier` |
 
+**Intent compliance:** if the task body for this branch carries an `Intent: intent/<slug>.md` line, read the file and hand `code-reviewer` a third question alongside bugs and style: does the diff deliver the intent's **Proposed outcome** and respect its **Constraints**? A diff that is correct but does not do what was asked is `MUST-FIX`. No intent line → no compliance pass; do not invent one.
+
 **Fan-out:** single message, multiple Task tool uses — one per matched agent. Each gets the diff + changed-file list and returns findings as `MUST-FIX` (bug, security, broken test, regression) / `NICE-TO-HAVE` (style, naming, small refactor) / `NO-ACTION`. Aggregate into a compact per-agent count table + MUST-FIX detail lines.
 
 **Push gate:** cannot create the PR with unresolved MUST-FIX. Options: fix it (re-run checks + 3.7 on the new diff), defer (file a follow-up via `forge task add`, document in the PR body; **Before filing, apply `skills/_shared/task-triage.md`** — answer "what breaks if this ships later?" Deferred is the default (`--epic E99` parks it out of the ready queue); hard floors (schema/auth/money/security) are never deferred.), or `--proceed-anyway` (override reason recorded in the body's Pre-flight notes). NICE-TO-HAVE → Pre-flight notes section (TEMPLATES.md), doesn't gate. NO-ACTION → dropped.

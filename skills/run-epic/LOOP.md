@@ -31,7 +31,7 @@ Lock conflict (another session holds overlapping `scope-dirs`) → skip and pick
 
 ## Classify
 
-Read the task body (`forge task show <T###> --json | jq -r '.file'`). Classify as **bug**, **feature**, or **refactor** from the task name and first paragraph — this is native judgment, not keyword matching. If genuinely ambiguous, surface a single ask ("T### classifies ambiguously — treat as bug | feature | refactor?") and cache the answer for similar cases this run.
+Read the task body (`forge task show <T###> --json | jq -r '.file'`). If its Notes carry an `Intent: intent/<slug>.md` line, read that file too — its **Proposed outcome** is the done-criterion this task inherits and its **Constraints** bind the implementation; a task ISA that contradicts the intent is a finding, not a tie-break. Classify as **bug**, **feature**, or **refactor** from the task name and first paragraph — this is native judgment, not keyword matching. If genuinely ambiguous, surface a single ask ("T### classifies ambiguously — treat as bug | feature | refactor?") and cache the answer for similar cases this run.
 
 ## Execute
 

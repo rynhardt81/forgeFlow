@@ -47,6 +47,23 @@ Invoke via `/<skill-name>`. Canonical roster: `skills/skills-manifest.json`; hum
 
 Each skill's own one-line purpose is already in the session's skill listing, so it is not repeated here.
 
+**What to run when.** Skills are selected by request shape, not by the user remembering a name. Route by the first matching row; a skill that hands off to the next one (new-feature → create-pr, triage-incident → fix-bug) does so itself.
+
+| Request shape | Run |
+|---------------|-----|
+| A change someone else must accept, or that will wait before pickup, or whose scope is unknown | `/intent "<problem>"` → owner sets `accepted` → `/intent promote` |
+| Big or uncertain enough that *whether* is the question | `/vet-idea` before acceptance |
+| Ready tasks in an epic | `/run-epic E0X` (routes each task to fix-bug / new-feature / refactor) |
+| Small, clear change with the engineer at the terminal | `/new-feature`, `/fix-bug`, or `/refactor` directly — an intent here is ceremony |
+| Bug with a reproduction, found in development | `/fix-bug` |
+| Something broken for users in production | `/triage-incident` |
+| CI red | `/diagnose-ci`; before pushing, `/preflight-ci` |
+| Ship | `/create-pr`, then `/release` |
+| Learned something the team needs next session | `/remember` |
+| Not sure the framework is healthy | `forge doctor` |
+
+Work discovered *while* running any of these follows `skills/_shared/task-triage.md`. A follow-up larger than a bounded fix goes back in through `/intent`, not straight into the queue.
+
 `forge dashboard` is not a skill: it serves a local cockpit at `http://127.0.0.1:4847/` — tasks, code map, ISAs, memory, registry, burndown (read-only, SSE live-reload). `forge` = `python3 .claude/scripts/forge/forge.py`; alias it once per machine.
 
 ## Agents
