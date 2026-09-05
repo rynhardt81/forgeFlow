@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.2.0",
-  "lastUpdated": "2026-05-26",
+  "lastUpdated": "2026-09-05",
   "description": "Registry of all Claude Forge skills with metadata for discovery and routing. Optional 'paths' field (glob patterns) scopes a skill to relevant directories so loaders/UIs can surface it only when working there \u2014 see Anthropic's large-codebase post on path-scoped skills.",
   "skills": [
     {
@@ -605,6 +605,26 @@
         "web/**",
         "frontend/**",
         "design/**"
+      ]
+    },
+    {
+      "name": "intent",
+      "command": "/intent",
+      "path": "skills/intent/SKILL.md",
+      "description": "Capture a change request as a committed intent.md (non-engineer authorable), then promote an accepted intent into a forge epic + tasks",
+      "category": "initialization",
+      "agents": [],
+      "subcommands": [
+        "promote"
+      ],
+      "flags": [
+        "--epic=E0X"
+      ],
+      "prerequisites": [],
+      "creates": [
+        "intent-file",
+        "epics",
+        "tasks"
       ]
     }
   ],

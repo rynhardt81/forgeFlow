@@ -17,6 +17,7 @@ One directory per skill; each skill's `SKILL.md` is its complete definition (fro
 | Skill | Purpose |
 |-------|---------|
 | `/new-project` | Initialize a project — PRD, ADRs, tasks, populated reference docs |
+| `/intent` | Capture a change request as `intent/<slug>.md`; promote an accepted one into an epic + tasks |
 | `/migrate` | Onboard an existing project / upgrade framework versions |
 | `/refactor` | Risk-scaled refactoring with behavior verification |
 | `/release` | Version + changelog + tag, with release-safety checklist |

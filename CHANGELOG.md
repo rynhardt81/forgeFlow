@@ -2,6 +2,17 @@
 
 All notable changes to Claude Forge are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/); the project follows semantic versioning where the major version tracks framework epochs (v2 → v3 → v4) and minor versions track feature additions.
 
+## [Unreleased]
+
+> Borrowed from Anthropic's AI-native SDLC playbook (2026-09). Three things it had that the framework did not; the rest it already does more strictly.
+
+### Added
+
+- **`/intent`** — the non-engineer entry point to the artifact chain. `/intent "<problem>"` brainstorms into a committed `intent/<slug>.md` (problem, outcome, affected users, constraints, open questions; template at `templates/intent.md`). `/intent promote` turns an *accepted* intent into a forge epic + tasks through the CLI and stamps the intent `promoted → E0X`. Capture and promote are separate on purpose: acceptance is a status edit by someone with authority, not a merge.
+- **`templates/CLAUDE.template.md` — "Verifying your work"** block: build, test, lint, and single-file commands with what healthy output looks like, and the instruction to run all three and paste output before reporting done. `/new-project` now fills it from detected scripts and runs each once to record the healthy line; anything it could not run stays bracketed. This is the concrete form of "no claim without a probe" for a consumer project.
+- **`templates/CLAUDE.template.md` — "Session hygiene"** block: set model and effort once (mid-session changes bust the prompt cache), `/clear` between tasks, `/context` once per fresh session, and a compact-instructions paragraph naming what survives `/compact`.
+- **E99 backlog** with two deferred tasks from the same source: T917 config-regression evals (with the no-LLM-in-loops constraint written into the body) and T918 an opt-in hook that locks a committed failing test during `/fix-bug`.
+
 ## [v4.4.1] — 2026-08-30
 
 > Patch. A consumer install ran v4.4.0's intended workflow and filed a field report; five findings, four confirmed against the code. The headline one is a shipped bug that fired on the exact command the release's own triage rule tells people to paste.

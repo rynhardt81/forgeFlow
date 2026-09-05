@@ -49,7 +49,7 @@ No other ceremony. No checkpoint banners between phases — just do the work and
 ## Phase 1 — Setup (quick, mostly idempotent)
 
 1. Verify the framework is installed (`.claude/` with `scripts/forge/forge.py` present). If not, stop and point at `install.sh` — installation is not this skill's job.
-2. If the project `CLAUDE.md` is still placeholder text, populate it from `templates/CLAUDE.template.md` (project name, description, stack).
+2. If the project `CLAUDE.md` is still placeholder text, populate it from `templates/CLAUDE.template.md` (project name, description, stack). Fill **Verifying your work** from what the repo actually runs — `package.json` scripts, `Makefile` targets, `pyproject.toml` — and run each command once to record its healthy output line. Prefer quiet reporters. A command you could not run stays bracketed as a placeholder, never guessed.
 3. Ensure continuity structure exists: `.claude/memories/{sessions/active,sessions/completed}`, `progress-notes.md`, `general.md`; and `docs/project-memory/` (see `/remember` — `archive.db` is created on first use, not here).
 4. `git init` + initial commit if not already a repo.
 
