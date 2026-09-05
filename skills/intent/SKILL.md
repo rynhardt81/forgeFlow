@@ -32,8 +32,10 @@ Do not design the solution, estimate it, or file tasks here. That is what promot
 
 Preconditions: file exists, `Status: accepted`. Anything else — stop and say which precondition failed. A `draft` intent is not queue-eligible; a `rejected` one never is.
 
+**An intent is change-sized, not epic-sized.** On an existing product it is usually one to a few tasks inside an epic that already exists; only sometimes is it big enough to be its own epic. So the intent links to its **tasks**, and links to an epic only when it created that epic. A 35-task epic with one intent filed into it is not "described by" that intent, and the skill must never imply it is.
+
 1. **Read the intent and the project ISA** (`ISA.md`) if present, so tasks inherit the project's constraints.
-2. **Choose the epic.** With `--epic`, use it (must exist — `forge epic add` first if not). Without, create one from the intent title:
+2. **Choose the epic.** With `--epic`, file into it (it must exist) and **leave its description alone** — the epic is where the work lives, not what the intent is about. Without `--epic`, the intent is its own epic; create one from the intent title and link it, because here the epic *is* the intent:
 
    ```bash
    python3 .claude/scripts/forge/forge.py epic add E0X --name "<intent title>" \
@@ -43,7 +45,7 @@ Preconditions: file exists, `Status: accepted`. Anything else — stop and say w
 3. **Draft tasks** — the smallest sequence that reaches Proposed outcome. Each task names files or directories it will touch (`--scope-dirs` / `--scope-files`) and gets `--isa` when it is E3 or above. Open questions in the intent that block a task become `--deps` on a spike task that answers them, not silent assumptions.
 4. **Show the epic and task list; confirm before filing.** One confirmation, then file every task through the CLI. Never hand-edit `docs/tasks/registry.json`.
    After filing, append one line to each task body's `## Notes` section: `Intent: intent/<slug>.md`. That line is how the intent travels — `/run-epic` reads it into the task's done-criterion and `/create-pr` checks the diff against it. The task body is the carrier because every downstream skill already reads it.
-5. **Mark the intent** `Status: promoted → E0X` and commit both changes together as `intent: promote <slug> → E0X`. The intent stays in `intent/` — it is what `/create-pr`'s reviewer and the task ISA are checked against.
+5. **Mark the intent** `Status: promoted → T###, T### (E0X)` — the task ids are the link, the epic in parentheses is where to find them — and commit both changes together as `intent: promote <slug> → T###`. The intent stays in `intent/` — it is what `/create-pr`'s reviewer and the task ISA are checked against. Tasks filed later for the same intent get appended to that line.
 
 ## Where it sits
 
@@ -52,7 +54,7 @@ Preconditions: file exists, `Status: accepted`. Anything else — stop and say w
 | Should we do this at all? | `/vet-idea` |
 | What does the requester want? | **`/intent`** (this) |
 | How will we know it is done? | ISA (`/new-feature` scaffolds it at E3+) |
-| Do it | `/run-epic E0X` |
+| Do it | `/run-epic E0X` (drains the epic; each task carries its own intent link) |
 
 Derived work discovered while promoting follows `skills/_shared/task-triage.md` — an intent is not a licence to file everything it reminds you of.
 

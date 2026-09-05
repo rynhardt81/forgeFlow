@@ -4,7 +4,7 @@
 
 - **Author:** [name]
 - **Date:** YYYY-MM-DD
-- **Status:** draft | accepted | promoted → [E0X] | rejected ([one-line reason])
+- **Status:** draft | accepted | promoted → [T###, T### (E0X)] | rejected ([one-line reason])
 
 ## Problem
 
