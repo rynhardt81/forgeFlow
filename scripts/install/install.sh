@@ -777,8 +777,47 @@ framework = json.loads(Path(sys.argv[1]).read_text())
 project = json.loads(Path(sys.argv[2]).read_text())
 fw_hooks = framework.get("hooks", {})
 pr_hooks = project.setdefault("hooks", {})
+def _is_framework_hook(entry):
+    """A hook the framework owns: its command runs something under .claude/hooks/.
+
+    Same classification the dead-wiring prune below uses. `.claude/` is
+    framework territory (CODE); a project's own hooks live outside it, which is
+    what makes this separable at all.
+    """
+    return isinstance(entry, dict) and ".claude/hooks/" in str(entry.get("command", ""))
+
+
+def _project_only_matchers(matchers):
+    """The consumer's matchers with framework hooks stripped out.
+
+    Framework copies are dropped here because the template re-adds them; what
+    survives is wiring the project added itself.
+    """
+    kept = []
+    for matcher in matchers or []:
+        if not isinstance(matcher, dict):
+            kept.append(matcher)
+            continue
+        hooks = matcher.get("hooks")
+        if not isinstance(hooks, list):
+            kept.append(matcher)
+            continue
+        mine = [h for h in hooks if not _is_framework_hook(h)]
+        if mine:
+            kept.append({**matcher, "hooks": mine})
+    return kept
+
+
 for event, entries in fw_hooks.items():
-    pr_hooks[event] = entries   # framework's wiring wins per-event
+    # The framework's wiring wins over FRAMEWORK wiring -- a consumer cannot
+    # pin a stale copy of a framework hook -- but the whole-list replace this
+    # replaced also deleted the consumer's own entries in any event the
+    # framework happens to ship. One consumer's production guard (a PreToolUse
+    # hook) was silently disarmed by three consecutive refreshes that way, and
+    # install.sh reported success every time. Framework entries first, then the
+    # project's own; idempotent, because a second pass strips the framework
+    # half back out before re-adding it from the template.
+    pr_hooks[event] = list(entries) + _project_only_matchers(pr_hooks.get(event))
 
 # Prune wiring the framework dropped. Setting per-event never removes an event
 # the framework no longer ships, so a cut hook left its entry behind while the
