@@ -181,6 +181,7 @@ def _read_pyproject_env_files_override(project_root: Path) -> list[Path] | None:
 def discover_env_files(
     project_root: Path,
     compose_file: Path | None = None,
+    explicit_only: bool = False,
 ) -> list[Path]:
     """Return ordered list of existing .env files for layered sourcing.
 
@@ -207,6 +208,24 @@ def discover_env_files(
     override = _read_pyproject_env_files_override(project_root)
     if override is not None:
         return override
+
+    # T077 — ambient discovery is gated on the source-block being LOAD-BEARING.
+    # The generator sources every discovered file with `set -a`, which exports
+    # into the process environment of every step, so an ungated root `.env`
+    # hands secrets (JWT_SECRET, SERVICE_ROLE_KEY, POSTGRES_PASSWORD, ...) to
+    # npm lifecycle scripts and bundler plugins in every generated job, whether
+    # or not anything asked for them. The caller passes
+    # `explicit_only=not password_refs_emitted`: no password-refs were emitted,
+    # so nothing reads the layer, so the layer is not created.
+    #
+    # The gate is on AMBIENT discovery only. The pyproject override above
+    # returns before reaching here on purpose: an operator who named a layer in
+    # `[tool.forge.preflight] env_files` asked for it, and the fix must not
+    # silently break the one consumer who read the docs. Both halves fail in
+    # opposite directions and tests/preflight/test_env_gate.py pins each -- a
+    # test for either alone passes while the other regresses.
+    if explicit_only:
+        return []
 
     # Layer 1: Compose-canonical base layers + compose-relative.
     # Insertion order: Compose-canonical entries from ENV_FILE_CANDIDATES

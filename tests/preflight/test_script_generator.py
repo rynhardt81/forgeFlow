@@ -237,6 +237,13 @@ class TestGenerateScriptsComposeRewrite(unittest.TestCase):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _make_job(self, env: dict[str, str]) -> Job:
+        """A job for the generator tests.
+
+        Tests that exercise the .env source-block pass an env value carrying a
+        `${NAME:-}` ref on purpose: under T077 the layer is only created when
+        something reads it, so a job with inert env values produces no block at
+        all and an ordering/path assertion would pass vacuously.
+        """
         return Job(
             name="test",
             file=str(self.tmp / ".github" / "workflows" / "ci.yml"),
@@ -361,7 +368,7 @@ class TestGenerateScriptsComposeRewrite(unittest.TestCase):
         # clean.
         import contextlib
         import io
-        job = self._make_job({"X": "y"})
+        job = self._make_job({"X": "${X:-}"})
         with contextlib.redirect_stderr(io.StringIO()):
             generate_scripts([job], self.out, project_root=self.tmp)
         body = (self.out / "test.sh").read_text()
@@ -374,7 +381,7 @@ class TestGenerateScriptsComposeRewrite(unittest.TestCase):
         # over Compose values via bash last-export semantics.
         (self.tmp / ".env").write_text("X=1\n")
         (self.tmp / "infrastructure" / "compose" / ".env").write_text("Y=2\n")
-        job = self._make_job({"X": "x"})
+        job = self._make_job({"X": "${X:-}"})
         generate_scripts([job], self.out, project_root=self.tmp)
         body = (self.out / "test.sh").read_text()
         # Both candidates appear, Compose subdir BEFORE root .env in the
@@ -417,7 +424,7 @@ class TestGenerateScriptsComposeRewrite(unittest.TestCase):
                 name="test",
                 file=str(non_canon_root / ".github" / "workflows" / "ci.yml"),
                 runs_on="ubuntu-latest",
-                env={},
+                env={"X": "${X:-}"},
                 steps=[],
             )
             out = non_canon_root / ".forge" / "preflight"
@@ -510,7 +517,7 @@ class TestGenerateScriptsComposeRewrite(unittest.TestCase):
         (self.tmp / ".env").write_text(
             "SHARED_KEY=from-root\nROOT_KEY=from-root\n"
         )
-        job = self._make_job({})
+        job = self._make_job({"X": "${X:-}"})
         generate_scripts([job], self.out, project_root=self.tmp)
         # Extract just the executable lines of the env-source block
         # (skip the comment header so bash doesn't try to parse it),
@@ -598,7 +605,7 @@ class TestGenerateScriptsComposeRewrite(unittest.TestCase):
         outside_env.write_text("WHITESPACE_KEY=resolved\n")
         (self.tmp / ".env").symlink_to(outside_env)
 
-        job = self._make_job({"X": "y"})
+        job = self._make_job({"X": "${X:-}"})
         with contextlib.redirect_stderr(io.StringIO()):
             generate_scripts([job], self.out, project_root=self.tmp)
 

@@ -952,6 +952,43 @@ def _display_path(workflow_file: str, project_root: Path | None) -> Path:
     return path if not path.is_absolute() else Path(path.name)
 
 
+_ENV_REF_RE = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*(?::-[^}]*)?\}")
+
+
+def _env_layer_is_load_bearing(jobs: Iterable[Job]) -> bool:
+    """True when some job/step env value actually reads a sourced variable.
+
+    T077: the generated script sources every discovered `.env` with `set -a`,
+    which exports into the process environment of EVERY step -- so an ambient
+    layer nothing reads still hands secrets to npm lifecycle scripts and
+    bundler plugins. The layer is therefore created only when something reads
+    it.
+
+    Two ref shapes count, and missing either one is a live defect:
+
+      * `${{ env.NAME }}` -- what the Compose password rewrite emits, before
+        `_rewrite_actions_templates` turns it into bash. This is the only
+        shape the original consumer-side fix looked for, via a flag computed
+        inside the Compose branch. Upstream that is too narrow: a project with
+        no Compose file, or whose workflow already carries bash-style refs,
+        would silently lose a layer its CI mirror needs.
+      * `${NAME}` / `${NAME:-}` -- a workflow that wrote the ref itself.
+
+    Deliberately scoped to `env:` values and not to `run:` bodies. A run step
+    reaching for an ambient variable is the exposure this gate closes, not a
+    reason to re-open it.
+    """
+    for job in jobs:
+        values = list(job.env.values())
+        for step in job.steps:
+            values += list(step.env.values())
+        for v in values:
+            text = str(v)
+            if "${{ env." in text or _ENV_REF_RE.search(text):
+                return True
+    return False
+
+
 def generate_scripts(
     jobs: Iterable[Job],
     out_dir: Path,
@@ -1032,7 +1069,16 @@ def generate_scripts(
         # non-canonical compose layouts without needing a pyproject.toml
         # opt-in). Embedded as project-relative paths (POSIX) so the
         # script works from any clone with the same project layout.
-        env_paths = discover_env_files(project_root, compose_file=compose_file)
+        # T077: `explicit_only` gates AMBIENT discovery on whether anything
+        # actually reads the layer. Do not collapse this back into a bare call
+        # -- tests/preflight/test_env_gate.py pins the argument as well as the
+        # parameter, because in the field they were reverted independently and
+        # a unit test of discover_env_files alone stayed green.
+        env_paths = discover_env_files(
+            project_root,
+            compose_file=compose_file,
+            explicit_only=not _env_layer_is_load_bearing(jobs),
+        )
         # T502: a symlinked .env (or absolute pyproject.toml override) may
         # resolve outside project_root — `Path.relative_to` raises ValueError
         # in that case. Fall back to the resolved absolute path; the
