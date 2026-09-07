@@ -105,6 +105,55 @@ _BODY_DIR_HINTS = ("/tasks/", "/orphan/")
 _BODY_NAME = re.compile(rf"^({_TASK_ID})(?:-|\.md$)")
 
 
+# Progress-counter idioms, in the order they are tried. Epic files are
+# human-authored prose and each project settles on its own phrasing, so a
+# single pattern silently checks nothing everywhere it does not match -- and
+# reports a tick while doing it. Observed live in a consumer: every epic wrote
+# `**Status:** in_progress -- 23/50 tasks completed`, which the lone
+# `N total ... M completed` pattern never matched, so section [3] passed
+# vacuously for the whole repo while E01's counter had drifted to 23/50
+# against a registry saying 32/56.
+_COUNTER_PATTERNS = (
+    # "**Tasks:** 19 total — 14 completed"
+    re.compile(r"(?P<total>\d+)\s+total\b[^\d\n]{0,60}?(?P<completed>\d+)\s+completed", re.I),
+    # "**Status:** in_progress — 12/26 tasks completed"
+    re.compile(r"(?P<completed>\d+)\s*/\s*(?P<total>\d+)\s+tasks?\s+completed", re.I),
+    # "14 of 19 tasks completed"
+    re.compile(r"(?P<completed>\d+)\s+of\s+(?P<total>\d+)\s+tasks?\s+completed", re.I),
+    # "completed: 14 / 19"
+    re.compile(r"completed\s*[:=]\s*(?P<completed>\d+)\s*/\s*(?P<total>\d+)", re.I),
+)
+
+# Lines that carry a counter. Restricting to these keeps a number in a progress
+# log entry ("14 of 19 tasks completed in the first pass") from being read as
+# the epic's current claim.
+_COUNTER_LINE = re.compile(r"^\s*(?:\*\*)?(?:status|tasks|progress)\b", re.I)
+
+
+def parse_counter_claim(text: str) -> dict | None:
+    """Return {'completed': int, 'total': int} claimed by the epic file, or None.
+
+    Header-style lines are tried first so the claim comes from the file's
+    counter rather than from prose that happens to contain two numbers. The
+    whole-text fallback preserves the original behaviour for epic files whose
+    counter does not sit on a `**Status:**`/`**Tasks:**`/`**Progress:**` line.
+    """
+    for line in text.splitlines():
+        if not _COUNTER_LINE.match(line):
+            continue
+        for pattern in _COUNTER_PATTERNS:
+            m = pattern.search(line)
+            if m:
+                return {"completed": int(m.group("completed")),
+                        "total": int(m.group("total"))}
+    for pattern in _COUNTER_PATTERNS:
+        m = pattern.search(text)
+        if m:
+            return {"completed": int(m.group("completed")),
+                    "total": int(m.group("total"))}
+    return None
+
+
 def build_glob_index(root: Path) -> dict[str, list[Path]]:
     """Map task id -> candidate body files under docs/, ranked so a real body
     file beats a same-prefix non-body file. Used only as the fallback when a
@@ -395,13 +444,8 @@ def main() -> int:
         c = epic_counts.get(eid, Counter())
         total = sum(c.values())
         done = c.get("completed", 0)
-        # Pull the epic file's claimed "M completed ... N total" if present.
-        claim = re.search(r"(\d+)\s+total[^\d]*?(\d+)\s+completed", text)
-        claimed = (
-            {"total": int(claim.group(1)), "completed": int(claim.group(2))}
-            if claim
-            else None
-        )
+        # Four counter idioms, not one -- see _COUNTER_PATTERNS above.
+        claimed = parse_counter_claim(text)
         stale = claimed is not None and (
             claimed["total"] != total or claimed["completed"] != done
         )
@@ -495,11 +539,15 @@ def main() -> int:
         stale_counters = [e for e in epic_counter_report if e["stale"]]
         print(f"\n[3] Stale epic counters: {len(stale_counters)}")
         for e in epic_counter_report:
-            flag = "⚠ STALE" if e["stale"] else "✅"
+            # An epic with no counter line was NOT checked, and must not read
+            # as verified. A tick beside "no counter line found" is the shape
+            # where a parser that matches nothing looks identical to a clean
+            # audit.
+            flag = "⚠ STALE" if e["stale"] else ("✅" if e["claimed"] else "–")
             claimed = (
                 f" (file claims {e['claimed']['completed']}/{e['claimed']['total']})"
                 if e["claimed"]
-                else " (no counter line found)"
+                else " (NOT CHECKED — no counter line found; verify by hand)"
             )
             print(
                 f"    {flag} {e['epic']}: registry "
