@@ -7,10 +7,21 @@ left consumers with a fossil index whose counts read zero while entries
 existed. Every session then started blind. This is the deterministic
 replacement -- no LLM, no transcript capture, idempotent.
 
-Entry = a `## ` heading in one of the three files, minus the v2 "Table of
-Contents" heading. Date = the first `**Date:** YYYY-MM-DD` after the heading
-(both v2 `**Date:**` and v4 `- **Date:**` shapes match). Output lines follow
-the v4 template's comment: `- YYYY-MM-DD [type] title`, newest first.
+Entry = a `## ` heading in one of the three files, ignoring headings that are
+not entries: v2's "Table of Contents", the `Format`/`Entries` section headings
+some consumers carry, and placeholders (a `<bracketed>` title, or one still
+carrying the literal `YYYY-MM-DD`). Headings inside HTML comments or fenced
+code are not entries either -- the shipped template's own example lives in a
+comment, so a parser that misses this indexes the template in every project.
+
+Date = a leading `[YYYY-MM-DD]` in the heading, else the first
+`**Date:** YYYY-MM-DD` line after it (both v2 `**Date:**` and v4 `- **Date:**`
+shapes match). Both date shapes are supported because consumers carry both;
+the heading shape is drift from the template, not a second blessed convention,
+but it is drift the index has to survive rather than silently mis-order.
+
+Output lines follow the v4 template's comment: `- YYYY-MM-DD [type] title`,
+newest first.
 """
 from __future__ import annotations
 
@@ -19,7 +30,10 @@ from pathlib import Path
 
 ENTRY_FILES = (("bugs.md", "bug"), ("decisions.md", "decision"), ("patterns.md", "pattern"))
 _DATE_RE = re.compile(r"\*\*Date:\*\*\s*(\d{4}-\d{2}-\d{2})")
-_SKIP_HEADINGS = {"table of contents"}
+_HEADING_DATE_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2})\]\s*(.+)$")
+_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_SKIP_HEADINGS = {"table of contents", "format", "entries"}
+_PLACEHOLDER_DATE = "YYYY-MM-DD"
 
 HEADER = """# Project Memory — Index
 
@@ -38,24 +52,70 @@ HEADER = """# Project Memory — Index
 """
 
 
+def _strip_noise(lines: list[str]) -> list[str]:
+    """Blank HTML comments and fenced code, keeping one output line per input.
+
+    Line positions are preserved so the date lookahead still reads the lines
+    that actually follow the heading.
+    """
+    out: list[str] = []
+    in_comment = False
+    fence: str | None = None
+    for line in lines:
+        if in_comment:
+            out.append("")
+            if "-->" in line:
+                in_comment = False
+            continue
+        if fence is not None:
+            out.append("")
+            if line.strip().startswith(fence):
+                fence = None
+            continue
+        m = _FENCE_RE.match(line)
+        if m:
+            fence = m.group(1)
+            out.append("")
+            continue
+        if "<!--" in line:
+            before, rest = line.split("<!--", 1)
+            if "-->" in rest:
+                out.append(before + rest.split("-->", 1)[1])
+            else:
+                in_comment = True
+                out.append(before)
+            continue
+        out.append(line)
+    return out
+
+
+def _is_placeholder(title: str) -> bool:
+    """A template example, not a memory: `<bracketed>` or still saying YYYY-MM-DD."""
+    return (title.startswith("<") and title.endswith(">")) or _PLACEHOLDER_DATE in title
+
+
 def parse_entries(text: str, kind: str) -> list[tuple[str, str, str]]:
-    """(date, kind, title) per `## ` heading; date is '----' when absent."""
+    """(date, kind, title) per entry `## ` heading; date is '----' when absent."""
     out: list[tuple[str, str, str]] = []
-    lines = text.splitlines()
+    lines = _strip_noise(text.splitlines())
     for i, line in enumerate(lines):
         if not line.startswith("## "):
             continue
         title = line[3:].strip()
-        if title.lower() in _SKIP_HEADINGS or not title:
+        if not title or title.lower() in _SKIP_HEADINGS or _is_placeholder(title):
             continue
         date = "----"
-        for nxt in lines[i + 1:]:
-            if nxt.startswith("## "):
-                break
-            m = _DATE_RE.search(nxt)
-            if m:
-                date = m.group(1)
-                break
+        heading_date = _HEADING_DATE_RE.match(title)
+        if heading_date:
+            date, title = heading_date.group(1), heading_date.group(2).strip()
+        else:
+            for nxt in lines[i + 1:]:
+                if nxt.startswith("## "):
+                    break
+                m = _DATE_RE.search(nxt)
+                if m:
+                    date = m.group(1)
+                    break
         out.append((date, kind, title))
     return out
 
