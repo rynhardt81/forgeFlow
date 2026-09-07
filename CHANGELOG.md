@@ -4,6 +4,10 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.5.1] — 2026-09-07
+
+> Patch. Two consumer-found defects on surfaces v4.5.0 had just touched: the memory index it introduced was counting the template as a memory, and the stale-lock path it documented named a resume the CLI refused to perform.
+
 ### Fixed
 
 - **The project-memory index counted the template as a memory, and could not read a date it was looking straight at.** Two defects in `memory_index.parse_entries`, one reported by a consumer through `/intent`, one found while verifying that report across two consumers. (1) The shipped template's entry example lives in an HTML comment and the parser did not strip comments, so **every project on the current template** indexed `## <one-line symptom>` as a real entry — 3 phantoms in one consumer, whose `decisions.md` was 1 parsed entry and 0 real ones. (2) A consumer stamping dates in the heading (`## [2026-06-23] Title`) with no `**Date:**` field landed every entry in the undated bucket, so the documented "newest first" degraded silently to file order: 12 parsed, 0 dated, 9 of them scaffolding headings. Both failures are quiet — the index looks populated and plausible — on the one file the SessionStart hook injects, which is the surface v4.5.0 set out to fix. Now: HTML comments and fenced code are blanked before parsing (line positions preserved, so the date lookahead is unaffected); a leading `[YYYY-MM-DD]` in the heading is read as the date and stripped from the title, with the `**Date:**` field still winning where it exists; and `Format`/`Entries` section headings and placeholders (a `<bracketed>` title, or one still carrying the literal `YYYY-MM-DD`) are not entries. The heading-date shape is drift from the template, not a second blessed convention — it is supported because the index has to survive drift rather than silently mis-order it. Reproduced red on three new tests, then green; verified against both consumers (one goes 12 entries/0 dated → 3/3 dated, the other 68 → 65 with the phantoms gone).
