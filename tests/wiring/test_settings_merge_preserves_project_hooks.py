@@ -3,7 +3,7 @@
 Regression gate, filed 2026-09-07 after the third recorded occurrence in one
 consumer. The merge did `pr_hooks[event] = entries` -- the framework's list
 replaces the consumer's outright -- so any project-added matcher in an event
-the framework also ships was deleted on every refresh. That consumer's
+the framework also ships was deleted on every refresh. A consumer's
 production guard (a PreToolUse hook on matcher "*") was silently disarmed by
 v4.2.0, v4.4.1 and v4.5.1 in turn, each time discovered only because someone
 ran the project's own test suite afterwards.
@@ -33,7 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 INSTALL_SH = REPO_ROOT / "scripts" / "install" / "install.sh"
 
 FW_HOOK = 'python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/validation/validate-edit.py"'
-PROJECT_HOOK = 'python3 "$CLAUDE_PROJECT_DIR/tools/prod-guard/run_guard.py"'
+PROJECT_HOOK = 'python3 "$CLAUDE_PROJECT_DIR/tools/example-guard/run_guard.py"'
 
 
 def merge_block() -> str:
