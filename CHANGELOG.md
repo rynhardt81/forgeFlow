@@ -4,6 +4,26 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.1] — 2026-09-12
+
+> Patch. Fixes a `forge doctor` check that reported a correct install as unhealthy, and corrects a header that fourteen rule files had been telling readers for months. Also lands two opt-in mechanisms (config-regression evals, the test lock) — new capability in a patch release, called out here because the version number does not say so.
+
+### Fixed
+
+- **`forge doctor` compared bytes against a character threshold.** `check_memory` measured `st_size` and tested it against the hook's 20 000-*character* injection cap. Bytes are never fewer than characters, so any non-ASCII memory file read as larger than the hook sees it: a 19 823-character `key-facts.md` is 59 427 bytes, injected whole, and reported as "everything past the cap is silently dropped" with a non-zero exit. It measures decoded length now and keeps bytes for the readable size. Found by an external review of the 4.7.0 refresh; the sibling `check_rules_budget` was already correct, because its thresholds are named `_BYTES` and were fed bytes.
+- **Fourteen rule files claimed to be "discovered on-demand via the `rules/*.md` glob".** Claude Code loads every `.claude/rules/*.md` at launch — "Rules without `paths` frontmatter are loaded at launch with the same priority as `.claude/CLAUDE.md`". The header is why the directory was never budgeted: authors write at reference length when the reader is assumed to have opted in. One consumer reached 133 KB of always-on rules, 68% of its startup context. Headers now state the cost in one line, and the explanation lives once in `CONTRIBUTING.md` — putting it in each file, or in a `rules/README.md`, would be fourteen copies inside one context window, which is the failure being fixed. Shipped `rules/` 55 199 → 47 KB.
+- **`verify.sh` now treats `.claude/tests/` as a stray copy.** `install.sh` excludes `tests` from every rsync, so a copy under `.claude/` did not come from an installer — it came from someone copying files by hand, and it rots against the framework it was copied from.
+
+### Added
+
+- **Config-regression evals** (`scripts/forge/evals.py`, `tests/evals/`). A skill, rule, hook or CLAUDE.md edit is a behaviour change with no test; the wiring suite proves the framework is wired, not that a gate still fires. Recorded prompts replay against the current config with deterministic checks. **It spawns `claude` and spends money**, so it refuses to start without `FORGE_EVALS_BILLING=api`, refuses again inside a hook or agent loop, and a test fails if anything under `hooks/` so much as mentions it. The `check` subcommand applies a case's assertions to a transcript you already have and costs nothing.
+- **The test lock** (`skills/damage-control/cookbook/install_test_lock.md`). A PreToolUse hook denying writes to paths in `.claude/.test-lock`, closing the "make the test green by editing the test" escape during `/fix-bug`. Opt-in, because framework hooks stay advisory. Fails open by design: no lock, an empty lock, or an unreadable one blocks nothing.
+- **`forge doctor` reports the `rules/` always-on budget**, thresholded above the shipped baseline — a check that is red on a clean install gets ignored, so the framework's own baseline is pinned by a test instead.
+
+### Changed
+
+- `/fix-bug` sets and clears the test lock where a project has installed it; `/triage-incident` step 6 now requires an eval when a root cause traces to agent behaviour.
+
 ## [v4.7.0] — 2026-09-12
 
 > Minor. Memory files are paid for on every session, forever. This release fixes three ways the framework let that bill grow silently, and adds the skill that brings it back down. Measured on a real consumer: SessionStart injection fell from 67 115 to 23 835 bytes.
