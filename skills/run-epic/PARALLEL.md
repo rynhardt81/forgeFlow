@@ -22,10 +22,13 @@
      NOTE: the Agent tool takes `model` only. The effort half needs a named
      agent carrying `effort:` in its frontmatter; an ad-hoc general-purpose
      dispatch inherits the session's effort. State which you used.)
-   - prompt: task body + scope declaration + the matching discipline
-     (bug/feature/refactor, same inline rules as LOOP.md) + the epic's
-     session ID + instruction to follow Background Agent Checkpoint
-     Discipline (ALGORITHM v1.2.0) and finish via Skill("create-pr")
+   - prompt: the AUTONOMY.md block verbatim (a background agent in a worktree
+     is at least as unattended as the loop that spawned it — without it the
+     agent ends its turn describing what it would do next, and the parent
+     reaps a worktree with no commits) + task body + scope declaration + the
+     matching discipline (bug/feature/refactor, same inline rules as LOOP.md)
+     + the epic's session ID + instruction to follow Background Agent
+     Checkpoint Discipline (ALGORITHM v1.2.0) and finish via Skill("create-pr")
    - report: the session's feedback level + report back in the four fields
      of skills/_shared/report-format.md (evidence pointer required in Result
      at every level — the parent must ground-truth the claim per
