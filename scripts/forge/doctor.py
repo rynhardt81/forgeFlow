@@ -370,17 +370,26 @@ def check_memory(ctx: DoctorContext) -> CheckResult:
         if not f.is_file():
             continue
         size = f.stat().st_size
+        # The hook truncates on len(text) — CHARACTERS. Comparing st_size would
+        # compare bytes against a character threshold, and bytes >= chars always,
+        # so any non-ASCII file reads as larger than the hook sees it. A 19 823-char
+        # CJK file is 59 427 bytes: injected whole, reported as truncated. Bytes are
+        # still what a human wants in the summary, so keep both.
+        try:
+            chars = len(f.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            chars = size
         sizes.append(f"{name} {size // 1024} KB")
-        if size > INJECTED_CAP_CHARS:
+        if chars > INJECTED_CAP_CHARS:
             findings.append(
-                f"{name} is {size // 1024} KB — over the {INJECTED_CAP_CHARS // 1000} KB "
-                "injection cap, so everything past the cap is silently dropped "
-                "from every session"
+                f"{name} is {chars} chars ({size // 1024} KB) — over the "
+                f"{INJECTED_CAP_CHARS}-char injection cap, so everything past the "
+                "cap is silently dropped from every session"
             )
-        elif size > INJECTED_WARN_CHARS:
+        elif chars > INJECTED_WARN_CHARS:
             findings.append(
-                f"{name} is {size // 1024} KB — under the cap but loaded whole at "
-                "every SessionStart"
+                f"{name} is {chars} chars ({size // 1024} KB) — under the cap but "
+                "loaded whole at every SessionStart"
             )
 
     if not sizes:

@@ -290,7 +290,11 @@ fi
 section "8. Stray copies check"
 
 stray_found=0
-for stray in "$CLAUDE_DIR/daily" "$CLAUDE_DIR/docs/project-memory"; do
+# tests/ is framework CODE the consumer never runs — install.sh excludes it from
+# every rsync. A copy under .claude/ therefore did not come from an install; it
+# came from someone copying files by hand, and it rots silently against the
+# framework it was copied from.
+for stray in "$CLAUDE_DIR/daily" "$CLAUDE_DIR/docs/project-memory" "$CLAUDE_DIR/tests"; do
     if [ -d "$stray" ]; then
         fail "Stray directory: ${stray#$PROJECT_DIR/} (runtime uses project root, not .claude/)"
         stray_found=1

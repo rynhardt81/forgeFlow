@@ -47,3 +47,32 @@ def test_both_injected_files_are_capped():
         "expected a cap on both index.md and key-facts.md — one of them is "
         "being injected unbounded again"
     )
+
+
+def test_doctor_compares_characters_not_bytes():
+    """The cap is a character count; st_size is bytes, and bytes >= chars always.
+
+    Found by Codex reviewing the 4.7.0 refresh. A 19 823-character CJK
+    key-facts.md is 59 427 bytes: the hook injects it whole, while a byte
+    comparison reported it as over the cap and turned `forge doctor` red on a
+    correct install. The name was right and the value was wrong, which is the
+    shape that survives review because every reader checks the name.
+    """
+    src = DOCTOR.read_text()
+    block = src[src.index("def check_memory"):src.index("def check_rules_budget")]
+    assert "chars > INJECTED_CAP_CHARS" in block, "cap must be compared in characters"
+    assert "chars > INJECTED_WARN_CHARS" in block, "warn must be compared in characters"
+    assert "size > INJECTED" not in block, "a byte count must never meet a _CHARS threshold"
+
+
+def test_no_byte_count_is_compared_against_a_chars_threshold():
+    """The general form of the same defect, swept across the module."""
+    import re
+    offenders = []
+    for i, line in enumerate(DOCTOR.read_text().splitlines(), 1):
+        if re.search(r"\bsize\b.*[<>]=?\s*\w+_CHARS", line) or \
+           re.search(r"\bchars\b.*[<>]=?\s*\w+_BYTES", line):
+            offenders.append(f"{DOCTOR.name}:{i}: {line.strip()}")
+    assert not offenders, (
+        "unit mismatch between a measured value and its threshold: " + "; ".join(offenders)
+    )
