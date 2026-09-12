@@ -51,6 +51,8 @@ Generate a session ID and declare scope — the union of `scope-dirs` across the
 
 ## Step 3: Run the loop
 
+**Read [AUTONOMY.md](AUTONOMY.md) and hold its block for the rest of the run.** From here the human has left: the Step 1 confirmation was the last one, and an iteration that ends with "Shall I apply this?" burns without moving the epic. The block's stop list is this framework's gates, so it constrains the loop rather than loosening it.
+
 The per-iteration body — pick, lock, classify, execute, verify, file follow-ups, PR — is defined in [LOOP.md](LOOP.md). With `--parallel`, each iteration also spawns background agents per [PARALLEL.md](PARALLEL.md).
 
 The loop terminates when any of these is true:
@@ -79,6 +81,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 - [GUARDRAILS.md](GUARDRAILS.md) — caps, circuit breaker, escalation gates, halt format
 - [TASK-CREATION.md](TASK-CREATION.md) — auto-file rules and task shapes
 - [PARALLEL.md](PARALLEL.md) — `--parallel` worktree mode
+- [AUTONOMY.md](AUTONOMY.md) — the unattended-operation block, and why it never leaves this skill
 - `skills/fix-bug/SKILL.md`, `skills/new-feature/PHASES.md`, `skills/refactor/SKILL.md` — the disciplines the loop follows inline
 - `skills/create-pr/SKILL.md` — invoked per task at the PR step
 
@@ -86,7 +89,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 
 - **Single-epic by design.** Two epics → run it twice. Cross-epic dependencies resolve via `pending → ready` transitions, not by the skill.
 - **`--resume` is opt-in for a reason.** Auto-resuming `in_progress` tasks has clobbered uncommitted work in the past.
-- **Classification is judgment, asked once.** Classify each task as bug/feature/refactor from its name + body. When genuinely ambiguous, pause and ask once; cache the answer for similar tasks in the run.
+- **Classification is judgment, asked once.** Classify each task as bug/feature/refactor from its name + body. When genuinely ambiguous, pause and ask once; cache the answer for similar tasks in the run. This is a **sanctioned stop** — it is named in AUTONOMY.md's stop list, so the autonomy block does not override it. Ambiguity here means ambiguous after reading the body and scope, not unasked-for caution.
 - **`/create-pr` may itself surface follow-up work** (DRY hotspots, review findings) — those land in the same epic under the same auto-file rules.
 - **Code-map staleness is the silent killer.** A map older than the newest commit routes fixes to outdated locations. Do not relax the Step 0 gate.
 
