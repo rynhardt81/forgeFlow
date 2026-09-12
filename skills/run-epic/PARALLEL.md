@@ -6,7 +6,7 @@
 
 1. **Reap finished agents first.** Integrate results from agents spawned in prior iterations: their `pr_pending` flips, the follow-up tasks they filed, lock release. A failed agent run ticks the consecutive-failure counter.
 2. **Select parallelizable tasks.** From the current ready set, pick tasks whose `scope-dirs`/`scope-files` overlap neither the primary task nor each other. Tasks without scope declarations are treated as conflicting with everything — they stay in the main loop. While selecting, classify each task's effort tier (E1–E4) from its body + scope — it feeds the model route below.
-3. **Cap** the batch at `--max-agents` (default 3). The cap is a ceiling, not a target.
+3. **Cap** the batch at `--max-agents` (default 3), clamped to the environment's concurrency cap when that is lower. The cap is a ceiling, not a target. Check spawn-budget headroom first — [GUARDRAILS.md](GUARDRAILS.md) §5; `--max-agents` bounds the batch, not the run.
 4. **Spawn each** as a background agent in an isolated worktree:
 
    ```
@@ -65,7 +65,7 @@ plus the heartbeat per active agent branch. Completed → integrate (their auto-
 
 [GUARDRAILS.md](GUARDRAILS.md) caps apply with these clarifications:
 
-- **`--max-iter`** counts main-loop iterations, not agent spawns.
+- **`--max-iter`** counts main-loop iterations, not agent spawns. Agent spawns are counted separately against the spawn budget (§5) — `--max-agents x --max-iter` is the projection, and it is reported at init and in the halt summary.
 - **Consecutive-failure counter** ticks on either a main-loop failure or an agent failure; three across the run → halt.
 - **Auto-file rate limit:** the 5/iteration cap is per-agent; the 30/run cap is total across all agents.
 - **Escalation gates** trigger from any agent — an agent hitting one halts the entire run, not just itself; the parent reaps it, surfaces the escalation, and stops.

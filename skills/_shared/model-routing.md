@@ -67,9 +67,28 @@ The floor binds **both** halves of the route. Down-routing effort on a floor tas
 
 If a down-routed (E1/E2) agent fails its task: release the lock and tick the failure counter exactly as PARALLEL.md prescribes, and record that this task routes at the session model on its next pick. One escalation per task; a failure at the session model is a real failure.
 
+## The fan-out ceiling is the environment, not this document
+
+Every dispatch path this framework uses runs inside caps the harness enforces. They are set outside the framework, they are not visible in any skill's text, and no prompt can talk past them. A skill that assumes headroom it does not have fails mid-run.
+
+| Cap | Set with | Documented default | Behaviour at the limit |
+|-----|----------|--------------------|------------------------|
+| Nesting depth | `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` | `3` layers below the main agent (`1` stops subagents spawning any of their own) | The bottom-layer subagent cannot spawn, so it does the delegated work itself |
+| Concurrency | `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` | `20` running at once | Refuses the spawn, returning `Concurrent subagent limit reached`, until the running count drops |
+| Spend | `maxBudgetUsd` / `max_budget_usd` (an SDK query option, **not** an env var) | no limit | Refuses further spawns, stops running background subagents, ends the query with `error_max_budget_usd` |
+
+Source: [Cap subagent depth, concurrency, and spend](https://code.claude.com/docs/en/agent-sdk/subagents#cap-subagent-depth-concurrency-and-spend). The caps need Claude Code v2.1.219 or later (the Claude Opus 5 prompting guide cites v2.1.217); on earlier releases some are missing or default differently.
+
+**A user's environment overrides every default above, downward or upward.** A consumer whose environment sets `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS=6` gets six, not twenty, and every `--max-agents` default in this framework must fit inside their number rather than the documented one. Probe before assuming: `echo "${CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS:-unset}"`. Unset means the default applies, not that there is no cap.
+
+### Two caveats worth knowing before you rely on a cap
+
+- **`ultracode` sessions bypass the concurrency cap.** The subagents documentation states it plainly: *"Sessions with ultracode active are never refused."* A Workflow run opted in with `ultracode` is therefore **not** clamped by `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS`. It is exactly the fan-out most worth bounding, and it is the one the concurrency env var does not bound. Bound it with the Workflow's own size guideline (`/config` → dynamic workflow size) and with spend.
+- **A per-session total cap is not part of the documented set.** `CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION` appears in some environments, but the three caps above are what the subagents documentation defines, and a per-session total is not among them. Treat it as environment-specific and unverified: honour it if the environment sets it, do not document a default for it, and do not build a guardrail whose only trigger is that variable existing.
+
 ## Heavy fan-out: Workflows ("ultracode")
 
-Claude Code also ships a deterministic multi-agent Workflow tool — script-driven `agent()` / `parallel()` / `pipeline()` orchestration, 16 concurrent agents, 1000-agent/run cap. Generally available on paid plans with any session model; opt in with the `ultracode` keyword (or `/effort ultracode`). Prefer `/run-epic --parallel` for registry work (locks, heartbeats, guardrails are already wired); reach for a Workflow for read/analyze fan-out — audits, sweeps, research — that doesn't need task locks.
+Claude Code also ships a deterministic multi-agent Workflow tool — script-driven `agent()` / `parallel()` / `pipeline()` orchestration for runs that coordinate dozens to hundreds of agents. Generally available on paid plans with any session model; opt in with the `ultracode` keyword (or `/effort ultracode`). Its size ceiling is a per-session guideline the user sets in `/config` (the default guideline keeps a workflow under ~15 agents), **not** a fixed number this document can state — and per the caveat above, an `ultracode` session is not clamped by the concurrency env var. Prefer `/run-epic --parallel` for registry work (locks, heartbeats, guardrails are already wired); reach for a Workflow for read/analyze fan-out — audits, sweeps, research — that doesn't need task locks.
 
 ## External executors (ChatGPT / Codex CLI, etc.) — opt-in only
 
