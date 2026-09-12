@@ -1,0 +1,6 @@
+Let me reproduce this first before changing anything.
+$ curl -s -X POST localhost:3000/login -d "surname=O'Brien"
+HTTP 500 — confirmed, the apostrophe breaks the query.
+Root cause: surname is interpolated into SQL rather than parameterised.
+Writing a regression test that fails without the fix:
+tests/test_login.py::test_apostrophe_surname — fails now, passes after.

@@ -1,0 +1,81 @@
+# Config-regression evals.
+#
+# A skill, rule, hook or CLAUDE.md edit is a behaviour change with no test. This
+# job replays recorded prompts against the changed config and gates on pass rate.
+#
+# It SPENDS MONEY: one `claude` invocation per eval. Three things keep that safe —
+# it runs only when ANTHROPIC_API_KEY is present as a secret (never subscription
+# billing), it is skippable per-PR with a label, and the runner itself refuses to
+# start unless FORGE_EVALS_BILLING=api is set explicitly.
+name: config-evals
+
+on:
+  pull_request:
+    paths:
+      - 'CLAUDE.md'
+      - '.claude/**'
+      - 'rules/**'
+      - 'skills/**'
+      - 'hooks/**'
+      - 'agents/**'
+      - 'ALGORITHM/**'
+      - 'tests/evals/**'
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-checks:
+    # Always runs, costs nothing: proves the eval definitions and their checks are
+    # sound even when the paid job is skipped.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate eval definitions
+        run: python3 scripts/forge/evals.py list
+      - name: Guard tests (no hook may invoke the runner)
+        run: python3 -m pytest tests/wiring/test_evals_never_autorun.py -q
+
+  replay:
+    needs: offline-checks
+    # No key, no run. A fork PR has no access to secrets, so this skips there
+    # rather than failing — a red X on someone's first contribution because a paid
+    # job could not authenticate teaches them nothing.
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       !contains(github.event.pull_request.labels.*.name, 'skip-evals'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check for an API key
+        id: key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "no ANTHROPIC_API_KEY secret — skipping the paid replay." >> "$GITHUB_STEP_SUMMARY"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install Claude Code
+        if: steps.key.outputs.present == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Replay evals
+        if: steps.key.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FORGE_EVALS_BILLING: api
+        # Threshold is the merge gate. Raise it as the suite earns trust; never
+        # lower it to make a red run go away.
+        run: python3 scripts/forge/evals.py run --threshold 1.0
