@@ -18,7 +18,7 @@ Handles `/reflect` (no arguments) — session end and learning capture.
 ## Session End Protocol
 
 ### 1. Update the session file
-Fill in Ended/Duration/Status, the Completed list (with commit hashes), and Handoff Notes (what's next, blockers).
+Fill in Ended/Duration/Status, the Completed list (with commit hashes), and Handoff Notes — all 7 fields, under the preservation contract in `skills/_shared/continuity-preservation.md`. This is the session's compaction boundary: constraints stated exactly, counts re-derived from a live probe rather than copied forward.
 
 ### 2. Move the session file
 

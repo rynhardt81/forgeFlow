@@ -47,12 +47,17 @@
 - [x] Done item (commit: abc123)
 
 ## Continuation Context
+
+> This section and `## Handoff Notes` below are compaction boundaries — what they drop, the next session never learns was missing. `skills/_shared/continuity-preservation.md` defines the six categories that must survive and is binding on both.
+
 - **Stopped at**: <what was mid-flight when the session paused>
 - **Next action**: <the single next concrete step>
+- **Tried and set aside**: <approaches raised or abandoned, and why>
+- **Constraints in force**: <what was asked for, decided, or ruled out — stated exactly, not paraphrased>
 
 ## Handoff Notes
 
-> Fixed 5-field schema. `/reflect handoff` projects and refreshes this section; `/reflect resume` reads it first under a tight budget. Keep each field to a brief — this is a cold-start pointer, not a dump.
+> Fixed 7-field schema. `/reflect handoff` projects and refreshes this section; `/reflect resume` reads it first under a tight budget. Keep each field to a brief — this is a cold-start pointer, not a dump. The brief-length budget caps prose only: a preservation category from `skills/_shared/continuity-preservation.md` is never dropped to fit it.
 
 ### Goal
 <intended outcome — one or two lines>
@@ -66,5 +71,11 @@
 ### What Didn't Work
 <failed approaches to avoid repeating>
 
+### Constraints & Decisions
+<what was asked for, decided, agreed, or ruled out — in the user's own words>
+
 ### Next Steps
 <the ready queue + the next concrete action>
+
+### Specifics
+<names, numbers, dates, exact wording, links — each stamped with its source and date, e.g. `39 ready (forge task ls --ready, 2026-09-12)`. Re-derivable counts are re-run at projection time, never copied from a prior brief.>

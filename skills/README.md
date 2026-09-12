@@ -65,6 +65,7 @@ One directory per skill; each skill's `SKILL.md` is its complete definition (fro
 ## Shared infrastructure
 
 - `_shared/ci-failure-classifier.md` — single source of CI-failure routing, used by `/preflight-ci`, `/diagnose-ci`, and `/create-pr`
+- `_shared/continuity-preservation.md` — what a handoff/continuation artifact must preserve across a context boundary, used by `/reflect handoff`, `/reflect resume`, and `templates/session.md`
 - `visualize/Tools/` — dashboard rendering engine (not a skill; `forge dashboard` serves it)
 
 ## Removed in v4
