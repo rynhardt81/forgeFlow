@@ -44,9 +44,11 @@ If reproduction is genuinely impossible (prod-only race, third-party outage), sa
 
 - Smallest fix that addresses the confirmed root cause. No scope creep, no drive-by refactoring — file follow-ups instead.
 - **Regression test required:** a test that fails without the fix and passes with it, asserting on the failure path from step 2. The Stop-hook validator (`fix_bug_regression.py`) checks for it.
+- **If the project installed the test-lock damage control** (`skills/damage-control/cookbook/install_test_lock.md`): commit the failing test, then write its path into `.claude/.test-lock`. That makes the test unwritable while you fix the source — the escape this closes is editing the test until it passes, which turns the suite green and ships the bug. Skip this silently if the project has not installed the hook; framework hooks stay advisory.
 
 ## 5. Verify
 
+- **Clear the lock first if you set one:** `rm .claude/.test-lock`. A lock left behind blocks the next session's legitimate test edits, and it will not be obvious why.
 - Re-run the step-2 reproduction probe — the original failure must now pass, shown with actual output.
 - Run the related test suite; no new failures.
 - If the bug affected UI or critical user flows, fan out an E2E regression pass:
