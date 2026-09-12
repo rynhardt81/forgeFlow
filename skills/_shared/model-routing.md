@@ -37,13 +37,13 @@ Classify the task with the framework's effort-tier vocabulary (CLAUDE.md → Mod
 | E3 | Multi-file, needs planning | inherit (session model) | `medium`–`high` | inherit @ `medium` before inherit @ `high` |
 | E4 | Architectural, cross-cutting | do not dispatch — main loop only (matches PARALLEL.md selection rules) | — | — |
 
-**This table is a starting point, not a measurement.** Neither column has been swept on this framework's own tasks. Both guides say the same thing about that, and it is the reason the "Sweep against" column exists rather than a rewritten model column.
+**This table is a starting point, not a measurement, and sweeping it is the consuming project's job.** Neither column has been swept — and a sweep run against the framework repo would not transfer anyway, because a route is only as good as the task shapes it was measured on. An E2 task in a Python API project and an E2 task in a React app exercise different things; the tier vocabulary is shared, the measurement is not. So this table ships as a defensible default that every project inherits, and the "Sweep against" column names the challenger each project should measure it against on its own tasks. Nothing upstream will fill this in for you: results land in your `model-routing.local.md` (see the foot of this file), not here.
 
 ## Why Fable is a candidate at every down-routed tier
 
 Claude Fable 5.1's guide: *"At `low`, Claude Fable 5.1 is often competitive with Claude Opus and Claude Sonnet models on cost per task while scoring higher, so include it in the comparison wherever you'd otherwise run a smaller model at a higher effort level."*
 
-E1 and E2 are precisely "a smaller model at a higher effort level" — `haiku` and `sonnet` at whatever effort the session happens to carry. So the guide's instruction lands on both rows. It says *include it in the comparison*, which is what the column does; promoting Fable into the model column is a claim about measured cost-per-task on this framework's tasks, and no such measurement exists yet. Run the sweep, then move it.
+E1 and E2 are precisely "a smaller model at a higher effort level" — `haiku` and `sonnet` at whatever effort the session happens to carry. So the guide's instruction lands on both rows. It says *include it in the comparison*, which is what the column does; promoting Fable into the model column is a claim about measured cost-per-task, and that claim is only ever true of a specific project's tasks. So it is not promoted here. Sweep it in your project, and record the win in your `model-routing.local.md` — which overrides this row for that project without waiting on a framework release.
 
 ## Effort names do not transfer between models
 
