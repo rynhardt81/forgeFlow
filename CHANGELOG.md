@@ -4,6 +4,24 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.0] — 2026-09-12
+
+> Minor. Memory files are paid for on every session, forever. This release fixes three ways the framework let that bill grow silently, and adds the skill that brings it back down. Measured on a real consumer: SessionStart injection fell from 67 115 to 23 835 bytes.
+
+### Added
+
+- **`/reconcile-memory`** — shrinks bloated memory files back to what earns its per-session cost, without losing knowledge. The rule it works by is that **shape is the test, not size**: a 6 KB `key-facts.md` of one-line facts is healthy, a 6 KB narrative is not, at any size. Entries are classified keep / relocate / delete / merge, the plan is shown before anything is written, and apply runs through to `forge memory reindex`. Two stores are in scope — `docs/project-memory/` and the harness auto-memory — and the skill **reconciles each inside itself and never moves content between them**: they have different audiences, and a hook that inspects Write/Edit sees a file write rather than a `git commit`, so a note naming a client can reach committed history with nothing to catch it.
+- **A memory check in `forge doctor`** — reports the size of the two injected files and flags a project whose `key-facts.md` has crossed the injection cap, because past the cap the hook truncates mid-file and only a session that reads the marker ever learns about it.
+
+### Fixed
+
+- **`key-facts.md` was injected whole, uncapped, at every SessionStart** on the strength of a comment asserting it was small; one consumer's had reached 63 KB. It now carries the same 20 000-character cap `index.md` already had, and the truncation marker names the size and the fix rather than failing silently.
+- **`key-facts.md` injection was gated on a `- **`-prefixed line** — bold being an artefact of the template's example bullets, required nowhere in `MEMORY-SCHEMA.md`, which asks only for single lines. A perfectly conformant file of plain bullets was therefore **never injected at all**, with no error and nothing to notice. The gate now tests for content: HTML comments stripped, headings and the explanatory blockquote ignored, anything left is a fact. The pristine template still correctly skips.
+
+### Changed
+
+- **`Write(daily/**)` is retired from the shipped permission set**, replaced by `Edit(daily/**)`. Nothing needed it — the daily logs are written by hooks through Python `open()`, which bypasses permissions entirely — while `Write` on an existing log errors until it has been read. It is listed under `_retired_permissions` so the union merge removes it from consumers rather than re-adding it forever.
+
 ## [v4.6.0] — 2026-09-12
 
 > Minor. Aligns the framework with Anthropic's Claude Opus 5 and Claude Fable 5.1 prompting guides. The framework was first audited for the anti-patterns both guides name — anti-formatting rules, "hold all findings for the final response", self-re-verification scaffolding, subagent-to-verify — and found clean; nothing was removed. What follows is what the guides call for that the framework did not yet have.
