@@ -1,6 +1,6 @@
 # Code Patterns Rules
 
-> Active directive. Discovered on-demand via the `rules/*.md` glob — read by `/audit-rules` and any agent reasoning about code patterns. Treat as binding when encountered.
+> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
 
 ## API Response Format
 
@@ -39,7 +39,7 @@ Schema validation (Zod, Pydantic, Joi, equivalent) at every API boundary.
 
 ## Project-specific extensions
 
-Add project-specific examples, exceptions, and conventions to `rules/patterns.local.md` alongside this file. Sidecar `*.local.md` files are excluded from framework refresh — they survive `install.sh --mode refresh-v3`. Readers (skills, agents, `/audit-rules`) pick up both via the `rules/*.md` glob.
+`rules/patterns.local.md` — survives refresh, wins on conflict.
 
 ## See also
 

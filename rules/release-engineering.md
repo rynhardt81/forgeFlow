@@ -1,6 +1,6 @@
 # Release Engineering Rules
 
-> Active directive. Discovered on-demand via the `rules/*.md` glob — read by `/audit-rules`, the `/release` skill, and any agent shipping to users. Treat as binding when encountered. The tag is where the framework's old release story ended — and where user-facing risk begins. These rules cover the part after the tag.
+> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget". The tag is where the framework's old release story ended — and where user-facing risk begins. These rules cover the part after the tag.
 
 ## The three questions every release answers BEFORE it ships
 

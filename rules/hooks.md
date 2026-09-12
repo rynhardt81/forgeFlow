@@ -1,6 +1,8 @@
 # Hook Rules
 
-> Active directive. Discovered on-demand via the `rules/*.md` glob — read by `/audit-rules` and any agent reasoning about hooks. Hooks are Python scripts that fire on Claude Code lifecycle events. **Advisory only** — never block, surface info or auto-fix trivial drift. **No hook may spawn an LLM subprocess** — hooks are deterministic scripts, full stop.
+> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
+>
+> Hooks are Python scripts firing on Claude Code lifecycle events. **Advisory only** — never block; surface info or auto-fix trivial drift. **No hook may spawn an LLM subprocess.**
 
 ## Events wired in `hooks/settings.json`
 

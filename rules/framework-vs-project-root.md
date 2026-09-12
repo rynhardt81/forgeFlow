@@ -1,6 +1,6 @@
 # Framework root vs. project root — never confuse them
 
-> Active directive. Discovered on-demand via the `rules/*.md` glob — read by `/audit-rules` and any agent reasoning about framework/project path resolution. Treat as binding when encountered.
+> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
 
 When the framework is vendored into a consumer project, the working directory the user runs `claude` from is **the project root**, but the framework's own code lives one level down in **`.claude/`**. These are two different roots and they own different things.
 

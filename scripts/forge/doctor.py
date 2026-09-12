@@ -54,6 +54,17 @@ CUT_PATHS_REL = Path("scripts") / "install" / "cut-paths.txt"
 INJECTED_CAP_CHARS = 20000
 # Below the cap but still costly enough that every session pays for it.
 INJECTED_WARN_CHARS = 12000
+# Claude Code loads every .claude/rules/*.md at launch (docs: 'Rules without
+# `paths` frontmatter are loaded at launch with the same priority as
+# .claude/CLAUDE.md'). The directory is therefore a per-session budget, not a
+# reference shelf, and nothing was reporting its size — one consumer reached
+# 133 KB, 68% of its always-on context. Warn well before that.
+# Thresholds sit above the shipped baseline (~49 KB) on purpose: a check that
+# is red on a clean install gets ignored, and the framework's own baseline is
+# pinned by tests/wiring/test_rules_budget.py instead. What doctor is for is
+# what a project has piled on top — sidecars are where the runaway growth was.
+RULES_WARN_BYTES = 65000
+RULES_ALARM_BYTES = 100000
 
 # Transplanted from tests/wiring/test_settings_hooks_exist.py — the proven
 # extractor for hook script paths inside settings.json command strings.
@@ -394,12 +405,83 @@ def check_memory(ctx: DoctorContext) -> CheckResult:
     return CheckResult(name="memory", status=OK, summary=", ".join(sizes))
 
 
+def check_rules_budget(ctx: DoctorContext) -> CheckResult:
+    """Report what .claude/rules/ costs at every session start.
+
+    A rule file without `paths:` frontmatter loads unconditionally at launch, so
+    the directory's total size is charged to every session in the project
+    regardless of what the work touches. Rules that DO carry `paths:` load only
+    when Claude reads a matching file, so they are counted separately — and note
+    that path-scoping keys on the Read tool, which means it does not fire in
+    sessions that reach files through Bash.
+    """
+    rules_dir = ctx.framework_root / "rules"
+    if not rules_dir.is_dir():
+        return CheckResult(
+            name="rules-budget", status=SKIPPED, summary="no rules/ directory"
+        )
+
+    always_on = scoped = 0
+    n_always = n_scoped = 0
+    biggest: list[tuple[int, str]] = []
+    for f in sorted(rules_dir.rglob("*.md")):
+        size = f.stat().st_size
+        head = ""
+        try:
+            head = f.read_text(encoding="utf-8", errors="replace")[:400]
+        except OSError:
+            pass
+        is_scoped = head.startswith("---") and "\npaths:" in head
+        if is_scoped:
+            scoped += size
+            n_scoped += 1
+        else:
+            always_on += size
+            n_always += 1
+            biggest.append((size, f.name))
+
+    if not (n_always or n_scoped):
+        return CheckResult(name="rules-budget", status=SKIPPED, summary="rules/ is empty")
+
+    biggest.sort(reverse=True)
+    summary = f"{always_on // 1024} KB always-on across {n_always} file(s)"
+    if n_scoped:
+        summary += f"; {scoped // 1024} KB path-scoped across {n_scoped}"
+
+    if always_on >= RULES_ALARM_BYTES:
+        level, word = ISSUES, "is very large"
+    elif always_on >= RULES_WARN_BYTES:
+        level, word = ISSUES, "is large"
+    else:
+        return CheckResult(name="rules-budget", status=OK, summary=summary)
+
+    findings = [
+        f"rules/ {word}: {always_on // 1024} KB (~{always_on // 4000}k tokens) loaded "
+        "at every session start, before the first prompt"
+    ]
+    findings += [
+        f"largest: {name} ({size // 1024} KB)" for size, name in biggest[:3]
+    ]
+    return CheckResult(
+        name="rules-budget",
+        status=level,
+        summary=summary,
+        findings=findings,
+        hint=(
+            "move opt-in reference material into a skill or reference/; a consumer "
+            "can drop a specific rule durably with a claudeMdExcludes glob in "
+            "settings.local.json (rsync-excluded, so it survives refresh)"
+        ),
+    )
+
+
 CHECKS = [
     check_version,
     check_orphans,
     check_registry,
     check_wiring,
     check_memory,
+    check_rules_budget,
 ]
 
 

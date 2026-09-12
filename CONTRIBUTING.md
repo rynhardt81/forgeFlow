@@ -18,6 +18,24 @@ Thanks for considering a contribution. Forge Flow is a deterministic spine for A
 - **Docs** — if a change alters runtime behavior, update the relevant Tier 2 source-of-truth file under `.claude/reference/` in the same PR. Operational scaffolds (`templates/`, `CLAUDE.md`) and source-of-truth docs are different categories — see `CLAUDE.md` "Three kinds of documents".
 - **Specialist agents** — user-owned specialists live in `.claude/agents/specialists/` and are never modified by framework refresh; framework agents under `.claude/agents/` are.
 
+## The rules budget
+
+Claude Code loads **every** `.claude/rules/*.md` at launch. The documentation is explicit — "Rules without `paths` frontmatter are loaded at launch with the same priority as `.claude/CLAUDE.md`" — so a rule file is not a reference shelf you consult, it is context charged to every session in every consuming project, whether or not the work touches that domain.
+
+Until 2026-09-12 fourteen of these files claimed the opposite in their own header ("discovered on-demand via the `rules/*.md` glob"). That header is why the directory was never treated as a budget: authors wrote at reference length because "on-demand" implies the reader opted in. One consumer reached 133 KB of always-on rules, 68% of its startup context. Full account: `docs/debug/2026-09-12-always-on-rules.md`.
+
+**Writing a rule, therefore:**
+
+- State the floor and stop. If a reader would only want the detail when actually doing the thing, it belongs in a skill (loads on invocation) or `reference/` (never auto-loaded).
+- Don't explain the framework to itself. Disambiguation between framework features is a question only a framework developer asks, and every consumer pays for the answer.
+- Don't point at another rule that is also always-on — both are already in context, so the pointer costs and buys nothing.
+- Don't repeat a convention across files. Fourteen copies of the same sidecar paragraph is fourteen copies in one context window; say it once here.
+- `forge doctor` reports the directory's always-on total. Treat a warning as a prompt to move material out, not to raise the threshold.
+
+**`paths:` frontmatter scopes a rule to matching files — but do not reach for it on a hard floor.** Scoped rules load when Claude *reads* a matching file, and under auto mode the model prefers Bash `cat`/`sed` over Read, so a scoped rule can stay dark in exactly the sessions that touch its domain. Never scope schema, auth, money-path or security rules. Scoping a framework rule also has to be authored upstream: the refresh rsync overwrites `rules/*.md`, and only `*.local.md` sidecars survive.
+
+A consumer that wants a specific framework rule gone can drop it durably with a `claudeMdExcludes` glob in `.claude/settings.local.json`, which the refresh rsync excludes.
+
 ## Don't duplicate the harness
 
 Claude Code injects a substantial system prompt of its own before any framework file is read. Re-stating an instruction it already gives makes behaviour **worse**, not better: both current prompting guides name compounding as a real cost, and the Claude Opus 5 guide is explicit that such instructions "compound with the model's own behavior and add cost without improving results."

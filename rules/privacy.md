@@ -1,6 +1,6 @@
 # Data Privacy Rules (POPIA / GDPR)
 
-> Active directive. Discovered on-demand via the `rules/*.md` glob — read by `/audit-rules`, `/new-project` discovery, and any agent touching personal data. Treat as binding when encountered. Written POPIA-first (South Africa's Protection of Personal Information Act — a real regulator with real enforcement); the discipline satisfies GDPR-shaped laws generally.
+> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget". Written POPIA-first (South Africa's Protection of Personal Information Act — a real regulator with real enforcement); the discipline satisfies GDPR-shaped laws generally.
 
 ## When this rule fires
 
