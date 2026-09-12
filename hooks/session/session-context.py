@@ -188,7 +188,9 @@ def _auto_create_session_file(claude_dir, project_root):
         f"\n"
         f"## Continuation Context\n"
         f"\n"
-        f"_(filled in if the session ends with in-progress work)_\n"
+        f"_(filled in if the session ends with in-progress work — this is a\n"
+        f"compaction boundary: see skills/_shared/continuity-preservation.md\n"
+        f"for what must survive it)_\n"
     )
     try:
         target.write_text(body, encoding='utf-8')
