@@ -14,6 +14,8 @@ createdAt: {{CREATED_AT}}
 
 # {{TASK_ID}} — {{TASK_NAME}}
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 ## Objective
 
 <!-- One paragraph: what this task accomplishes and why it exists. Reference the parent epic if scope crosses files. -->

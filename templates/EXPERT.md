@@ -1,5 +1,7 @@
 # {{PROJECT}} Expert Knowledge
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 > Exported from `.claude/agents/specialists/{{NAME}}.md`. Maintained by the specialist agent.
 > Vendor this file into sibling projects that depend on {{PROJECT}}.
 

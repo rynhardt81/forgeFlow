@@ -1,5 +1,7 @@
 <!-- Operational scaffold — the standalone ADR template referenced by reference/06-architecture-decisions.md and /new-project (PHASES.md). Nygard format. New ADRs land long-term in reference/06-architecture-decisions.md. -->
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 ## ADR-XXX: [Title]
 
 **Status:** [Proposed | Accepted | Deprecated | Superseded]
