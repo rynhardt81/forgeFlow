@@ -80,7 +80,9 @@ Before classifying anything, ask whether this store has a problem. A store of on
 
 This matters because the pull is entirely one way. Nothing about a reconcile rewards leaving things alone, so the temptation is to find *something* to cut and call it progress. Measured: on an already-healthy 8 KB store, a reconcile pass trimmed it to 70% of its original size while a plain reading of the same store trimmed it to 88% — the extra cutting bought nothing a session would notice and spent judgment on entries that were fine. A reconcile that reports "already healthy, three entries could be tightened, none of it worth your time" is a complete and successful run.
 
-Act when you can name the defect: over the cap, narrative in an injected file, an index that disagrees with its files, entries falsified by the current code, or duplicates. Absent one of those, stop.
+Act when you can name the defect: over the cap, narrative in an injected file, an index that disagrees with its files, entries falsified by the current code, or two entries covering one fact. Absent one of those, stop.
+
+Restraint is about not inventing work, not about declining work you found. Two entries stating the same rule is a nameable defect — the next reader has to decide which is current, and both load every session. Merge them. Likewise, replacing a falsified entry with a dated stub still leaves something loading at every startup: keep a stub when the fact was real and its supersession is itself worth knowing, and delete outright when the entry was simply wrong, since a wrong memory asserted with confidence costs more than a missing one. Measured: a pass that stubbed four false entries and declined two obvious merges saved 43 bytes, against 1 437 bytes for the same store handled with merges — the diagnosis was better and the outcome was not.
 
 ### 3. Classify every entry
 
