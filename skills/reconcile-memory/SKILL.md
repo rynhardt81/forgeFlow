@@ -18,9 +18,16 @@ Equally: **an empty memory file is also a failure.** The project pays a differen
 | **Project memory** | `docs/project-memory/` | `index.md` + `key-facts.md` only | Yes — team-shared |
 | **Harness auto-memory** | `~/.claude/projects/<slug>/memory/` | `MEMORY.md` only | No — per-machine |
 
-`<slug>` is the project's absolute path with `/` replaced by `-`, e.g. `/Users/x/dev/foo` → `-Users-x-dev-foo`.
+`<slug>` is derived from the project's absolute path, but the transform has edge cases — `/` becomes `-` *and* dots are dropped, so `/Users/x/.claude` becomes `-Users-x--claude`. Locate the directory rather than construct it:
 
-**Reconcile each store inside itself. Never move content between them.** They have different jobs and different audiences: project memory is the team's durable record, auto-memory is one machine's working context. Moving auto-memory into a repo also walks straight past the containment guard, which only inspects Write/Edit — a note mentioning an employer would land in a committed file with nothing to catch it. If a fact genuinely belongs in the other store, say so in the plan and let the user re-capture it with `/remember`; do not relocate it yourself.
+```bash
+ls -d ~/.claude/projects/*"$(basename "$PWD")" 2>/dev/null   # usually enough
+ls ~/.claude/projects/                                        # otherwise, eyeball it
+```
+
+A project that has no directory there simply has no auto-memory yet — that is not a defect, and there is nothing to reconcile.
+
+**Reconcile each store inside itself. Never move content between them.** They have different jobs and different audiences: project memory is the team's durable record, auto-memory is one machine's working context. Moving auto-memory into a repo also defeats whatever guards the boundary: a hook that inspects Write/Edit calls sees a file write, not a `git commit`, so a note naming a client or employer can land in committed history with nothing to catch it. If a fact genuinely belongs in the other store, say so in the plan and let the user re-capture it with `/remember`; do not relocate it yourself.
 
 ## What earns a place in an injected file
 
@@ -69,7 +76,7 @@ wc -c docs/project-memory/*.md
 awk '/^## /{h=$0} {n[h]+=length($0)+1} END{for(k in n) printf "%8d  %s\n", n[k], k}' \
     docs/project-memory/key-facts.md | sort -rn
 # Harness auto-memory for this project
-SLUG=$(pwd | tr '/' '-'); wc -c ~/.claude/projects/"$SLUG"/memory/*.md 2>/dev/null | tail -20
+wc -c "$(ls -d ~/.claude/projects/*"$(basename "$PWD")" | head -1)"/memory/*.md 2>/dev/null | tail -20
 ```
 
 The SessionStart hook caps `index.md` and `key-facts.md` at 20 000 characters each. **Over the cap means content is already being silently dropped mid-file** — those projects are urgent, because the tail is not reaching sessions at all and nobody has been told. Under the cap is not automatically fine; a 15 KB file of narrative still costs every session.
@@ -127,7 +134,9 @@ Re-run the measurement from step 1 and show before/after. Then confirm the injec
 echo '{}' | python3 .claude/hooks/session/session-context.py | wc -c
 ```
 
-If that number did not move, nothing you did reached the thing you were fixing. Report *that* figure as the headline, not the change to `key-facts.md` alone — the hook output is the only number that includes the index growth your relocations caused, which is exactly the cost a per-file measurement hides.
+If that number did not move, nothing you did reached the thing you were fixing.
+
+**One trap specific to rewriting `key-facts.md`:** the hook injects it only when some line starts with `- **`, a template artefact the schema never required (tracked as T919). Until that lands, keep at least one `- **Label:** value` line, or a perfectly valid file of plain bullets vanishes from SessionStart with no error — which is the exact silent loss this skill exists to prevent. The verification probe above catches it: a zero-length KEY FACTS block means you tripped the gate. Report *that* figure as the headline, not the change to `key-facts.md` alone — the hook output is the only number that includes the index growth your relocations caused, which is exactly the cost a per-file measurement hides.
 
 ## Reporting
 

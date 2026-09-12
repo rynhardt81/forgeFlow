@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.2.0",
-  "lastUpdated": "2026-09-05",
+  "lastUpdated": "2026-09-12",
   "description": "Registry of all Claude Forge skills with metadata for discovery and routing. Optional 'paths' field (glob patterns) scopes a skill to relevant directories so loaders/UIs can surface it only when working there \u2014 see Anthropic's large-codebase post on path-scoped skills.",
   "skills": [
     {
