@@ -29,7 +29,7 @@ The distinguishing capability is the **self-feeding loop**: when execution surfa
 - `--dry-run` — list what would be done (next task, discipline, projected parallel groups); no mutations.
 - `--no-pr` — skip `/create-pr` per task; `forge task complete` and continue (batched-PR workflows).
 - `--resume` — explicitly opt in to picking up interrupted (`in_progress`/`pr_pending`) tasks.
-- `--parallel` — spawn background agents in isolated worktrees for scope-disjoint ready tasks while the main loop drives the primary task; each agent runs on a model matched to its task's effort tier (`skills/_shared/model-routing.md`). See [PARALLEL.md](PARALLEL.md).
+- `--parallel` — spawn background agents in isolated worktrees for scope-disjoint ready tasks while the main loop drives the primary task; each agent runs on a model and effort matched to its task's effort tier (`skills/_shared/model-routing.md`). See [PARALLEL.md](PARALLEL.md).
 - `--max-agents=<n>` — ceiling on concurrent background agents. Default: 3.
 
 ## Step 0: Map the surface

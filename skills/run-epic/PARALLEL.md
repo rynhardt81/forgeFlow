@@ -15,9 +15,13 @@
    - description: "T### : <task name>"
    - isolation: "worktree"
    - run_in_background: true
-   - model: per the tier → model table in skills/_shared/model-routing.md
-     (E1 → haiku, E2 → sonnet, E3 → inherit; hard floors override —
-     gate-domain tasks always run at the session model)
+   - model: per the tier → (model, effort) table in skills/_shared/model-routing.md
+     (E1 → haiku @ low, E2 → sonnet @ low-medium, E3 → inherit @ medium-high;
+     hard floors override — gate-domain tasks always run at the session model
+     and never below high effort)
+     NOTE: the Agent tool takes `model` only. The effort half needs a named
+     agent carrying `effort:` in its frontmatter; an ad-hoc general-purpose
+     dispatch inherits the session's effort. State which you used.)
    - prompt: task body + scope declaration + the matching discipline
      (bug/feature/refactor, same inline rules as LOOP.md) + the epic's
      session ID + instruction to follow Background Agent Checkpoint
