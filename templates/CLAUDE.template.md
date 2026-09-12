@@ -1,7 +1,5 @@
 # [Project Name]
 
-> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
-
 > [brief description]
 
 This project uses the Claude Forge framework. Framework rules load via `@.claude/CLAUDE.md` (added to the project-root `CLAUDE.md` on install). This file holds project-specific execution guidance.
