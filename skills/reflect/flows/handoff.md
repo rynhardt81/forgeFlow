@@ -37,7 +37,7 @@ Project the current continuity state into a fixed 7-field brief.
 3. Query the ready queue: `python3 .claude/scripts/forge/forge.py task ls --ready` (skip silently if no registry). **This query is the source of every task count in the brief** — never carry a count forward from the section you are about to overwrite. Stamp what it returns with the command and the date.
 4. Pull the top few `[PAT]` / `[DEC]` / `[BUG]` lines from `docs/project-memory/` (cap at ~5 each — this is a brief, not a dump).
 5. Emit the brief in the fixed schema below to stdout.
-6. **Optionally** refresh the live session file's `## Handoff Notes` section with the same 5 fields (in-place edit of the existing section — never a new file). This keeps the next `/reflect resume` reading a consistently-structured block.
+6. **Optionally** refresh the live session file's `## Handoff Notes` section with the same 7 fields (in-place edit of the existing section — never a new file). This keeps the next `/reflect resume` reading a consistently-structured block.
 
 ### Fixed schema
 
