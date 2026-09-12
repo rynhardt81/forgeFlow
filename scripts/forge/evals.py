@@ -24,8 +24,31 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-CASES_DIR = REPO_ROOT / "tests" / "evals" / "cases"
+def _framework_root() -> Path:
+    """The directory this script is vendored into: `.claude/` in a consumer, the
+    repo root when self-hosting."""
+    p = Path(__file__).resolve().parent.parent.parent  # forge/ -> scripts/ -> root
+    return p
+
+
+def _cases_dir() -> Path:
+    """Where eval cases live, in a consumer AND in the framework repo.
+
+    `parents[2]` alone resolves to `.claude/` in a vendored install, where
+    `tests/evals/` does not exist and never will — install.sh excludes `tests`
+    from every rsync. That made `evals.py list` print nothing and exit 0 in
+    every consumer: a command that looks like it works and does nothing.
+    Doctrine: rules/framework-vs-project-root.md — `.claude/` is framework CODE,
+    a project's own eval cases are project DATA and belong in the project root.
+    """
+    root = _framework_root()
+    if root.name == ".claude":                       # vendored
+        return root.parent / "docs" / "evals" / "cases"
+    return root / "tests" / "evals" / "cases"        # framework repo, self-hosting
+
+
+REPO_ROOT = _framework_root()
+CASES_DIR = _cases_dir()
 
 BILLING_ENV = "FORGE_EVALS_BILLING"
 BILLING_REQUIRED = "api"
@@ -204,6 +227,12 @@ def main(argv: list[str] | None = None) -> int:
 
     cases = load_cases()
     if a.cmd == "list":
+        if not cases:
+            print(f"no eval cases in {CASES_DIR}\n"
+                  "Add one — the format is in the framework's tests/evals/README.md. "
+                  "A project's cases are project data, so they live in the project "
+                  "root, not under .claude/.", file=sys.stderr)
+            return 1
         for case in cases:
             print(f"{case.id:<40} {len(case.checks)} check(s)  guards: "
                   f"{', '.join(case.touches) or '(unscoped)'}")

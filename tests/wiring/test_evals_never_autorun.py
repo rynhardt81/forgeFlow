@@ -100,3 +100,30 @@ def test_patterns_are_raw_not_double_escaped():
             if "pattern:" in line and "\\\\" in line:
                 bad.append(f"{f.name}:{i}")
     assert not bad, f"double-escaped regex, will silently never match: {bad}"
+
+
+def test_vendored_runner_looks_for_cases_outside_dot_claude(tmp_path):
+    """`parents[2]` is `.claude/` in a consumer, where tests/evals never exists.
+
+    install.sh excludes `tests` from every rsync, so a vendored runner looking
+    there finds nothing, prints nothing, and exits 0 — a command that appears to
+    work and does not. A project's own cases are project DATA and belong in the
+    project root. Doctrine: rules/framework-vs-project-root.md.
+
+    Exercised through the real CLI rather than by importing the module, because
+    importing it under a synthetic name breaks dataclass annotation resolution —
+    and the CLI is what a consumer actually runs.
+    """
+    vendored = tmp_path / "proj" / ".claude" / "scripts" / "forge"
+    vendored.mkdir(parents=True)
+    (vendored / "evals.py").write_bytes(RUNNER.read_bytes())
+
+    r = subprocess.run([sys.executable, str(vendored / "evals.py"), "list"],
+                       capture_output=True, text=True)
+    assert r.returncode == 1, "an empty case set must not look like success"
+    assert "no eval cases" in r.stderr, r.stderr
+    expected = tmp_path / "proj" / "docs" / "evals" / "cases"
+    assert str(expected) in r.stderr, (
+        f"vendored runner should look in {expected}, said: {r.stderr.strip()}"
+    )
+    assert "/.claude/" not in r.stderr.split("no eval cases in ")[1].split("\n")[0]

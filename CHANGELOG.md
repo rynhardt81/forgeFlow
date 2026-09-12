@@ -4,6 +4,14 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.2] — 2026-09-12
+
+> Patch. Fixes a command shipped broken in 4.7.1: in a vendored install `evals.py list` printed nothing and exited 0.
+
+### Fixed
+
+- **`scripts/forge/evals.py` resolved its cases directory to `.claude/`.** `Path(__file__).parents[2]` is the repo root when the framework is self-hosted but `.claude/` when vendored, and `install.sh` excludes `tests` from every rsync — so a consumer's runner looked for `.claude/tests/evals/cases`, a path that never exists, found nothing, printed nothing and exited 0. A command that appears to work and does not. It now resolves to `<project>/docs/evals/cases` when vendored, since a project's own eval cases are project data rather than framework code (`rules/framework-vs-project-root.md`), and `list` exits non-zero naming the directory it searched instead of succeeding silently.
+
 ## [v4.7.1] — 2026-09-12
 
 > Patch. Fixes a `forge doctor` check that reported a correct install as unhealthy, and corrects a header that fourteen rule files had been telling readers for months. Also lands two opt-in mechanisms (config-regression evals, the test lock) — new capability in a patch release, called out here because the version number does not say so.
