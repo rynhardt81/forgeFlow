@@ -24,7 +24,7 @@ Resolution order: env var → per-invocation parameter → agent frontmatter →
 > - An **ad-hoc dispatch** (`subagent_type: "general-purpose"` plus a model) can set the model half of a route and nothing else. Its effort is the session's.
 > - To route a tier at a **lower effort than the session's**, the dispatch must go through a **named agent** carrying that `effort:` in its frontmatter. A tier whose value comes mostly from the effort half is a reason to define an agent rather than hand-roll the call.
 >
-> Verified against the Claude Agent SDK `AgentDefinition` reference (`effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | number`) and the Agent tool's own input schema, which exposes `model` only. Do not write an effort argument into a dispatch; it is silently nothing.
+> Verified against the Claude Code subagents reference, which lists `effort` among the supported `.claude/agents/*.md` frontmatter fields — *"Effort level when this subagent is active. Overrides the session effort level. Default: inherits from session. Options: `low`, `medium`, `high`, `xhigh`, `max`; available levels depend on the model"* — the SDK `AgentDefinition` reference, which carries the same field, and the Agent tool's own input schema, which exposes `model` and no effort input. Do not write an effort argument into a dispatch; it is silently nothing.
 
 ## Routing table
 
