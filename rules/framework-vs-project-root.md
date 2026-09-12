@@ -56,23 +56,7 @@ Decide which root owns the file BEFORE you write it:
 
 The bug we just fixed shipped `docs/visualizations/` and `docs/code-map.json` to `framework_root` in some places and `project_root` in others. The hybrid was the actual fault. **One root per artifact type. Decide once. Document it.**
 
-## Rsync excludes — the other half of this rule
-
-Anything that is BOTH (a) generated/derived at framework dev time, AND (b) gitignored — must be rsync-excluded in `install.sh`. Otherwise the framework dev repo's copy bleeds into `<project>/.claude/` and the walk-up resolvers grab it as a marker.
-
-Cross-check `.gitignore` against `install.sh` rsync `--exclude` lines for every framework refresh. Add a one-shot `rm -rf` on the post-rsync step for paths that previous installs leaked, so refresh actively heals past damage.
-
-## What ships into consumer `.claude/` — the inclusion rule
-
-`.claude/` is framework_root — CODE only. The strict test for whether a path in the framework dev repo should rsync into a consumer's `.claude/`:
-
-> Is this path **required by framework runtime functionality** in the target project? Required means: read by a Python script, loaded by Claude Code at session start (via `settings.json` or `CLAUDE.md` `@`-import), referenced by a template at project init, or otherwise needed for the framework to *function* — not just to be *documented*.
-
-If the answer isn't a clear yes, exclude it. The default is **exclude**, not include — every file that ships into a consumer's `.claude/` is one the consumer's dev team has to either accept as opaque framework infrastructure or read to understand. Both are costs. Charge them only when there's runtime value.
-
-**`docs/` in particular** — the framework dev repo's `docs/` tree is framework self-documentation (code-map describing the framework, planning history, debug audits, the framework's own task ISAs). None of it is referenced by framework runtime. **None of it ships.** Consumer projects own their own `docs/` at project_root for their own data.
-
-Top-level files like `CHANGELOG.md`, `CHEATSHEET.md`, `README.md`, `LICENSE`, `MEMORY-SCHEMA.md` DO ship — they're referenced by verify, by templates, and by hooks that read them into session context. That's the discriminator: real runtime reference vs. authored-only documentation.
+## Sidecars — how a project extends a framework file without forking it
 
 **Sidecar `rules/*.local.md` files are project DATA, not framework CODE.** Framework rule files (`rules/patterns.md`, `rules/testing.md`, etc.) are framework-owned discipline — `install.sh` rsync overwrites them on every refresh. Consumer-specific examples, exceptions, and conventions belong in sidecar `rules/<name>.local.md` files alongside the framework rule. These are rsync-excluded (`--exclude='rules/*.local.md'` in both refresh paths) so they survive `install.sh --mode refresh-v3`. The pattern lets consumers extend framework rules without forking them — the framework keeps shipping its improvements to `<name>.md`, the consumer keeps owning `<name>.local.md`. Auto-load behaviour is unchanged: the `rules/*.md` glob picks up both.
 
@@ -91,14 +75,6 @@ Precedence: **the sidecar wins on conflict.** The project owns its own policy. O
 
 Why this exists: a consumer added project-specific push policy directly to the framework's `create-pr/SKILL.md` — the only place it would reliably be read — and a routine refresh correctly overwrote it. Framework files are framework-owned; the sidecar is where that content survives.
 
-## And the public-repo discriminator
+---
 
-When the framework repo itself goes public, an additional filter applies to what's tracked in git:
-
-> Would an outside contributor browsing this file find user-facing value, or is this internal dev history?
-
-Framework dev planning history (v2→v3 migration notes, dated audits, dev plans), the framework's own task ISAs, and orphan reference docs that don't have a home in the canonical 4-tier structure (`reference/`) should not be in public-facing git history. Keep them on disk (gitignored) for the framework dev's own use; don't expose them.
-
-## Tests guard this
-
-`tests/dashboard/test_root_resolution.py` synthesizes a vendored install on disk and asserts each false-positive marker is ignored. Add a new test there whenever you introduce a new resolver — synthetic vendored install + assert it resolves to the project root, not `.claude/`.
+**Authoring the framework rather than using it?** The rules for what rsyncs into a consumer's `.claude/`, the exclude cross-check, the public-repo filter and the resolver tests live in `CONTRIBUTING.md` → "What ships into a consumer's `.claude/`". They were moved out of here because every consumer session was loading them at startup to answer a question only a framework developer asks.

@@ -4,6 +4,14 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.3] — 2026-09-12
+
+> Patch. Takes another 2.4 KB out of the per-session rules budget by moving installer doctrine to where framework developers read it.
+
+### Changed
+
+- **`rules/framework-vs-project-root.md` 9 537 → 7 047 B.** Roughly 5 KB of it answered a question only a framework developer asks — what rsyncs into a consumer's `.claude/`, the gitignore/exclude cross-check, the public-repo filter, which test guards the resolvers — and every consumer session was loading it at startup to get that answer. Moved to `CONTRIBUTING.md` → "What ships into a consumer's `.claude/`", with a pointer left behind. The consumer-facing half stays in the rule: root resolution, the false-positive markers, the new-file rule, and the sidecar mechanism including precedence and the `SKILL.local.md` pointer-line requirement, which a project needs at the moment it writes a sidecar. Shipped `rules/` 48 848 → 46 404 B. Reported from a consumer install.
+
 ## [v4.7.2] — 2026-09-12
 
 > Patch. Fixes a command shipped broken in 4.7.1: in a vendored install `evals.py list` printed nothing and exited 0.

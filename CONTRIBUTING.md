@@ -18,6 +18,38 @@ Thanks for considering a contribution. Forge Flow is a deterministic spine for A
 - **Docs** — if a change alters runtime behavior, update the relevant Tier 2 source-of-truth file under `.claude/reference/` in the same PR. Operational scaffolds (`templates/`, `CLAUDE.md`) and source-of-truth docs are different categories — see `CLAUDE.md` "Three kinds of documents".
 - **Specialist agents** — user-owned specialists live in `.claude/agents/specialists/` and are never modified by framework refresh; framework agents under `.claude/agents/` are.
 
+## What ships into a consumer's `.claude/`
+
+These are decisions made while authoring the framework, not while using it. They lived in `rules/framework-vs-project-root.md` until 2026-09-12, where every consumer session loaded ~5 KB of installer doctrine at startup to answer a question only a framework developer asks. The consumer-facing half of that rule — path resolution and the sidecar mechanism — stayed behind.
+
+`.claude/` is framework_root — CODE only. The strict test for whether a path in the framework dev repo should rsync into a consumer's `.claude/`:
+
+> Is this path **required by framework runtime functionality** in the target project? Required means: read by a Python script, loaded by Claude Code at session start (via `settings.json` or `CLAUDE.md` `@`-import), referenced by a template at project init, or otherwise needed for the framework to *function* — not just to be *documented*.
+
+If the answer isn't a clear yes, exclude it. The default is **exclude**, not include — every file that ships into a consumer's `.claude/` is one the consumer's dev team has to either accept as opaque framework infrastructure or read to understand. Both are costs. Charge them only when there's runtime value.
+
+**`docs/` in particular** — the framework dev repo's `docs/` tree is framework self-documentation (code-map describing the framework, planning history, debug audits, the framework's own task ISAs). None of it is referenced by framework runtime. **None of it ships.** Consumer projects own their own `docs/` at project_root for their own data.
+
+Top-level files like `CHANGELOG.md`, `CHEATSHEET.md`, `README.md`, `LICENSE`, `MEMORY-SCHEMA.md` DO ship — they're referenced by verify, by templates, and by hooks that read them into session context. That's the discriminator: real runtime reference vs. authored-only documentation.
+
+## Rsync excludes — the other half of this rule
+
+Anything that is BOTH (a) generated/derived at framework dev time, AND (b) gitignored — must be rsync-excluded in `install.sh`. Otherwise the framework dev repo's copy bleeds into `<project>/.claude/` and the walk-up resolvers grab it as a marker.
+
+Cross-check `.gitignore` against `install.sh` rsync `--exclude` lines for every framework refresh. Add a one-shot `rm -rf` on the post-rsync step for paths that previous installs leaked, so refresh actively heals past damage.
+
+## And the public-repo discriminator
+
+When the framework repo itself goes public, an additional filter applies to what's tracked in git:
+
+> Would an outside contributor browsing this file find user-facing value, or is this internal dev history?
+
+Framework dev planning history (v2→v3 migration notes, dated audits, dev plans), the framework's own task ISAs, and orphan reference docs that don't have a home in the canonical 4-tier structure (`reference/`) should not be in public-facing git history. Keep them on disk (gitignored) for the framework dev's own use; don't expose them.
+
+## Tests guard this
+
+`tests/dashboard/test_root_resolution.py` synthesizes a vendored install on disk and asserts each false-positive marker is ignored. Add a new test there whenever you introduce a new resolver — synthetic vendored install + assert it resolves to the project root, not `.claude/`.
+
 ## The rules budget
 
 Claude Code loads **every** `.claude/rules/*.md` at launch. The documentation is explicit — "Rules without `paths` frontmatter are loaded at launch with the same priority as `.claude/CLAUDE.md`" — so a rule file is not a reference shelf you consult, it is context charged to every session in every consuming project, whether or not the work touches that domain.
