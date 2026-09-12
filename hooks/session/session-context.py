@@ -386,9 +386,12 @@ def main():
                         facts_content[:max_chars]
                         + '\n[...truncated — key-facts.md is '
                         + f'{len(facts_content) // 1024} KB and every session '
-                        + 'pays for it. Reference material (repo state, '
-                        + 'technical baseline) belongs in .claude/reference/, '
-                        + 'which is not injected.]'
+                        + 'pays for it, and everything past this point has '
+                        + 'stopped reaching sessions entirely. Run '
+                        + '/reconcile-memory. Bulk reference material (repo '
+                        + 'state, technical baseline) moves verbatim to '
+                        + 'docs/project-memory/reference/, which nothing '
+                        + 'injects or indexes.]'
                     )
                 context.append('')
                 context.append('=== KEY FACTS ===')
