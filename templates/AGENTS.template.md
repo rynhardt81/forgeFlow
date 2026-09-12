@@ -1,5 +1,7 @@
 # AGENTS.md
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 Instructions for AI code reviewers working in this repository.
 
 Reviewers that read this file automatically pick it up from the repo root —

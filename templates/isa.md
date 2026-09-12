@@ -8,6 +8,8 @@ createdAt: {{CREATED_AT}}
 
 # ISA — {{TASK_ID}} — {{TASK_NAME}}
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 > Per-task ideal-state articulation. Read `.claude/skills/ISA/SKILL.md` for the full doctrine. Phase vocabulary: `observe` → `think` → `plan` → `build` → `execute` → `verify` → `complete`. Sections below follow the locked 12-section order — some may start empty, none may be reordered or removed.
 
 ## Problem
