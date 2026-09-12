@@ -139,7 +139,7 @@
       "Edit(docs/project-memory/**)",
       "Write(docs/project-memory/**)",
       "Read(daily/**)",
-      "Write(daily/**)",
+      "Edit(daily/**)",
       "Bash(awk *)"
     ],
     "ask": [
@@ -192,6 +192,9 @@
   "_precompact_stop_note": "PreCompact/Stop are deliberately EMPTY arrays, not absent: the installer's per-event merge overwrites consumer settings per event, so these clear the v3 memory-capture/claude-md-reflect wiring on upgrade. Do not remove.",
   "_permissions_note": "Bash rules: read-only commands (rg/fd/grep/ls/cat/head/tail/git+gh read-only subcommands) are auto-allowed by Claude Code and need no entry. `ask` gates destructive commands even in permissive modes, where a default prompt would not fire. Interpreters (python3/node/bun/npx) are deliberately absent from `allow`: patterns are prefix matches, so `Bash(python3 script.py *)` would also match `python3 script.py && rm -rf ~`. `find` is denied per the house rule that bare `find` has hung this machine — use `fd`. Override per-project in .claude/settings.local.json.",
   "_retired_permissions": {
+    "allow": [
+      "Write(daily/**)"
+    ],
     "deny": [
       "Read(./**/dist/**)",
       "Read(./**/build/**)"

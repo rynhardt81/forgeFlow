@@ -369,7 +369,7 @@ def main():
         except (OSError, IOError):
             pass
 
-    # Also load key-facts.md fully (small file, always relevant)
+    # Also load key-facts.md (capped — it is not guaranteed to stay small)
     key_facts = project_root / 'docs' / 'project-memory' / 'key-facts.md'
     if key_facts.exists():
         try:
@@ -380,6 +380,16 @@ def main():
                 for line in facts_content.splitlines()
             )
             if has_content:
+                max_chars = 20000
+                if len(facts_content) > max_chars:
+                    facts_content = (
+                        facts_content[:max_chars]
+                        + '\n[...truncated — key-facts.md is '
+                        + f'{len(facts_content) // 1024} KB and every session '
+                        + 'pays for it. Reference material (repo state, '
+                        + 'technical baseline) belongs in .claude/reference/, '
+                        + 'which is not injected.]'
+                    )
                 context.append('')
                 context.append('=== KEY FACTS ===')
                 context.append(facts_content)
