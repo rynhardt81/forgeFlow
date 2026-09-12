@@ -42,7 +42,8 @@ Read `docs/code-map.md` (auto-regenerated each SessionStart). For an autonomous 
 2. Compute the work surface: `ready`, `in_progress`, `pr_pending`, `pending` counts.
 3. **Refuse to start** if all four are 0 — nothing to do.
 4. **Refuse to start** if `in_progress > 0` without `--resume` — interrupted runs deserve a human glance before clobbering.
-5. Print the drain plan (counts + cap) and confirm once with the user.
+5. With `--parallel`: probe the environment's subagent caps and compute the spawn projection ([GUARDRAILS.md](GUARDRAILS.md) §5). `--max-agents` caps a batch, not the run.
+6. Print the drain plan (counts + cap, and the spawn projection under `--parallel`) and confirm once with the user.
 
 ## Step 2: Session start
 
@@ -68,6 +69,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 - **Never silently mutate registry.json** — all state changes via `forge task ...`.
 - **Never skip `/create-pr` failures** — a PR failure halts on that task; don't move on with uncommitted work.
 - **Never run forever** — `--max-iter` is the ceiling; consecutive-failure is the circuit breaker.
+- **Never spawn into a refusal** — with `--parallel`, check spawn-budget headroom before each batch and degrade to serial rather than failing mid-epic (GUARDRAILS.md §5).
 - **Never auto-file outside the current epic** — out-of-epic discoveries are surfaced at end-of-run, not filed elsewhere.
 - **Never resume `in_progress` tasks without `--resume`.**
 
