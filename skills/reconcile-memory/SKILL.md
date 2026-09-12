@@ -134,9 +134,7 @@ Re-run the measurement from step 1 and show before/after. Then confirm the injec
 echo '{}' | python3 .claude/hooks/session/session-context.py | wc -c
 ```
 
-If that number did not move, nothing you did reached the thing you were fixing.
-
-**One trap specific to rewriting `key-facts.md`:** the hook injects it only when some line starts with `- **`, a template artefact the schema never required (tracked as T919). Until that lands, keep at least one `- **Label:** value` line, or a perfectly valid file of plain bullets vanishes from SessionStart with no error — which is the exact silent loss this skill exists to prevent. The verification probe above catches it: a zero-length KEY FACTS block means you tripped the gate. Report *that* figure as the headline, not the change to `key-facts.md` alone — the hook output is the only number that includes the index growth your relocations caused, which is exactly the cost a per-file measurement hides.
+If that number did not move, nothing you did reached the thing you were fixing. Report *that* figure as the headline, not the change to `key-facts.md` alone — the hook output is the only number that includes the index growth your relocations caused, which is exactly the cost a per-file measurement hides.
 
 ## Reporting
 
