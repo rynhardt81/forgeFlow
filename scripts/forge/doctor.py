@@ -47,6 +47,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 # designed installer change (ship the manifest, single-file copy) lands.
 CUT_PATHS_REL = Path("scripts") / "install" / "cut-paths.txt"
 
+# SessionStart injects index.md and key-facts.md and truncates each at this
+# many characters. Kept in step with hooks/session/session-context.py by
+# tests/wiring/test_memory_cap_in_step.py — the hook is standalone and cannot
+# import from here, so the constant is duplicated and the test owns the drift.
+INJECTED_CAP_CHARS = 20000
+# Below the cap but still costly enough that every session pays for it.
+INJECTED_WARN_CHARS = 12000
+
 # Transplanted from tests/wiring/test_settings_hooks_exist.py — the proven
 # extractor for hook script paths inside settings.json command strings.
 _WIRED_HOOK_RE = re.compile(r"\.claude/(hooks/[\w\-/]+\.py)")
@@ -327,11 +335,71 @@ def check_wiring(ctx: DoctorContext) -> CheckResult:
     )
 
 
+def check_memory(ctx: DoctorContext) -> CheckResult:
+    """Flag project-memory files that cost more per session than they return.
+
+    index.md and key-facts.md load at every SessionStart, so their size is a
+    standing tax on the project. Past INJECTED_CAP_CHARS the hook truncates
+    mid-file and says so in the injected text — but only a session that reads
+    the marker learns about it, which is nobody. Surfacing it here is how a
+    project finds out its memory tail stopped reaching sessions months ago.
+    """
+    memory_dir = ctx.project_root / "docs" / "project-memory"
+    if not memory_dir.is_dir():
+        return CheckResult(
+            name="memory",
+            status=SKIPPED,
+            summary="no docs/project-memory/ (project memory not in use)",
+        )
+
+    findings: list[str] = []
+    sizes: list[str] = []
+    for name in ("index.md", "key-facts.md"):
+        f = memory_dir / name
+        if not f.is_file():
+            continue
+        size = f.stat().st_size
+        sizes.append(f"{name} {size // 1024} KB")
+        if size > INJECTED_CAP_CHARS:
+            findings.append(
+                f"{name} is {size // 1024} KB — over the {INJECTED_CAP_CHARS // 1000} KB "
+                "injection cap, so everything past the cap is silently dropped "
+                "from every session"
+            )
+        elif size > INJECTED_WARN_CHARS:
+            findings.append(
+                f"{name} is {size // 1024} KB — under the cap but loaded whole at "
+                "every SessionStart"
+            )
+
+    if not sizes:
+        return CheckResult(
+            name="memory",
+            status=SKIPPED,
+            summary="no injected memory files yet",
+        )
+
+    if findings:
+        return CheckResult(
+            name="memory",
+            status=ISSUES,
+            summary=", ".join(sizes),
+            findings=findings,
+            hint=(
+                "run /reconcile-memory — it routes narrative entries to the "
+                "on-demand files and drops stale ones, which costs nothing per "
+                "session instead of everything"
+            ),
+        )
+    return CheckResult(name="memory", status=OK, summary=", ".join(sizes))
+
+
 CHECKS = [
     check_version,
     check_orphans,
     check_registry,
     check_wiring,
+    check_memory,
 ]
 
 

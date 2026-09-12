@@ -1,0 +1,113 @@
+---
+name: reconcile-memory
+description: Shrink bloated memory files back to what actually earns its place in context, without losing knowledge. Use whenever memory has grown expensive or disorganized — key-facts.md is huge, MEMORY.md has drifted from the files it indexes, SessionStart injects a wall of text, a session starts with a big chunk of context already spent, entries have landed in the wrong file, or the user asks to clean up / audit / trim / optimize project memory or auto-memory. Also use when `forge doctor` reports a memory-size warning, and before onboarding a project whose memory nobody has pruned in months.
+---
+
+# Reconcile memory
+
+Memory files are paid for on every single session, forever, whether or not that session touches the subject. A fact that saves ten minutes once a month is worth a line; the same fact spread over four paragraphs is a standing tax. This skill finds the difference and fixes it.
+
+**The failure it exists to stop is not "the file got big".** It is content that was never memory-shaped landing in a memory file and then being loaded whole at every startup — a repo-state snapshot, an architecture write-up, a postmortem narrative. Those are real knowledge and must survive; they just belong somewhere nothing injects. A 6 KB key-facts.md of one-line facts is healthy. A 6 KB narrative is not, at any size.
+
+Equally: **an empty memory file is also a failure.** The project pays a different tax when a session re-derives a fact someone already learned. Reconciling is not a cutting exercise — you are deciding, entry by entry, where knowledge lives so it is there when it matters and absent when it doesn't. If you finish and the project is worse off next session, you have done the wrong thing.
+
+## The two stores, and the rule against mixing them
+
+| Store | Path | Injected at SessionStart | Committed |
+|---|---|---|---|
+| **Project memory** | `docs/project-memory/` | `index.md` + `key-facts.md` only | Yes — team-shared |
+| **Harness auto-memory** | `~/.claude/projects/<slug>/memory/` | `MEMORY.md` only | No — per-machine |
+
+`<slug>` is the project's absolute path with `/` replaced by `-`, e.g. `/Users/x/dev/foo` → `-Users-x-dev-foo`.
+
+**Reconcile each store inside itself. Never move content between them.** They have different jobs and different audiences: project memory is the team's durable record, auto-memory is one machine's working context. Moving auto-memory into a repo also walks straight past the containment guard, which only inspects Write/Edit — a note mentioning an employer would land in a committed file with nothing to catch it. If a fact genuinely belongs in the other store, say so in the plan and let the user re-capture it with `/remember`; do not relocate it yourself.
+
+## What earns a place in an injected file
+
+Apply this to `key-facts.md` and `MEMORY.md` — the two files that cost tokens at every startup.
+
+**Shape is the test, not size.** `MEMORY-SCHEMA.md` already says key-facts entries are single lines. So:
+
+- **Keep**: a one-line fact that is current, specific, and would cost real time to rediscover. Ports, account names, magic values, a non-obvious constraint, "this subsystem is inert".
+- **Relocate**: anything multi-line, or over roughly 200 characters, or narrating *how* something came to be true. It is a decision, a pattern, or a bug story wearing a fact's clothes. Route it by kind and leave nothing behind — `index.md` is the pointer, and reindex regenerates it.
+- **Delete**: anything falsified by the current code, or a snapshot of state that has since moved on. A repo-state listing from four months ago is not knowledge, it is a stale claim that will mislead a future session more than silence would. When the entry recorded something real that has simply been superseded, keep one dated line saying so rather than the whole body.
+- **Merge**: near-duplicates. Two entries covering one fact means the next reader has to work out which is current.
+
+The routing table for relocations is `MEMORY-SCHEMA.md`'s own — bugs to `bugs.md`, decisions to `decisions.md`, conventions to `patterns.md`. Those three are read on demand, so moving an entry there takes it to zero per-session cost while keeping it findable through the index.
+
+**Where this skill stops:** age-based cleanup within `bugs.md` / `decisions.md` / `patterns.md` belongs to `/remember archive`, which already does it. Reconcile decides *which file* an entry belongs in; archive decides *whether it is still current*. If you finish and the destination files are themselves stale, say so and suggest `/remember archive` — don't reimplement it.
+
+Content that is "what the system IS" rather than a remembered fact — an architecture baseline, a technical design of record — is Tier 2 material and belongs in `.claude/reference/`. That move is a documentation decision with governance attached, so **propose it and let the user decide**; reconcile does not write to `reference/` on its own.
+
+## Workflow
+
+### 1. Measure before you touch anything
+
+Report actual numbers, not impressions. The point is a before/after the user can check.
+
+```bash
+# Project memory
+wc -c docs/project-memory/*.md
+# Per-section breakdown of the injected file — where the weight actually is
+awk '/^## /{h=$0} {n[h]+=length($0)+1} END{for(k in n) printf "%8d  %s\n", n[k], k}' \
+    docs/project-memory/key-facts.md | sort -rn
+# Harness auto-memory for this project
+SLUG=$(pwd | tr '/' '-'); wc -c ~/.claude/projects/"$SLUG"/memory/*.md 2>/dev/null | tail -20
+```
+
+The SessionStart hook caps `index.md` and `key-facts.md` at 20 000 characters each. **Over the cap means content is already being silently dropped mid-file** — those projects are urgent, because the tail is not reaching sessions at all and nobody has been told. Under the cap is not automatically fine; a 15 KB file of narrative still costs every session.
+
+### 2. Classify every entry
+
+Read the whole file. For each entry decide keep / relocate / delete / merge, and be able to say why in a few words. Where an entry's fate depends on whether the code still works that way, check — a claim you cannot verify is a claim you should not silently keep. This is the part that needs judgment and cannot be scripted; a size threshold alone would evict good one-line facts from a long file and keep a short bad narrative.
+
+### 3. Present the plan, then apply on approval
+
+Memory is committed history and the auto-memory store is not versioned at all, so a bad eviction loses knowledge with nothing to recover it from. Show the plan first:
+
+```
+docs/project-memory/key-facts.md — 63 618 B, over the 20 000 cap (tail already dropped)
+
+  KEEP      12 entries  (1 403 B)   one-line facts, current
+  RELOCATE   8 entries  (26 846 B)  -> decisions.md — "Technical Baseline" is
+                                       decisions of record, not facts
+  DELETE     1 section  (34 746 B)  -> "Current Repository State", a 2026-07-07
+                                       snapshot; 6 of its 9 claims no longer
+                                       match the tree. Replaced by one dated
+                                       superseded line.
+  RESULT    ~4 KB, fully injected, nothing truncated
+```
+
+Name what you checked for the delete line — "6 of its 9 claims no longer match the tree" is a finding; "looked stale" is a guess. On approval, apply the whole plan through to reindex without stopping for further confirmation.
+
+### 4. Apply
+
+Relocate first, delete second, so nothing is dropped before its replacement exists. Then:
+
+```bash
+python3 .claude/scripts/forge/forge.py memory reindex
+```
+
+Reindex regenerates `index.md` from the entry headings — deterministic and idempotent. Never hand-edit the index; an entry missing from it is invisible to future sessions, which is exactly the knowledge loss this skill is supposed to prevent.
+
+For the harness store, `MEMORY.md` is the index and is hand-maintained: one line per memory file, `- [Title](file.md) — hook`. Reconciling it means deleting lines whose files are gone, adding files that have no line, merging duplicates, and shortening hooks that have grown into summaries. Delete a memory file outright when it records something now false — a wrong memory is worse than a missing one, because it is asserted with confidence.
+
+### 5. Verify with the same probe you started with
+
+Re-run the measurement from step 1 and show before/after. Then confirm the injected result is what you think it is by running the hook itself rather than reasoning about it:
+
+```bash
+echo '{}' | python3 .claude/hooks/session/session-context.py | wc -c
+```
+
+If that number did not move, nothing you did reached the thing you were fixing.
+
+## Reporting
+
+Finished-work report per `skills/_shared/report-format.md`. The Result field carries the before/after byte counts and the hook-output measurement — a reconcile that cannot state how many bytes it removed has not demonstrated anything.
+
+Flag two things explicitly when they apply: entries you deleted that someone might miss, and any store you left alone because it was already healthy. A reconcile that reports only what it cut reads like progress even when it did harm.
+
+---
+
+**Project-specific overrides:** if `SKILL.local.md` exists in this directory, read it — it is consumer-owned, survives framework refresh, and **wins on conflict**. A sidecar that relaxes a gate defined above must state how to prove the gate is wrong in that case. Doctrine: `rules/framework-vs-project-root.md`.

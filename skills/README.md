@@ -47,6 +47,7 @@ One directory per skill; each skill's `SKILL.md` is its complete definition (fro
 | Skill | Purpose |
 |-------|---------|
 | `/remember` | Manual knowledge capture → `docs/project-memory/` |
+| `/reconcile-memory` | Trim bloated memory files to what earns its per-session cost |
 | `/refresh-project-context` | Sync CLAUDE.md + project docs with reality |
 
 ## Design

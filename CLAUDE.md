@@ -60,6 +60,7 @@ Each skill's own one-line purpose is already in the session's skill listing, so 
 | CI red | `/diagnose-ci`; before pushing, `/preflight-ci` |
 | Ship | `/create-pr`, then `/release` |
 | Learned something the team needs next session | `/remember` |
+| Memory files have grown expensive — SessionStart injects a wall of text | `/reconcile-memory` |
 | Not sure the framework is healthy | `forge doctor` |
 
 Work discovered *while* running any of these follows `skills/_shared/task-triage.md`. A follow-up larger than a bounded fix goes back in through `/intent`, not straight into the queue.
