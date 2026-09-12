@@ -30,7 +30,7 @@ So a framework file's job is what the harness does *not* say — the forge CLI's
 |---|---|
 | A "Delivering work" block: the request sets the scope, don't quietly narrow or widen it, make routine judgment calls yourself, finish the whole task, stop short of what's clearly beyond the ask | A framework restatement of scope discipline |
 | A corrections limiter: only correct an earlier statement when the error changes the user's code, conclusions, or decisions | "Don't over-apologise", "don't narrate mistakes" |
-| Subagent delegation guidance, and deterministic caps as environment variables | A framework rule telling the model when to delegate in general (per-tier *routing* in `skills/_shared/model-routing.md` is different — it says which model and effort, not whether to delegate at all) |
+| Deterministic subagent caps as environment variables — always. Plus a delegation instruction, but only on Claude Opus 5 **and** only when the harness uses its `claude_code` system-prompt preset; a custom or omitted system prompt gets no such line | A framework rule telling the model when to delegate in general (per-tier *routing* in `skills/_shared/model-routing.md` is different — it says which model and effort, not whether to delegate at all) |
 | A parallel-tool-call nudge: make independent calls in the same block | "Batch your tool calls" |
 | Context-management guidance for long sessions | "Wrap up early", "hand off before you run out" |
 
