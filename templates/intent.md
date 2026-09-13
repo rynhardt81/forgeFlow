@@ -1,5 +1,7 @@
 # Intent: [short title]
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 > Operational scaffold written by `/intent`. One file per change, under `intent/` at the project root, committed with the author's name. Anyone can write one — no engineering skill and no forge CLI needed. Accepted intents become epics and tasks via `/intent promote`.
 
 - **Author:** [name]

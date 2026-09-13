@@ -26,6 +26,30 @@ from datetime import datetime
 from pathlib import Path
 
 
+
+def _has_real_content(text: str) -> bool:
+    """True when key-facts.md carries facts rather than the pristine template.
+
+    The previous test looked for a line starting with `- **`. Bold is an
+    artefact of the template's example bullets and is required nowhere in
+    MEMORY-SCHEMA.md, which asks only for single lines — so a perfectly
+    conformant file of plain bullets was silently never injected, with no
+    error and nothing to notice. That is the failure this hook exists to
+    prevent, so the test is now about content rather than formatting.
+
+    The template is a heading, an explanatory blockquote, and example bullets
+    inside an HTML comment. Strip the comments, ignore headings and the
+    blockquote, and anything left is a real entry.
+    """
+    body = re.sub(r'<!--.*?-->', '', text, flags=re.DOTALL)
+    for line in body.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#') or stripped.startswith('>'):
+            continue
+        return True
+    return False
+
+
 def get_project_root():
     """Get the project root directory."""
     if os.environ.get('CLAUDE_PROJECT_DIR'):
@@ -188,7 +212,9 @@ def _auto_create_session_file(claude_dir, project_root):
         f"\n"
         f"## Continuation Context\n"
         f"\n"
-        f"_(filled in if the session ends with in-progress work)_\n"
+        f"_(filled in if the session ends with in-progress work — this is a\n"
+        f"compaction boundary: see skills/_shared/continuity-preservation.md\n"
+        f"for what must survive it)_\n"
     )
     try:
         target.write_text(body, encoding='utf-8')
@@ -367,17 +393,25 @@ def main():
         except (OSError, IOError):
             pass
 
-    # Also load key-facts.md fully (small file, always relevant)
+    # Also load key-facts.md (capped — it is not guaranteed to stay small)
     key_facts = project_root / 'docs' / 'project-memory' / 'key-facts.md'
     if key_facts.exists():
         try:
             facts_content = key_facts.read_text(encoding='utf-8')
-            # Only inject if it has real content (not just template comments)
-            has_content = any(
-                line.strip().startswith('- **')
-                for line in facts_content.splitlines()
-            )
-            if has_content:
+            if _has_real_content(facts_content):
+                max_chars = 20000
+                if len(facts_content) > max_chars:
+                    facts_content = (
+                        facts_content[:max_chars]
+                        + '\n[...truncated — key-facts.md is '
+                        + f'{len(facts_content) // 1024} KB and every session '
+                        + 'pays for it, and everything past this point has '
+                        + 'stopped reaching sessions entirely. Run '
+                        + '/reconcile-memory. Bulk reference material (repo '
+                        + 'state, technical baseline) moves verbatim to '
+                        + 'docs/project-memory/reference/, which nothing '
+                        + 'injects or indexes.]'
+                    )
                 context.append('')
                 context.append('=== KEY FACTS ===')
                 context.append(facts_content)

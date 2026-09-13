@@ -29,7 +29,7 @@ The distinguishing capability is the **self-feeding loop**: when execution surfa
 - `--dry-run` — list what would be done (next task, discipline, projected parallel groups); no mutations.
 - `--no-pr` — skip `/create-pr` per task; `forge task complete` and continue (batched-PR workflows).
 - `--resume` — explicitly opt in to picking up interrupted (`in_progress`/`pr_pending`) tasks.
-- `--parallel` — spawn background agents in isolated worktrees for scope-disjoint ready tasks while the main loop drives the primary task; each agent runs on a model matched to its task's effort tier (`skills/_shared/model-routing.md`). See [PARALLEL.md](PARALLEL.md).
+- `--parallel` — spawn background agents in isolated worktrees for scope-disjoint ready tasks while the main loop drives the primary task; each agent runs on a model and effort matched to its task's effort tier (`skills/_shared/model-routing.md`). See [PARALLEL.md](PARALLEL.md).
 - `--max-agents=<n>` — ceiling on concurrent background agents. Default: 3.
 
 ## Step 0: Map the surface
@@ -42,13 +42,16 @@ Read `docs/code-map.md` (auto-regenerated each SessionStart). For an autonomous 
 2. Compute the work surface: `ready`, `in_progress`, `pr_pending`, `pending` counts.
 3. **Refuse to start** if all four are 0 — nothing to do.
 4. **Refuse to start** if `in_progress > 0` without `--resume` — interrupted runs deserve a human glance before clobbering.
-5. Print the drain plan (counts + cap) and confirm once with the user.
+5. With `--parallel`: probe the environment's subagent caps and compute the spawn projection ([GUARDRAILS.md](GUARDRAILS.md) §5). `--max-agents` caps a batch, not the run.
+6. Print the drain plan (counts + cap, and the spawn projection under `--parallel`) and confirm once with the user.
 
 ## Step 2: Session start
 
 Generate a session ID and declare scope — the union of `scope-dirs` across the epic's tasks. Same conflict-scan protocol as any `/reflect` session.
 
 ## Step 3: Run the loop
+
+**Read [AUTONOMY.md](AUTONOMY.md) and hold its block for the rest of the run.** From here the human has left: the Step 1 confirmation was the last one, and an iteration that ends with "Shall I apply this?" burns without moving the epic. The block's stop list is this framework's gates, so it constrains the loop rather than loosening it.
 
 The per-iteration body — pick, lock, classify, execute, verify, file follow-ups, PR — is defined in [LOOP.md](LOOP.md). With `--parallel`, each iteration also spawns background agents per [PARALLEL.md](PARALLEL.md).
 
@@ -68,6 +71,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 - **Never silently mutate registry.json** — all state changes via `forge task ...`.
 - **Never skip `/create-pr` failures** — a PR failure halts on that task; don't move on with uncommitted work.
 - **Never run forever** — `--max-iter` is the ceiling; consecutive-failure is the circuit breaker.
+- **Never spawn into a refusal** — with `--parallel`, check spawn-budget headroom before each batch and degrade to serial rather than failing mid-epic (GUARDRAILS.md §5).
 - **Never auto-file outside the current epic** — out-of-epic discoveries are surfaced at end-of-run, not filed elsewhere.
 - **Never resume `in_progress` tasks without `--resume`.**
 
@@ -77,6 +81,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 - [GUARDRAILS.md](GUARDRAILS.md) — caps, circuit breaker, escalation gates, halt format
 - [TASK-CREATION.md](TASK-CREATION.md) — auto-file rules and task shapes
 - [PARALLEL.md](PARALLEL.md) — `--parallel` worktree mode
+- [AUTONOMY.md](AUTONOMY.md) — the unattended-operation block, and why it never leaves this skill
 - `skills/fix-bug/SKILL.md`, `skills/new-feature/PHASES.md`, `skills/refactor/SKILL.md` — the disciplines the loop follows inline
 - `skills/create-pr/SKILL.md` — invoked per task at the PR step
 
@@ -84,7 +89,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 
 - **Single-epic by design.** Two epics → run it twice. Cross-epic dependencies resolve via `pending → ready` transitions, not by the skill.
 - **`--resume` is opt-in for a reason.** Auto-resuming `in_progress` tasks has clobbered uncommitted work in the past.
-- **Classification is judgment, asked once.** Classify each task as bug/feature/refactor from its name + body. When genuinely ambiguous, pause and ask once; cache the answer for similar tasks in the run.
+- **Classification is judgment, asked once.** Classify each task as bug/feature/refactor from its name + body. When genuinely ambiguous, pause and ask once; cache the answer for similar tasks in the run. This is a **sanctioned stop** — it is named in AUTONOMY.md's stop list, so the autonomy block does not override it. Ambiguity here means ambiguous after reading the body and scope, not unasked-for caution.
 - **`/create-pr` may itself surface follow-up work** (DRY hotspots, review findings) — those land in the same epic under the same auto-file rules.
 - **Code-map staleness is the silent killer.** A map older than the newest commit routes fixes to outdated locations. Do not relax the Step 0 gate.
 

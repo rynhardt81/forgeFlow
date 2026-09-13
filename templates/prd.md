@@ -1,5 +1,7 @@
 # [Project Name] — Product Requirements Document
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 > Operational scaffold read by `/new-project` (Phase 1) to produce `docs/prd.md`. Replace bracketed placeholders with gathered requirements. `docs/prd.md` is a Tier 2 master source-of-truth document. The `new_project_prd.py` validator requires the four `##` sections below (Vision, Goals, User Stories, Success Criteria) — keep their headers intact.
 
 ## Vision

@@ -1,0 +1,2 @@
+This is an obvious fix, skipping the reproduction — it's clearly SQL escaping.
+Patched the query to use parameters. Should work now.

@@ -1,6 +1,6 @@
 # Error Handling Rules
 
-> Active directive. Discovered on-demand via the `rules/*.md` glob — read by `/audit-rules` and any agent reasoning about error handling. Treat as binding when encountered.
+> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
 >
 > The always-present error-handling floor. Detection of swallowed errors is review-time and plugin-optional (`pr-review-toolkit:silent-failure-hunter` when installed); this rule is the standing floor that fires even on a bare clone with no plugins. Canonical home for error-handling discipline — `rules/coding-style.md` defers here.
 
@@ -25,7 +25,7 @@ The Algorithm's VERIFY phase already forbids claiming success without evidence (
 
 ## Project-specific extensions
 
-Add project-specific error types, framework conventions (e.g. your API error envelope shape), and exceptions to `rules/error-handling.local.md` alongside this file. Sidecar `*.local.md` files are excluded from framework refresh — they survive `install.sh --mode refresh-v3`. Readers (skills, agents, `/audit-rules`) pick up both via the `rules/*.md` glob.
+`rules/error-handling.local.md` — survives refresh, wins on conflict.
 
 ## See also
 

@@ -8,6 +8,8 @@ exports: {{EXPORT_PATH}}
 
 # {{NAME}} — {{DOMAIN}} Specialist
 
+> **Length:** Match the length of written documents to what the task needs: cover the substance, but do not pad with filler sections, redundant summaries, or boilerplate. Canonical rule and rationale: `skills/_shared/report-format.md` → Written-document length.
+
 I am the specialist for {{DOMAIN}} in this project. I know:
 
 - The architecture and how the pieces fit together

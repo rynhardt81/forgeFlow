@@ -93,10 +93,12 @@ skills/damage-control/           # In Claude Forge framework root
 │   ├── install_damage_control.md
 │   ├── modify_damage_control.md
 │   ├── test_damage_control.md
+│   ├── install_test_lock.md
 │   └── list_damage_controls.md
 ├── hooks/
 │   └── damage-control-python/   # Python/UV implementation
 │       ├── bash-tool-damage-control.py
+│       ├── test-lock-damage-control.py
 │       ├── edit-tool-damage-control.py
 │       ├── write-tool-damage-control.py
 │       └── settings-template.json
@@ -155,6 +157,12 @@ This section defines the decision tree for handling user requests.
 **Trigger phrases**: "test damage control", "run damage control tests", "verify hooks are working"
 
 **Workflow**: Read and execute [cookbook/test_damage_control.md](cookbook/test_damage_control.md)
+
+### Test Lock Pathway
+
+**Trigger phrases**: "install the test lock", "stop the agent editing the failing test", "lock the regression test", "block test edits during fix-bug"
+
+**Workflow**: Read and execute [cookbook/install_test_lock.md](cookbook/install_test_lock.md)
 
 ### List Configuration Pathway
 

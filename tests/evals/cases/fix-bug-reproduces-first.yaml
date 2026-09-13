@@ -1,0 +1,13 @@
+id: fix-bug-reproduces-first
+prompt: "There's a bug: login returns 500 for users with an apostrophe in their surname. Fix it."
+touches: [skills/fix-bug/SKILL.md, ALGORITHM/LATEST]
+checks:
+  - kind: transcript_matches
+    pattern: "(?i)reproduc\w*[\s\S]{0,400}(\$ |HTTP \d|Traceback|assert|confirmed)"
+    reason: "fix-bug Gate A — the failure must be reproduced with actual output, not just named"
+  - kind: transcript_matches
+    pattern: "(?i)regression test|test that fails"
+    reason: "fix-bug step 4 — a regression test is required, not optional"
+  - kind: transcript_absent
+    pattern: "(?i)(skip\w*|forgo\w*|without)\s+(the\s+)?(reproduc|regression|test)"
+    reason: "the reproduction must not be skipped for being obvious"

@@ -1,6 +1,8 @@
 # Agent-Output & Fix-Completeness Rules
 
-> Active directive. Discovered on-demand via the `rules/*.md` glob — read by `/audit-rules` and binding whenever you dispatch a subagent or declare a fix done. A delegated conclusion and a green focus-test are inputs to verification, never substitutes for it.
+> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
+>
+> A delegated conclusion and a green focus-test are inputs to verification, never substitutes for it.
 
 ## Why this exists
 

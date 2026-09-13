@@ -49,6 +49,7 @@ Write `docs/debug/incident-YYYY-MM-DD-<slug>.md` (≤1 page): timeline, impact (
 - File prevention follow-ups as real tasks: `python3 .claude/scripts/forge/forge.py task add ...`
   **Before filing, apply `skills/_shared/task-triage.md`** — answer "what breaks if this ships later?" Deferred is the default (`--epic E99` parks it out of the ready queue); hard floors (schema/auth/money/security) are never deferred. Prevention items are usually Deferred; a live, recurring failure class is not.
 - If the root cause implicates doctrine (a gate that should have fired), surface it — that's a `doctrine` learning per ALGORITHM LEARN.
+- **If the root cause traces to agent behaviour** — a gate that should have fired and did not, a skill that let something through — add an eval: a case in `tests/evals/cases/` whose prompt is the situation that failed and whose check names the gate that was missed. `tests/evals/README.md` has the format. This is the only mechanism that catches the same config regression next time; a postmortem paragraph does not.
 - **A follow-up larger than a bounded fix** (architectural, a repeated pattern, anything needing a product decision) is not a task: write it as `/intent "<problem>"` with the postmortem as its evidence, so it re-enters through acceptance instead of jumping the queue.
 
 ## Key Rules

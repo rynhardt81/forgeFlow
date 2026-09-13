@@ -2,6 +2,8 @@
 
 Handles `/reflect resume`, `/reflect resume E##`, and `/reflect resume T###`.
 
+> **Writing continuity is compaction.** Every `## Continuation Context` this flow writes — on pause, on a blocker, on "If Task Cannot Be Completed" — is the only thing the next session gets. `skills/_shared/continuity-preservation.md` is binding on all of them: the six categories that must survive, constraints stated exactly rather than paraphrased, and counts re-derived from a live probe rather than copied forward.
+
 ---
 
 ## `/reflect resume`
@@ -46,7 +48,7 @@ Resume from last session with full context.
 
    `task show <id>` for detail. `pr_pending` tasks are implementation-done with a PR open — don't resume them; `task ls --pr-pending` tracks review status.
 
-6. **Present combined context** — session ID, active sessions, git activity, task status (in-progress / continuation / ready), last-worked-on + blockers from progress notes, next steps from latest.md.
+6. **Present combined context** — session ID, active sessions, git activity, task status (in-progress / continuation / ready), last-worked-on + blockers from progress notes, next steps from latest.md. Every count here comes from the step-5 queries you just ran, not from the brief or session file you just read — a number read out of a prior summary is stale by definition (`skills/_shared/continuity-preservation.md`).
 
 7. **Check for unregistered work:** if the session file has plan checkboxes (`- [ ]`) but the registry is empty/missing, offer: (1) create tasks in registry — `forge epic add E01 --name "..."` first when the epic isn't in the registry (`task add` raises `EpicNotFound` otherwise), then `forge task add T### --epic E01 --name "..." --deps ...` (no `--deps` → starts `ready`; with `--deps` → `pending`); (2) work from session plan only; (3) skip. Plans from brainstorming sessions often contain work that never became tasks — this closes that gap.
 
@@ -151,6 +153,6 @@ If any check fails, fixing it is part of completing the task — do NOT report s
 **If Task Cannot Be Completed:**
 
 1. `forge task unlock T###` (releases lock, defaults to `continuation`) — or `--to-status ready` if no progress was made. Never hand-edit the registry; the CLI mirrors changes to the task file atomically.
-2. Document the blocker under "Continuation Context" (done / remaining / resume point).
+2. Document the blocker under "Continuation Context" (done / remaining / resume point). This is the compaction boundary for this task — apply the six preservation categories (`skills/_shared/continuity-preservation.md`): what was tried and set aside and why, constraints stated exactly, and any hard-to-reconstruct specifics kept verbatim with their provenance. Completeness on those outranks brevity here.
 3. Add the blocker to the session file; note the continuation in the epic progress log.
 4. Do NOT run the completion steps — dependents must not unblock.

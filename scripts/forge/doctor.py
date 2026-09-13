@@ -47,6 +47,25 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 # designed installer change (ship the manifest, single-file copy) lands.
 CUT_PATHS_REL = Path("scripts") / "install" / "cut-paths.txt"
 
+# SessionStart injects index.md and key-facts.md and truncates each at this
+# many characters. Kept in step with hooks/session/session-context.py by
+# tests/wiring/test_memory_cap_in_step.py — the hook is standalone and cannot
+# import from here, so the constant is duplicated and the test owns the drift.
+INJECTED_CAP_CHARS = 20000
+# Below the cap but still costly enough that every session pays for it.
+INJECTED_WARN_CHARS = 12000
+# Claude Code loads every .claude/rules/*.md at launch (docs: 'Rules without
+# `paths` frontmatter are loaded at launch with the same priority as
+# .claude/CLAUDE.md'). The directory is therefore a per-session budget, not a
+# reference shelf, and nothing was reporting its size — one consumer reached
+# 133 KB, 68% of its always-on context. Warn well before that.
+# Thresholds sit above the shipped baseline (~49 KB) on purpose: a check that
+# is red on a clean install gets ignored, and the framework's own baseline is
+# pinned by tests/wiring/test_rules_budget.py instead. What doctor is for is
+# what a project has piled on top — sidecars are where the runaway growth was.
+RULES_WARN_BYTES = 65000
+RULES_ALARM_BYTES = 100000
+
 # Transplanted from tests/wiring/test_settings_hooks_exist.py — the proven
 # extractor for hook script paths inside settings.json command strings.
 _WIRED_HOOK_RE = re.compile(r"\.claude/(hooks/[\w\-/]+\.py)")
@@ -327,11 +346,151 @@ def check_wiring(ctx: DoctorContext) -> CheckResult:
     )
 
 
+def check_memory(ctx: DoctorContext) -> CheckResult:
+    """Flag project-memory files that cost more per session than they return.
+
+    index.md and key-facts.md load at every SessionStart, so their size is a
+    standing tax on the project. Past INJECTED_CAP_CHARS the hook truncates
+    mid-file and says so in the injected text — but only a session that reads
+    the marker learns about it, which is nobody. Surfacing it here is how a
+    project finds out its memory tail stopped reaching sessions months ago.
+    """
+    memory_dir = ctx.project_root / "docs" / "project-memory"
+    if not memory_dir.is_dir():
+        return CheckResult(
+            name="memory",
+            status=SKIPPED,
+            summary="no docs/project-memory/ (project memory not in use)",
+        )
+
+    findings: list[str] = []
+    sizes: list[str] = []
+    for name in ("index.md", "key-facts.md"):
+        f = memory_dir / name
+        if not f.is_file():
+            continue
+        size = f.stat().st_size
+        # The hook truncates on len(text) — CHARACTERS. Comparing st_size would
+        # compare bytes against a character threshold, and bytes >= chars always,
+        # so any non-ASCII file reads as larger than the hook sees it. A 19 823-char
+        # CJK file is 59 427 bytes: injected whole, reported as truncated. Bytes are
+        # still what a human wants in the summary, so keep both.
+        try:
+            chars = len(f.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            chars = size
+        sizes.append(f"{name} {size // 1024} KB")
+        if chars > INJECTED_CAP_CHARS:
+            findings.append(
+                f"{name} is {chars} chars ({size // 1024} KB) — over the "
+                f"{INJECTED_CAP_CHARS}-char injection cap, so everything past the "
+                "cap is silently dropped from every session"
+            )
+        elif chars > INJECTED_WARN_CHARS:
+            findings.append(
+                f"{name} is {chars} chars ({size // 1024} KB) — under the cap but "
+                "loaded whole at every SessionStart"
+            )
+
+    if not sizes:
+        return CheckResult(
+            name="memory",
+            status=SKIPPED,
+            summary="no injected memory files yet",
+        )
+
+    if findings:
+        return CheckResult(
+            name="memory",
+            status=ISSUES,
+            summary=", ".join(sizes),
+            findings=findings,
+            hint=(
+                "run /reconcile-memory — it routes narrative entries to the "
+                "on-demand files and drops stale ones, which costs nothing per "
+                "session instead of everything"
+            ),
+        )
+    return CheckResult(name="memory", status=OK, summary=", ".join(sizes))
+
+
+def check_rules_budget(ctx: DoctorContext) -> CheckResult:
+    """Report what .claude/rules/ costs at every session start.
+
+    A rule file without `paths:` frontmatter loads unconditionally at launch, so
+    the directory's total size is charged to every session in the project
+    regardless of what the work touches. Rules that DO carry `paths:` load only
+    when Claude reads a matching file, so they are counted separately — and note
+    that path-scoping keys on the Read tool, which means it does not fire in
+    sessions that reach files through Bash.
+    """
+    rules_dir = ctx.framework_root / "rules"
+    if not rules_dir.is_dir():
+        return CheckResult(
+            name="rules-budget", status=SKIPPED, summary="no rules/ directory"
+        )
+
+    always_on = scoped = 0
+    n_always = n_scoped = 0
+    biggest: list[tuple[int, str]] = []
+    for f in sorted(rules_dir.rglob("*.md")):
+        size = f.stat().st_size
+        head = ""
+        try:
+            head = f.read_text(encoding="utf-8", errors="replace")[:400]
+        except OSError:
+            pass
+        is_scoped = head.startswith("---") and "\npaths:" in head
+        if is_scoped:
+            scoped += size
+            n_scoped += 1
+        else:
+            always_on += size
+            n_always += 1
+            biggest.append((size, f.name))
+
+    if not (n_always or n_scoped):
+        return CheckResult(name="rules-budget", status=SKIPPED, summary="rules/ is empty")
+
+    biggest.sort(reverse=True)
+    summary = f"{always_on // 1024} KB always-on across {n_always} file(s)"
+    if n_scoped:
+        summary += f"; {scoped // 1024} KB path-scoped across {n_scoped}"
+
+    if always_on >= RULES_ALARM_BYTES:
+        level, word = ISSUES, "is very large"
+    elif always_on >= RULES_WARN_BYTES:
+        level, word = ISSUES, "is large"
+    else:
+        return CheckResult(name="rules-budget", status=OK, summary=summary)
+
+    findings = [
+        f"rules/ {word}: {always_on // 1024} KB (~{always_on // 4000}k tokens) loaded "
+        "at every session start, before the first prompt"
+    ]
+    findings += [
+        f"largest: {name} ({size // 1024} KB)" for size, name in biggest[:3]
+    ]
+    return CheckResult(
+        name="rules-budget",
+        status=level,
+        summary=summary,
+        findings=findings,
+        hint=(
+            "move opt-in reference material into a skill or reference/; a consumer "
+            "can drop a specific rule durably with a claudeMdExcludes glob in "
+            "settings.local.json (rsync-excluded, so it survives refresh)"
+        ),
+    )
+
+
 CHECKS = [
     check_version,
     check_orphans,
     check_registry,
     check_wiring,
+    check_memory,
+    check_rules_budget,
 ]
 
 
