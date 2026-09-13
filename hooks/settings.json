@@ -139,8 +139,7 @@
       "Edit(docs/project-memory/**)",
       "Write(docs/project-memory/**)",
       "Read(daily/**)",
-      "Edit(daily/**)",
-      "Bash(awk *)"
+      "Edit(daily/**)"
     ],
     "ask": [
       "Bash(rm *)",
@@ -193,7 +192,8 @@
   "_permissions_note": "Bash rules: read-only commands (rg/fd/grep/ls/cat/head/tail/git+gh read-only subcommands) are auto-allowed by Claude Code and need no entry. `ask` gates destructive commands even in permissive modes, where a default prompt would not fire. Interpreters (python3/node/bun/npx) are deliberately absent from `allow`: patterns are prefix matches, so `Bash(python3 script.py *)` would also match `python3 script.py && rm -rf ~`. `find` is denied per the house rule that bare `find` has hung this machine — use `fd`. Override per-project in .claude/settings.local.json.",
   "_retired_permissions": {
     "allow": [
-      "Write(daily/**)"
+      "Write(daily/**)",
+      "Bash(awk *)"
     ],
     "deny": [
       "Read(./**/dist/**)",
