@@ -61,3 +61,24 @@ def test_task_ls_survives_mixed_priority_shapes(tmp_path):
     assert "TypeError" not in r.stderr
     # critical(1) and None(1) tie on rank, then id; int 2 and "low"(4) follow.
     assert _ids(r.stdout) == ["T2", "T3", "T4", "T1"]
+
+
+def test_task_ls_json_uses_the_same_priority_order(tmp_path):
+    """`--json` must not return registry insertion order: run-epic picks `.[0]`."""
+    import json
+    low_epic = {"id": "E2", "name": "Later", "status": "in_progress",
+                "priority": 5, "tasks": ["T1"]}
+    high_epic = {"id": "E1", "name": "First", "status": "in_progress",
+                 "priority": 1, "tasks": ["T3", "T2"]}
+    t1 = {**_task("T1", "critical"), "epic": "E2"}
+    repo = make_repo(tmp_path, base_registry(
+        epics=[low_epic, high_epic],
+        # Insertion order is the wrong answer on both keys: the E2 task first,
+        # and a low-priority E1 task ahead of a critical one.
+        tasks=[t1, _task("T3", "low"), _task("T2", "critical")],
+    ))
+    r = _run(repo, "task", "ls", "--json")
+    assert r.returncode == 0, r.stderr
+    assert [t["id"] for t in json.loads(r.stdout)] == ["T2", "T3", "T1"]
+    plain = _run(repo, "task", "ls")
+    assert _ids(plain.stdout) == ["T2", "T3", "T1"]
