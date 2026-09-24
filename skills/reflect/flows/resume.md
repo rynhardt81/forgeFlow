@@ -120,7 +120,7 @@ python3 .claude/scripts/forge/forge.py task complete T###
 ```
 
 **This single command does all of the following atomically:**
-- Sets `status: "completed"` in registry; clears the `lock` object (v3 uses single `lock: {...}|null`)
+- Sets `status: "completed"` in registry; clears the `lock` object
 - Sets `completedAt` (UTC RFC3339); recomputes `stats.tasks.*` / `stats.epics.*`
 - Flips any fully-unblocked dependents `pending → ready`
 - Mirrors status changes into this task file's frontmatter AND each unblocked task's frontmatter
@@ -138,17 +138,8 @@ Add the task to the completed list with a one-line summary; note handoff info fo
 
 Invoke `Skill("create-pr")`. On success it flips the task to `pr_pending` via `forge task pr T###` — in that case **skip Step 4's `forge task complete`**; `pr_pending` is the right terminal state until the PR merges. Doc-only tasks: skip this step.
 
-### Step 8 — Verification (REQUIRED before claiming done)
-If any check fails, fixing it is part of completing the task — do NOT report success:
-
-- [ ] Task file frontmatter shows `status: completed` (or `pr_pending`) with `completedAt`/`prAt` populated
-- [ ] Registry entry shows the matching terminal status with `lock: null`
-- [ ] Registry `stats.tasks.*` counts reflect this task (`forge task show T###`)
-- [ ] Epic file progress counter updated; task row shows the terminal status
-- [ ] Every unblocked dependent has `status: ready` in BOTH registry and its task file
-- [ ] Session file lists this task under completed (or pr_pending) work
-- [ ] `git status` shows task file, epic file, and `registry.json` committed together
-- [ ] **Code-shipping tasks:** PR opened via `Skill("create-pr")` — never raw `gh pr create`
+### Step 8 — Evidence before claiming done
+`forge task show T###` shows the terminal status (`completed` or `pr_pending`), and `git status` is clean with the task file, epic file and `registry.json` in one commit. Code-shipping tasks: the PR URL from `/create-pr`. The CLI updates the registry, frontmatter and dependents atomically, and the consistency-banner hook reports any drift. A failure there is part of the task, not a report.
 
 **If Task Cannot Be Completed:**
 

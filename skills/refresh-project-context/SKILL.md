@@ -141,7 +141,7 @@ Move any detailed content to CHEATSHEET.md:
 If not `--quick`:
 
 ```
-Self-perform (this skill IS the v3 documentation audit; v2 used a `@doc-updater` agent which was cut). Focus:
+Self-perform (this skill is the documentation audit). Focus:
 
 1. Framework files in `.claude/reference/` (NOT docs/)
 2. Task registry at `docs/tasks/registry.json`

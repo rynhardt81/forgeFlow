@@ -9,10 +9,7 @@ Comprehensive design guide for web and mobile applications. Contains 67 styles, 
 
 ## Companion Skill: frontend-design
 
-**IMPORTANT**: Always use with the **frontend-design** skill for design principles and anti-pattern detection. This skill provides *what* options exist; frontend-design provides *why* certain choices work and what to avoid (AI slop detection).
-
-→ *See [frontend-design/SKILL.md](../frontend-design/SKILL.md) for design principles*
-→ *See [frontend-design/reference/](../frontend-design/reference/) for deep dives on typography, color, motion, etc.*
+This skill provides *what* options exist; `/frontend-design` ([SKILL.md](../frontend-design/SKILL.md)) sets the aesthetic direction that picks among them. Use it first when building UI, then come here for concrete styles, palettes and pairings.
 
 ## When to Apply
 

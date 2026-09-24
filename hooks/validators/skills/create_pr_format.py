@@ -8,7 +8,7 @@ Repos without the config get no bot-mention nag (public installs have no
 Codex). Section-header requirements were dropped intentionally — the create-pr
 skill's Small template is a single sentence with no headers, and forcing
 `## Summary` and `## Test Plan` on every PR conflicts with the skill's
-Concision rules.
+Output rules.
 
 Runs on Stop hook to validate before PR creation.
 

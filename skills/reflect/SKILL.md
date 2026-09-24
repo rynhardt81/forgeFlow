@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: Session continuity, task management, and skill improvement. Resume work, check status, manage locks, or capture learnings.
+description: Session continuity for Forge task work — resume an interrupted session, epic or task (`resume`), show task/lock/session status (`status`), print a cold-start brief for a fresh session (`handoff`), release a stale lock (`unlock`/`cleanup`), or capture learnings into a skill's sidecar. Use when picking work back up, handing off before a context reset, or when a task lock is stuck.
 ---
 
 ## Quick Scan

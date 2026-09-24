@@ -267,6 +267,8 @@ Commit everything (`docs/`, `.claude/reference/`, registry, epic/task files) wit
 
 ## Worked Example (greenfield)
 
+Illustrative only: question count, stack choices, epic and task counts all come from the project in hand, not from this run.
+
 ```
 User: /new-project "Invoice tracker for a small workshop — customers, invoices, payment status"
 

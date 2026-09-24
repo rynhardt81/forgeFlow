@@ -90,7 +90,7 @@
       "name": "create-pr",
       "command": "/create-pr",
       "path": "skills/create-pr/SKILL.md",
-      "description": "Create pull request with mandatory @codex review mention plus pr-review-toolkit specialist pre-flight (Step 3.7); also offers review loop and merge-order modes",
+      "description": "Create pull request with the configured review-bot mention plus pr-review-toolkit specialist pre-flight (Step 3.7); also offers review loop and merge-order modes",
       "category": "workflow",
       "agents": [
         "security-boss"

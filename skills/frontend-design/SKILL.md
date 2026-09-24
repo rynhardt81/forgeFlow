@@ -10,6 +10,7 @@ This is a routing card, not a vendored design course. Anthropic's full `frontend
 ## Core discipline (fallback)
 
 1. **Pick one aesthetic direction and commit** — name it in a sentence ("dense engineering console", "warm editorial print") before touching code. Templated output comes from skipping this step.
+   Unless the direction calls for them, avoid the recurring defaults: a cream or off-white background, italic accent words in headlines, numbered "01/02/03" section labels, monospace labels, pill-shaped buttons. When a first result still looks templated, add the specific pattern it used to this list rather than a general "less generic".
 2. **Typography does most of the work.** One display face + one text face maximum; set a real scale (e.g. 1.25 ratio) and stick to it. System-font stacks are a choice, not a default.
 3. **Color: one dominant, one accent, neutrals earned.** Derive the palette from the aesthetic direction; check text contrast (WCAG AA minimum) before shipping.
 4. **Spacing rhythm over decoration.** A consistent spacing scale (4/8px base) reads as polish; borders and shadows rarely do.
