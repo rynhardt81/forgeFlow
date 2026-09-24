@@ -67,7 +67,7 @@ Work discovered *while* running any of these follows `skills/_shared/task-triage
 
 `python3 .claude/scripts/forge/evals.py` is not a skill either: it replays recorded prompts against the current config to catch behaviour regressions a wiring test cannot see (`tests/evals/README.md`). **It spawns `claude` and spends money** — it refuses to start without `FORGE_EVALS_BILLING=api`, refuses inside a hook or loop, and no hook may invoke it.
 
-`forge dashboard` is not a skill: it serves a local cockpit at `http://127.0.0.1:4847/` — tasks, code map, ISAs, memory, registry, burndown (read-only, SSE live-reload). `forge` = `python3 .claude/scripts/forge/forge.py`; alias it once per machine.
+`forge dashboard` is not a skill: it serves a local cockpit at `http://127.0.0.1:4847/` — tasks, code map, ISAs, memory, registry, burndown (read-only, SSE live-reload). `forge` = `python3 .claude/scripts/forge/forge.py`; alias it once per machine. In a shell call, define it as a function — `forge() { python3 .claude/scripts/forge/forge.py "$@"; }` — never as a variable: zsh does not word-split `$FORGE`, so `$FORGE task ls` looks up the whole string as one command and fails.
 
 ## Agents
 
