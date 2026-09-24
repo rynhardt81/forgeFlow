@@ -4,8 +4,13 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.6] — 2026-09-24
+
+> Patch. Stops refresh re-adding permission rules a consumer removed, fixes `task ls --json` ordering, and lands a second prompt-audit pass.
+
 ### Fixed
 
+- **`Write(.claude/**)`, `Write(docs/tasks/**)` and `Write(docs/project-memory/**)` are retired from the shipped `allow` set.** They error in the CLI, and the `Edit(...)` rule beside each already covers the same path. One consumer removed them by hand on 2026-09-15 and the union merge put them straight back on its next refresh — the same failure as `Bash(awk *)` in v4.7.4. Listed under `_retired_permissions.allow` so the merge removes them from consumers; a wiring test pins that none ships and that each keeps its `Edit(...)` twin.
 - **`forge task ls --json` now returns the same (epic priority, task priority, id) order as the plain listing.** The sort ran after the `--json` branch had returned, so JSON callers — including `/run-epic`'s `.[0]` pick — got registry insertion order. Regression test in `tests/forge/test_task_ls_legacy_priority.py`.
 - **`/audit-rules` no longer runs `find`** to list governance files; a glob lists the same flat `rules/` directory.
 
