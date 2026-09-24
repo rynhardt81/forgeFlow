@@ -41,7 +41,7 @@ allowed-tools: Read, Glob, Grep, Bash, Write, TodoWrite
 List every governance file:
 
 ```bash
-find CLAUDE.md .claude/rules/ -name "*.md" 2>/dev/null
+ls CLAUDE.md .claude/rules/*.md 2>/dev/null
 ```
 
 For each file, record:
