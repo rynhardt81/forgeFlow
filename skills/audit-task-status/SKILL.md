@@ -87,11 +87,12 @@ verify and fix:
 - **The progress counter** — a prose line like `**Tasks:** N total — M completed, …`.
   Recompute from the registry and rewrite it. Refresh any "as of <date>" stamp.
 - **The per-task status — in TWO idioms**, depending on the epic:
-  - *Pipe tables*: `| T### | … | <status> | … |`. Column position varies (5-col vs
-    6-col; E38 puts a `Track` column before `Status`), and cells carry annotations
-    (`completed (PR #254)`, `closed — phantom`). Fix any cell whose leading status
+  - *Pipe tables*: `| T### | … | <status> | … |`. Column position varies between
+    epics (some add columns before `Status`), so locate the `Status` header rather
+    than counting columns. Cells may carry annotations after the status
+    (`completed (PR #N)`, `closed — phantom`). Fix any cell whose leading status
     token disagrees with the registry.
-  - *Checklists* (e.g. E25): `- [x] T###: … ✅` / `- [~] T###a: … superseded`. The
+  - *Checklists*: `- [x] T###: … ✅` / `- [~] T###a: … superseded`. The
     checkbox alone is ambiguous, so the script only flags a row when an explicit
     status word in the line contradicts the registry. Verify these by hand — a
     `[x]` next to a task the registry calls `superseded` is real drift; a `[x]`

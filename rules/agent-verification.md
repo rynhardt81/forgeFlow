@@ -46,20 +46,14 @@ Caller-sweep and sibling-sweep both trace *code*. Neither catches the third shap
 
 It fails silently by construction — the short list does not error, it just omits. Nothing tests the item that isn't there.
 
-Three instances, one day, all in this framework:
-
-| Rule | Long list | Short list | Cost |
-|------|-----------|-----------|------|
-| "merge the framework's permissions" | `allow`, `ask`, `deny` shipped | merge named `allow` and `deny` | `ask` reached no consumer — "destructive needs approval" enforced by nothing in permissive modes |
-| "never delete user-owned files" | rsync excluded 8 user-owned paths | cut-paths denylist named 4 roots | a manifest entry could delete what refresh preserved |
-| "the framework does not own this file" | rsync excluded the preflight shim | the generator copied over it unconditionally | two projects lost working shims; each then failed on `pip: command not found` |
+Example: a permissions merge that names `allow` and `deny` while the shipped config also has `ask` — every `ask` rule silently reaches no one.
 
 Before declaring a rule applied:
 
 - **Find every list that encodes it.** Grep the rule's *subject*, not the code you changed — `permissions`, `exclude`, `protected`, the filename. Two lists that must agree are a defect waiting for the next addition.
 - **Ask what happens when someone adds a fourth item.** If the answer is "they must remember to add it in two places," the design is the bug. Iterate the source of truth instead of enumerating from it — a new item should ship *by existing*.
-- **Check for a second writer.** An exclude list only binds the writer it belongs to. The preflight shim was correctly excluded from the rsync and destroyed anyway, because a generator wrote to the same path and had never heard of the exclude.
-- **Distrust a comment that justifies an exception.** "out_dir is generated and gitignored" was written to explain why the overwrite was safe. It was false on both counts, and it stopped anyone from re-examining the line for a year. Verify the premise, not the conclusion.
+- **Check for a second writer.** An exclude list only binds the writer it belongs to; a different writer to the same path (a generator, a template copy) overwrites what the list protects.
+- **Distrust a comment that justifies an exception** ("this dir is generated and gitignored, so overwriting is safe"). Verify the premise, not the conclusion.
 
 ## The check, restated
 

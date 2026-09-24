@@ -214,7 +214,7 @@ detects the marker and reports it explicitly:
   would leave them seeing the plain green this mechanism exists to remove.
 
 Consumers differ deliberately: the **pre-push hook waves `5` through** with a
-warning (T600 — an absent local stack must not block a push, and CI still runs
+warning (an absent local stack must not block a push, and CI still runs
 the job), while **`/create-pr` blocks on it** (a PR gate is cheap to re-run).
 
 To actually run a skipped job, bring its dependency up (`docker compose up -d`)

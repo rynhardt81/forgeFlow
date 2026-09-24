@@ -17,8 +17,9 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, TodoWrite, AskUserQues
 
 # Refresh Project Context Skill
 
-> **CRITICAL PRINCIPLE:** Keep CLAUDE.md LEAN (~100 lines max for framework content).
-> Add detailed reference content to CHEATSHEET.md instead.
+> Keep the project-context section of CLAUDE.md to about 100 lines: it loads into every
+> session, so each line costs context on every turn. Detailed reference content goes in
+> CHEATSHEET.md, which is read on demand.
 
 ---
 

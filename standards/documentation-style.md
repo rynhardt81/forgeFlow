@@ -8,7 +8,7 @@
 
 ## Rule 1: No Time Estimates
 
-NEVER document time estimates, durations, or completion times for any workflow, task, or activity. This includes workflow execution time, task duration estimates, reading time estimates, and implementation time ranges.
+Do not document time estimates, durations, or completion times for any workflow, task, or activity. This includes workflow execution time, task duration estimates, reading time estimates, and implementation time ranges.
 
 **Why:** Time varies dramatically based on project complexity, team experience, tooling, and unforeseen blockers.
 
@@ -45,7 +45,7 @@ Hard-won one-off fixes — these produce broken renders when missed:
 | Connecting undefined nodes | Define all nodes before connecting |
 | Sprawling diagrams | 5–10 nodes ideal, 15 maximum — split beyond that |
 
-Use valid Mermaid v10+ syntax and validate mentally before outputting.
+Use valid Mermaid v10+ syntax. Where a renderer is available (`mmdc`, a preview), render the diagram to confirm it parses.
 
 ---
 

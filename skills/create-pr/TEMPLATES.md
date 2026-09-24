@@ -36,7 +36,7 @@ If files and lines suggest different sizes, use the larger size.
 [1-2 sentences — what changed and why. No restating the diff.]
 
 ## Changes
-- [≤5 bullets, ≤12 words each]
+- [One bullet per reviewable change, each a single short line — a reviewer scans this list before opening the diff]
 
 [Optional — include ONLY if non-empty: ## Related Issues with closes #N lines]
 
@@ -55,14 +55,14 @@ If files and lines suggest different sizes, use the larger size.
 [2-3 sentences — purpose and scope. No prose padding.]
 
 ## Changes
-- [≤8 bullets total across categories, ≤15 words each. Group with `### Category` headers only when ≥3 bullets in a category.]
+- [One bullet per reviewable change, each a single short line. Group under `### Category` headers when a category holds several bullets.]
 
 ## Test Plan
 - [ ] [Concrete verification step]
 - [ ] [Concrete verification step]
 
 [Optional — include ONLY if non-empty: ## Related Issues]
-[Optional — include ONLY if breaking change, migration required, or specific risk area: ## Notes for Reviewers — one paragraph max]
+[Optional — include ONLY if breaking change, migration required, or specific risk area: ## Notes for Reviewers — only what a reviewer must know before approving]
 
 [review-bot line — only if forge.reviewBot is set. Append " Focus: <risk area>." ONLY if the PR has a specific risk area worth flagging.]
 
