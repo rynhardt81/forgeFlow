@@ -33,7 +33,7 @@ If files and lines suggest different sizes, use the larger size.
 
 ```markdown
 ## Summary
-[1-2 sentences — what changed and why. No restating the diff.]
+[What changed and why, for a reviewer who has not read the diff. No restating the diff.]
 
 ## Changes
 - [One bullet per reviewable change, each a single short line — a reviewer scans this list before opening the diff]
@@ -52,7 +52,7 @@ If files and lines suggest different sizes, use the larger size.
 
 ```markdown
 ## Summary
-[2-3 sentences — purpose and scope. No prose padding.]
+[Purpose and scope, for a reviewer deciding where to look first. No prose padding.]
 
 ## Changes
 - [One bullet per reviewable change, each a single short line. Group under `### Category` headers when a category holds several bullets.]
