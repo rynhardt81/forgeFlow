@@ -484,6 +484,98 @@ def check_rules_budget(ctx: DoctorContext) -> CheckResult:
     )
 
 
+# Everything Claude Code puts in context before the first prompt that this
+# framework controls: the root CLAUDE.md with every @import it expands, the
+# always-on rules, and the memory SessionStart injects. Skill descriptions and
+# Claude Code's own system prompt are not counted. 100 KB is ~25k tokens.
+STARTUP_WARN_BYTES = 100_000
+_IMPORT_RE = re.compile(r"(?<![`\w])@([\w./~-]+\.md)\b")
+_FENCE_RE = re.compile(r"```.*?```", re.S)
+_SPAN_RE = re.compile(r"`[^`\n]*`")
+
+
+def _expand_imports(start: Path, project_root: Path) -> list[Path]:
+    """CLAUDE.md plus its @imports, recursively (Claude Code allows four hops).
+
+    Imports inside code spans and fences are literal text, not imports.
+    """
+    seen: list[Path] = []
+    frontier = [(start, 0)]
+    while frontier:
+        f, depth = frontier.pop(0)
+        f = f.resolve()
+        if f in seen or not f.is_file():
+            continue
+        seen.append(f)
+        if depth >= 4:
+            continue
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        text = _SPAN_RE.sub("", _FENCE_RE.sub("", text))
+        for m in _IMPORT_RE.finditer(text):
+            target = Path(m.group(1)).expanduser()
+            if not target.is_absolute():
+                target = f.parent / target
+            frontier.append((target, depth + 1))
+    return seen
+
+
+def check_startup_context(ctx: DoctorContext) -> CheckResult:
+    """Total what loads before the first prompt, and name the biggest parts.
+
+    Each piece has its own check or none; this is the number a session pays.
+    """
+    parts: list[tuple[int, str]] = []
+    for name in ("CLAUDE.md", "CLAUDE.local.md"):
+        for f in _expand_imports(ctx.project_root / name, ctx.project_root):
+            try:
+                label = str(f.relative_to(ctx.project_root.resolve()))
+            except ValueError:
+                label = str(f)
+            parts.append((f.stat().st_size, label))
+
+    rules_dir = ctx.project_root / ".claude" / "rules"
+    if rules_dir.is_dir():
+        for f in sorted(rules_dir.rglob("*.md")):
+            try:
+                head = f.read_text(encoding="utf-8", errors="replace")[:400]
+            except OSError:
+                continue
+            if not (head.startswith("---") and "\npaths:" in head):
+                parts.append((f.stat().st_size, f".claude/rules/{f.relative_to(rules_dir)}"))
+
+    memory_dir = ctx.project_root / "docs" / "project-memory"
+    for name in ("index.md", "key-facts.md"):
+        f = memory_dir / name
+        if f.is_file():
+            parts.append((min(f.stat().st_size, INJECTED_CAP_CHARS),
+                          f"docs/project-memory/{name} (injected)"))
+
+    if not parts:
+        return CheckResult(name="startup-context", status=SKIPPED,
+                           summary="no CLAUDE.md, rules or injected memory found")
+
+    total = sum(s for s, _ in parts)
+    summary = (f"~{total // 1024} KB (~{total // 4000}k tokens) before the first "
+               f"prompt across {len(parts)} file(s)")
+    if total < STARTUP_WARN_BYTES:
+        return CheckResult(name="startup-context", status=OK, summary=summary)
+    parts.sort(reverse=True)
+    return CheckResult(
+        name="startup-context",
+        status=ISSUES,
+        summary=summary,
+        findings=[f"largest: {label} ({size // 1024} KB)" for size, label in parts[:4]],
+        hint=(
+            "keep CLAUDE.md/AGENTS.md to what every session needs and point to the "
+            "rest (an @import still loads at launch — a plain path does not); scope "
+            "advisory sidecars with paths:; run /reconcile-memory for memory"
+        ),
+    )
+
+
 CHECKS = [
     check_version,
     check_orphans,
@@ -491,6 +583,7 @@ CHECKS = [
     check_wiring,
     check_memory,
     check_rules_budget,
+    check_startup_context,
 ]
 
 

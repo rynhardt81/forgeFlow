@@ -529,3 +529,42 @@ def test_doctor_banner_no_install_found_is_silent(tmp_path):
 
     assert result.returncode == 0
     assert result.stdout == ""
+
+
+# --- startup-context: the whole always-on total --------------------------
+
+
+def _startup_consumer(tmp_path: Path, agents_bytes: int) -> Path:
+    root = make_consumer(tmp_path, version="0.0.0", orphan=False, broken_wiring=False)
+    (root / "CLAUDE.md").write_text(
+        "@.claude/CLAUDE.md\n\n@AGENTS.md\n\nMention `@NOT_IMPORTED.md` literally.\n"
+    )
+    (root / ".claude" / "CLAUDE.md").write_text("# framework\n" + "x" * 4000 + "\n")
+    (root / "AGENTS.md").write_text("# guide\n" + "y" * agents_bytes + "\n")
+    (root / "NOT_IMPORTED.md").write_text("z" * 500_000)
+    rules = root / ".claude" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "always.md").write_text("a" * 3000)
+    (rules / "scoped.md").write_text('---\npaths:\n  - "**/*.py"\n---\n' + "s" * 200_000)
+    return root
+
+
+def test_startup_context_counts_imports_and_flags_the_biggest(tmp_path):
+    root = _startup_consumer(tmp_path, agents_bytes=120_000)
+    payload = json.loads(run_doctor(root, "--json").stdout)
+    check = check_by_name(payload, "startup-context")
+    assert check["status"] == "issues"
+    assert any("AGENTS.md" in f for f in check["findings"]), check["findings"]
+    # Backticked @mentions are not imports; path-scoped rules are not always-on.
+    assert not any("NOT_IMPORTED" in f or "scoped.md" in f for f in check["findings"])
+
+
+def test_startup_context_ok_when_small(tmp_path):
+    root = _startup_consumer(tmp_path, agents_bytes=1_000)
+    payload = json.loads(run_doctor(root, "--json").stdout)
+    check = check_by_name(payload, "startup-context")
+    assert check["status"] == "ok", check
+    # Root CLAUDE.md, .claude/CLAUDE.md, AGENTS.md and the one unscoped rule —
+    # not the 500 KB backticked mention or the 200 KB path-scoped rule.
+    assert check["summary"].startswith("~7 KB"), check["summary"]
+    assert "across 4 file(s)" in check["summary"], check["summary"]
