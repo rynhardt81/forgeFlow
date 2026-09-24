@@ -4,6 +4,15 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+### Fixed
+
+- **`forge task ls --json` now returns the same (epic priority, task priority, id) order as the plain listing.** The sort ran after the `--json` branch had returned, so JSON callers — including `/run-epic`'s `.[0]` pick — got registry insertion order. Regression test in `tests/forge/test_task_ls_legacy_priority.py`.
+- **`/audit-rules` no longer runs `find`** to list governance files; a glob lists the same flat `rules/` directory.
+
+### Changed
+
+- **Second prompt-audit pass.** Contradictions and dangling references fixed: `/run-epic` now names E99 as the one sanctioned place outside the current epic to file derived work, and logs each filing instead of filing "silently"; the review-bot mention is described as config-driven everywhere (six places still called `@codex` mandatory); `CLAUDE.md` says rules load at session start, matching the rule headers; pointers to a non-existent `CHECKS.md`, `.claude/security/`, `frontend-design/reference/` and "Concision rules" section now point at what exists. Dated scaffolding removed: v2/v3 migration asides, a step-count quota and two extra confirmation stops in `/new-feature`, an always-on TDD-guidance dispatch, an eight-item re-check of what `forge task complete` does atomically, and a scripted four-step assumption stress-test in the Algorithm (now the outcome it existed for). `rules/hooks.md`'s removal history moved to `CONTRIBUTING.md`. `audit-rules` and `reflect` descriptions rewritten as trigger text. No gate was relaxed.
+
 ## [v4.7.5] — 2026-09-24
 
 > Patch. Upstreams a consumer's fix so the next refresh stops undoing it.
