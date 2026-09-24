@@ -100,4 +100,4 @@ Some skills invoke specialist agents shipped by external Claude Code plugins, no
 - `reference/14-agent-delegation.md` — how skills delegate (Task-tool wiring, multi-agent flows, v2-to-v3 routing for legacy agent references)
 - `hooks/validators/agents/*.py` — the validators bound to each framework agent
 - `skills/<name>/SKILL.md` — skills that auto-fire framework agents
-- `skills/create-pr/CHECKS.md` → "Specialist Review" — the diff-pattern → agent matrix used by `/create-pr` Step 3.7
+- `skills/create-pr/SKILL.md` → Step 3.7 "Agent selection" — the diff-pattern → agent matrix

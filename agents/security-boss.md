@@ -58,4 +58,4 @@ The walkthrough for each lives where it executes: `skills/security-review/SKILL.
 - `docs/code-map.md` — current structural map (auto-regenerated each session)
 - `.claude/reference/03-security-auth-and-access.md` — auth model
 - `.claude/reference/08-security-model.md` — threat model
-- `.claude/security/` — command-validation pipeline (sibling to me, runs at Bash time)
+- `skills/damage-control/` — blocking command-security hooks (opt-in; runs at Bash time)

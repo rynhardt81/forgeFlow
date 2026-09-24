@@ -25,7 +25,6 @@ I am invoked when:
 - A PR or task needs a code review (correctness, coverage, style)
 - An acceptance criterion needs verification against the actual implementation
 - A bug needs to be reproduced and reported with a failing test
-- The Algorithm's VERIFY phase needs an independent probe of the ISC
 
 ## What I produce
 

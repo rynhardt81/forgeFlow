@@ -109,7 +109,7 @@ Multiple matched specialists fan out in parallel — single message, multiple Ta
 - Wider issue: <yes/no + sentence>
 
 #### Next step
-Apply the proposed fix locally, run the relevant local check (see CHECKS.md),
+Apply the proposed fix locally, run the relevant local check (`/preflight-ci` mirrors each CI job),
 then push. Do NOT push without re-running the local check that mirrors the CI job.
 ```
 
