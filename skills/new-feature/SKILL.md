@@ -49,17 +49,16 @@ Run each phase sequentially. See [PHASES.md](PHASES.md) for detailed instruction
 | Medium | Discovery → Design → Planning → Implementation → Verification → Review → Doc Update → Commit → **PR (`/create-pr`)** |
 | Large | All phases with deeper analysis, ending in **PR (`/create-pr`)** |
 
-### Agent + Skill Routing Reference (v3)
+### Agent + Skill Routing Reference
 
-| Phase | Invocation | Condition | Purpose | v2 mapping |
-|-------|-----------|-----------|---------|-----------|
-| Design | `@architect` (Task) | Medium/Large | Architecture decisions, ADRs | unchanged |
-| Implementation | `@quality-engineer` (Task) | Always | TDD workflow guidance + AAA structure | `@tdd-guide` → quality-engineer |
-| Implementation | `@security-boss` (Task) | Security features | Threat-model + security review | unchanged |
-| Verification | `@quality-engineer` (Task) | UI/user flows | E2E test execution | `@e2e-runner` → quality-engineer |
-| Review | `@quality-engineer` (Task) | Medium/Large | Code review (correctness, coverage) | unchanged |
-| Review | `/refactor` (Skill) | Significant refactor surfaces | Risk-scaled refactor | `@refactor-cleaner` → /refactor |
-| Doc Update | `/refresh-project-context` (Skill) | Medium/Large or public API | Documentation sync | `@doc-updater` → skill |
+| Phase | Invocation | Condition | Purpose |
+|-------|-----------|-----------|---------|
+| Design | `@architect` (Task) | Medium/Large | Architecture decisions, ADRs |
+| Implementation | `@security-boss` (Task) | Security features | Threat-model + security review |
+| Verification | `@quality-engineer` (Task) | UI/user flows | E2E test execution |
+| Review | `@quality-engineer` (Task) | Medium/Large | Code review (correctness, coverage) |
+| Review | `/refactor` (Skill) | Significant refactor surfaces | Risk-scaled refactor |
+| Doc Update | `/refresh-project-context` (Skill) | Medium/Large or public API | Documentation sync |
 
 Concrete `Task(subagent_type=…)` blocks with full prompts live in [PHASES.md](PHASES.md) at each invocation point.
 
@@ -75,7 +74,7 @@ After the Commit phase, invoke the canonical PR skill:
 Skill("create-pr")
 ```
 
-`/create-pr` runs the DRY hotspot check, the `pr-review-toolkit` specialist pre-flight (Step 3.7), and ensures the mandatory `@codex` mention is in the PR body. Do **not** use raw `gh pr create` — it bypasses every one of those gates.
+`/create-pr` runs the DRY hotspot check, the `pr-review-toolkit` specialist pre-flight (Step 3.7), the local review gate (Step 3.8), and adds the review-bot mention when `forge.reviewBot` is configured. Do **not** use raw `gh pr create` — it bypasses every one of those gates.
 
 If the user has explicitly asked for no PR (rare; usually a local-only experiment), say so and stop. Otherwise, `/create-pr` is the default wrap-up.
 

@@ -12,7 +12,6 @@
 1. Run the ISA Interview against the feature's ISA (or `brainstorming` if you chose the fallback and it's installed)
 2. Resolve design decisions in dependency order, one at a time
 3. Document understanding in the ISA `## Decisions` / `## Out of Scope` (or `docs/plans/YYYY-MM-DD-<feature>-design.md` for the fallback path)
-4. Confirm scope assessment with user
 
 **Output:** Design decisions resolved into the ISA, scope confirmed
 
@@ -58,12 +57,10 @@ Use the Task tool:
 
 **Actions:**
 1. Read the design document from discovery/design
-2. Break into implementation steps (small: 3-5 steps, medium: 5-10, large: 10+)
-3. Order steps by dependency — foundational work first, integration last
-4. Write plan to the design document
-5. Populate TodoWrite with all steps
+2. Break the work into steps ordered by dependency — foundational work first, integration last
+3. Write the plan to the design document; track it in the todo list if that helps
 
-**Output:** Step-by-step plan, todos created
+**Output:** Step-by-step plan
 
 ---
 
@@ -71,17 +68,15 @@ Use the Task tool:
 
 **Always runs**
 
-**Primary guidance:** `@quality-engineer` for TDD workflow (v2 used `@tdd-guide`; folded into quality-engineer in v3 — TDD is part of the test-strategy responsibility).
+**Discipline:** test-first, Arrange/Act/Assert (the `tdd_aaa.py` validator surfaces drift on Write).
 
 **Supporting Agents:**
 - `@security-boss` for security-critical features (auth, payments, data handling)
 
 **Actions:**
-1. Read `@quality-engineer` for TDD workflow guidance (Arrange/Act/Assert; the `tdd_aaa.py` validator surfaces drift on Write events)
-2. Work through TodoWrite items in order
-3. For each item: write test → implement → verify test passes
-4. Mark todos complete as you go
-5. For security-critical code, run `/security-review` (orchestrates `@security-boss` OWASP + secrets, then the business-logic-flaw pass). For features touching money / access control / multi-step state, the business-logic pass is the one that catches IDOR, race, and tampering flaws a plain OWASP review misses.
+1. Work through the plan in order
+2. For each step: write test → implement → verify test passes
+3. For security-critical code, run `/security-review` (orchestrates `@security-boss` OWASP + secrets, then the business-logic-flaw pass). For features touching money / access control / multi-step state, the business-logic pass is the one that catches IDOR, race, and tampering flaws a plain OWASP review misses.
 
 **Wiring (security-critical code only):**
 
@@ -111,7 +106,7 @@ Use the Task tool:
 **Always runs**
 
 **Agents:**
-- `@quality-engineer` for E2E tests (if feature has UI or critical user flows). v2 used `@e2e-runner`; folded into quality-engineer in v3.
+- `@quality-engineer` for E2E tests (if feature has UI or critical user flows).
 
 **Actions:**
 1. Run full test suite using the project's test command
@@ -146,7 +141,7 @@ Use the Task tool:
 **Runs for:** Medium, Large
 
 **Agents:**
-- `@quality-engineer` — primary reviewer (v2's `@refactor-cleaner` was cut; refactor concerns now invoke the `/refactor` skill explicitly when warranted)
+- `@quality-engineer` — primary reviewer; significant refactor concerns go to the `/refactor` skill
 
 **Actions:**
 1. Invoke `@quality-engineer` to review all changes made
@@ -182,7 +177,7 @@ Use the Task tool:
 
 **Runs for:** Medium, Large (or if feature adds public API/config)
 
-**Skill:** `/refresh-project-context` (v2 used `@doc-updater`; folded into the skill in v3 — doc refresh is a workflow, not an agent persona).
+**Skill:** `/refresh-project-context`.
 
 **Actions:**
 1. Invoke `/refresh-project-context` to check if documentation needs updates:
@@ -202,11 +197,6 @@ Use the Task tool:
 **Always runs**
 
 **Actions:**
-1. Run `git status` to see all changes
-2. Run `git diff` to review changes
-3. Stage relevant files (exclude unrelated changes)
-4. Generate commit message following project conventions
-5. Present commit message for approval
-6. Commit on approval
+Commit only the files this feature changed, with a message following project conventions. The commit message is shown at the before-PR confirmation (SKILL.md Step 3); no separate approval stop.
 
 **Output:** Changes committed
