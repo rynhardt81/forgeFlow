@@ -226,7 +226,7 @@ Invoke `/refresh-project-context`: README matches new features/config, API docs 
 
 ## Step 4: Generate Description
 
-Use the size-matched template from [TEMPLATES.md](TEMPLATES.md). Concision rules apply.
+Use the size-matched template from [TEMPLATES.md](TEMPLATES.md); see Output rules above.
 
 ## Step 5: Create PR
 
@@ -298,18 +298,15 @@ Use the Task tool:
 
 ## Gotchas
 
-- **2026-07-16 — Poll ALL THREE codex surfaces, not just issue-comments.** Codex
-  (`chatgpt-codex-connector[bot]`, match `'codex' in login` case-insensitively)
-  files findings across three endpoints in the same PR: top-level issue-comments
-  (`issues/{n}/comments`), formal reviews (`pulls/{n}/reviews`, sometimes
-  `state:COMMENTED` with an EMPTY body), AND inline review comments
-  (`pulls/{n}/comments`, with P-badges). A poll that checks only one endpoint will
-  miss a real P2 (happened this session — the finding was under inline comments
-  while the top-level comment list was empty). Fetch all three.
-- **2026-07-16 — On re-push, codex re-anchors an old inline finding's line# AND
-  `commit_id` to the new head commit** — so the stale P2 and the fresh "clean"
-  verdict can both show the same commit/line. Sort by `created_at` and read the
-  NEWEST entry for the current verdict; do not judge by line proximity or commit id.
+- **Codex findings arrive on three endpoints — poll all of them.** The bot
+  (`chatgpt-codex-connector[bot]`; match `'codex' in login`, case-insensitive)
+  posts to issue-comments (`issues/{n}/comments`), formal reviews
+  (`pulls/{n}/reviews`, sometimes `state:COMMENTED` with an empty body), and inline
+  review comments (`pulls/{n}/comments`, with P-badges). A finding can sit in one
+  while the others are empty.
+- **On re-push, codex re-anchors old inline findings to the new head** (line and
+  `commit_id`), so a stale finding and a fresh clean verdict can share a commit and
+  line. Read the newest entry by `created_at` for the current verdict.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Only `skills/create-pr/SKILL.md` is allowed to mention `gh pr create` — it's
 the canonical skill that wraps the raw command with DRY check, pr-review-toolkit
-specialist pre-flight (Step 3.7), and the mandatory `@codex` mention.
+specialist pre-flight (Step 3.7), and the configured review-bot mention.
 
 Every other skill that ships code must route the PR through `Skill("create-pr")`.
 Raw `gh pr create` anywhere else bypasses every one of those gates.
@@ -98,7 +98,7 @@ def test_only_create_pr_skill_uses_raw_gh_pr_create():
         msg_lines = [
             "Doctrine violation: `gh pr create` found in skill markdown outside",
             "`skills/create-pr/SKILL.md`. Route PRs through `Skill(\"create-pr\")`",
-            "to keep the DRY check, pr-review-toolkit pre-flight, and `@codex`",
+            "to keep the DRY check, pr-review-toolkit pre-flight, and review-bot",
             "mention intact. Offending lines:",
             "",
         ]

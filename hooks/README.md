@@ -96,7 +96,7 @@ T:5/20|R3|A1              # Task status
 
 | Detected | Reminder gist |
 |----------|---------------|
-| `gh pr create` (without `--body-file`) | `/create-pr` adds Step 3.7 pr-review-toolkit pre-flight + mandatory `@codex` mention + size-aware description |
+| `gh pr create` (without `--body-file`) | `/create-pr` adds Step 3.7 pr-review-toolkit pre-flight + the configured review-bot mention + size-aware description |
 | `gh pr merge` | Run `/create-pr review <PR#>` first to verify codex + MUST-FIX resolution |
 | `gh pr ready` | `/create-pr` ensures Step 3.7 pre-flight runs before reviewers see the PR |
 | `gh pr checks` | `/create-pr review <PR#>` aggregates CI + codex + Step 3.7 in one verdict |

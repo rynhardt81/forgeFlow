@@ -6,7 +6,7 @@ through the /create-pr skill instead of bare `gh pr ...` invocations.
 
 Why this exists:
   /create-pr provides Step 3.7 pr-review-toolkit specialist pre-flight,
-  mandatory @codex review mention, size-aware PR descriptions, and
+  the configured review-bot mention, size-aware PR descriptions, and
   post-create review/merge-order tracking. Bare `gh pr create` (or
   `gh pr merge` without the review loop) skips all of those — and on
   paid GitHub plans, skipped pre-flight burns Actions minutes the
@@ -42,8 +42,8 @@ import sys
 REMINDERS: dict[str, str] = {
     "create": (
         "PR-SKILL: consider /create-pr instead of bare `gh pr create` — "
-        "adds Step 3.7 pr-review-toolkit specialist pre-flight + mandatory "
-        "@codex review + size-aware description. Saves GitHub Actions minutes "
+        "adds Step 3.7 pr-review-toolkit specialist pre-flight + the "
+        "configured review-bot mention + size-aware description. Saves GitHub Actions minutes "
         "vs blind retries on review-class failures."
     ),
     "merge": (

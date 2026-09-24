@@ -96,7 +96,7 @@ Resume from last session with full context.
 
 ## Wrap-up Handoff to `/create-pr` (code-shipping tasks)
 
-`/reflect` itself never ships code. But when the resumed task produces a code commit, the resuming agent invokes `Skill("create-pr")` at the wrap-up commit rather than raw `gh pr create`, which bypasses the DRY check, the specialist pre-flight, and the mandatory `@codex` mention. Doc-only tasks are exempt.
+`/reflect` itself never ships code. But when the resumed task produces a code commit, the resuming agent invokes `Skill("create-pr")` at the wrap-up commit rather than raw `gh pr create`, which bypasses the DRY check, the specialist pre-flight, the local review gate, and the configured review-bot mention. Doc-only tasks are exempt.
 
 ## Task Completion
 

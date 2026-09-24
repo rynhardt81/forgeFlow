@@ -14,7 +14,7 @@ If files and lines suggest different sizes, use the larger size.
 
 > **REVIEW-BOT LINE (config-aware):** when `git config forge.reviewBot` is set, every template ends with its configured mention line (e.g. `cc @codex — please review.`) BEFORE the Claude Code attribution — draft PRs included; this triggers the bot's review on PR open. When unset, omit the `[review-bot line]` placeholder entirely.
 >
-> **CONCISION:** see SKILL.md → Concision rules. Use the shortest template that fits. Omit any section whose content would be "None" or restated diff. Bullet caps are hard.
+> **CONCISION:** see SKILL.md → Output rules. Use the shortest template that fits; readers are reviewers and the review bot, who want what changed and why, not the diff restated. Omit any section whose content would be "None" or restated diff.
 
 ## Small PR Template
 
