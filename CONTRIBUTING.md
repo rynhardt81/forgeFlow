@@ -66,6 +66,8 @@ Until 2026-09-12 fourteen of these files claimed the opposite in their own heade
 
 **`paths:` frontmatter scopes a rule to matching files — but do not reach for it on a hard floor.** Scoped rules load when Claude *reads* a matching file, and under auto mode the model prefers Bash `cat`/`sed` over Read, so a scoped rule can stay dark in exactly the sessions that touch its domain. Never scope schema, auth, money-path or security rules. Scoping a framework rule also has to be authored upstream: the refresh rsync overwrites `rules/*.md`, and only `*.local.md` sidecars survive.
 
+The framework scopes seven advisory rules this way (`testing`, `release-engineering`, `hooks`, `error-handling`, `observability`, `patterns`, `coding-style`); `CLAUDE.md` names them so a session that reached their files through Bash still knows to read them. The hard floors and `git-workflow` (git work happens in Bash, so a scoped copy would never fire) stay unscoped — `tests/wiring/test_rules_budget.py` pins both lists and a separate always-on budget. A consumer sidecar can carry its own `paths:` the same way.
+
 A consumer that wants a specific framework rule gone can drop it durably with a `claudeMdExcludes` glob in `.claude/settings.local.json`, which the refresh rsync excludes.
 
 ## Don't duplicate the harness

@@ -1,6 +1,14 @@
+---
+paths:
+  - ".claude/hooks/**"
+  - "hooks/**"
+  - ".claude/settings.json"
+  - ".claude/settings.local.json"
+---
+
 # Hook Rules
 
-> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
+> **Loaded when Claude reads a file matching `paths:` above** — with the Read tool only, not at session start and not through Bash `cat`/`sed`. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
 >
 > Hooks are Python scripts firing on Claude Code lifecycle events. **Advisory only** — never block; surface info or auto-fix trivial drift. **No hook may spawn an LLM subprocess.**
 

@@ -1,6 +1,11 @@
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs,py,go,rb,java,kt,cs,php,rs,swift,dart}"
+---
+
 # Error Handling Rules
 
-> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
+> **Loaded when Claude reads a file matching `paths:` above** — with the Read tool only, not at session start and not through Bash `cat`/`sed`. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
 >
 > The always-present error-handling floor. Detection of swallowed errors is review-time and plugin-optional (`pr-review-toolkit:silent-failure-hunter` when installed); this rule is the standing floor that fires even on a bare clone with no plugins. Canonical home for error-handling discipline — `rules/coding-style.md` defers here.
 

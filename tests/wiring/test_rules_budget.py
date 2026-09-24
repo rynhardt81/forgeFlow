@@ -33,13 +33,57 @@ def test_no_rule_claims_to_be_loaded_on_demand():
     )
 
 
-def test_every_rule_states_that_it_is_always_loaded():
-    silent = [
-        f.name for f in RULES
-        if "Loaded at every session start" not in f.read_text()
-    ]
-    assert not silent, (
-        f"a rule whose header omits its own cost invites reference-length prose: {silent}"
+def _is_scoped(f: Path) -> bool:
+    return re.match(r"^---\n(.*\n)*?paths:", f.read_text()) is not None
+
+
+def test_every_rule_states_how_it_loads():
+    """The header is the only place an author sees what the file costs, so it
+    must match the frontmatter: unscoped loads every session, scoped on Read."""
+    wrong = []
+    for f in RULES:
+        text = f.read_text()
+        says = ("Loaded when Claude reads a file matching" if _is_scoped(f)
+                else "Loaded at every session start")
+        if says not in text:
+            wrong.append(f.name)
+    assert not wrong, (
+        f"header does not state how this rule actually loads: {wrong}"
+    )
+
+
+# Path-scoped rules are advisory, per-domain guidance. Each must name the files
+# that make it relevant, or it silently never loads.
+SCOPED = {
+    "release-engineering.md", "testing.md", "hooks.md", "error-handling.md",
+    "observability.md", "patterns.md", "coding-style.md",
+}
+
+
+def test_scoped_rules_carry_valid_paths_frontmatter():
+    import yaml
+    bad = []
+    for f in RULES:
+        if f.name not in SCOPED:
+            continue
+        text = f.read_text()
+        m = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+        paths = (yaml.safe_load(m.group(1)) or {}).get("paths") if m else None
+        if not (isinstance(paths, list) and paths and all(isinstance(p, str) for p in paths)):
+            bad.append(f.name)
+    assert not bad, f"scoped rule without a parseable, non-empty paths list: {bad}"
+
+
+ALWAYS_ON_BUDGET_BYTES = 32_000
+
+
+def test_always_on_rules_stay_within_their_budget():
+    """What every session pays before the first prompt, scoped rules excluded."""
+    total = sum(f.stat().st_size for f in RULES if not _is_scoped(f))
+    assert total <= ALWAYS_ON_BUDGET_BYTES, (
+        f"always-on rules are {total} B against {ALWAYS_ON_BUDGET_BYTES} B. Scope "
+        "advisory guidance with paths:, move depth to reference/, or raise this "
+        "deliberately."
     )
 
 
@@ -69,7 +113,8 @@ def test_sidecar_paragraph_is_one_line_not_a_repeated_essay():
 def test_hard_floor_rules_are_not_path_scoped():
     """Scoped rules load on Read, and auto mode prefers Bash — so a scoped
     hard-floor rule is dark in exactly the sessions that touch its domain."""
-    HARD_FLOORS = {"migrations.md", "security.md", "privacy.md", "dependencies.md"}
+    HARD_FLOORS = {"migrations.md", "security.md", "privacy.md", "dependencies.md",
+                   "agent-verification.md", "framework-vs-project-root.md", "git-workflow.md"}
     scoped = [
         f.name for f in RULES
         if f.name in HARD_FLOORS and re.match(r"^---\n(.*\n)*?paths:", f.read_text())
