@@ -1,6 +1,6 @@
 # Run-Epic Auto-File Rules
 
-When an iteration discovers new work, the loop files it back into the same epic silently. This file defines *when* that happens, *what shape* the new task takes, and *what limits* apply.
+When an iteration discovers new work, the loop files it without stopping to ask, and logs each filing. This file defines *when* that happens, *what shape* the new task takes, and *what limits* apply.
 
 ## When to auto-file
 
@@ -21,7 +21,7 @@ File a new task when execution surfaces:
 Do not auto-file when:
 
 - The discovery is in scope of the current task — fix it inline, don't fragment.
-- The discovery is in a different epic — surface to the user at end-of-run, do not file outside the current epic.
+- The discovery belongs to a different roadmap epic — surface it at end-of-run rather than filing there. (Deferred work still goes to E99; see below.)
 - The discovery is a Tier 2 source-of-truth doc gap — escalate (architecture-level).
 - The discovery is a hypothesis ("might be a problem") rather than a confirmed gap — file only when verified.
 

@@ -1,6 +1,6 @@
 ---
 name: run-epic
-description: Autonomously drain every open task in a single epic. Pulls ready tasks via the forge CLI, executes the work in-context using the matching discipline (fix-bug / new-feature / refactor), files newly-discovered work back into the same epic silently, opens a PR per completed task via /create-pr, and repeats until the epic has zero ready/in-progress/pending tasks. Use when the user says `/run-epic E##`, "run epic autonomously", "finish all remaining tasks for epic X", or "drive epic X to completion".
+description: Autonomously drain every open task in a single epic. Pulls ready tasks via the forge CLI, executes the work in-context using the matching discipline (fix-bug / new-feature / refactor), files newly-discovered work as follow-up tasks without stopping to ask, opens a PR per completed task via /create-pr, and repeats until the epic has zero ready/in-progress/pending tasks. Use when the user says `/run-epic E##`, "run epic autonomously", "finish all remaining tasks for epic X", or "drive epic X to completion".
 ---
 
 ## Quick Scan
@@ -72,7 +72,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 - **Never skip `/create-pr` failures** — a PR failure halts on that task; don't move on with uncommitted work.
 - **Never run forever** — `--max-iter` is the ceiling; consecutive-failure is the circuit breaker.
 - **Never spawn into a refusal** — with `--parallel`, check spawn-budget headroom before each batch and degrade to serial rather than failing mid-epic (GUARDRAILS.md §5).
-- **Never auto-file outside the current epic** — out-of-epic discoveries are surfaced at end-of-run, not filed elsewhere.
+- **Auto-file only into the current epic or the backlog epic (E99)**, per `skills/_shared/task-triage.md` — work that belongs to another roadmap epic is surfaced at end-of-run, not filed there.
 - **Never resume `in_progress` tasks without `--resume`.**
 
 ## See also

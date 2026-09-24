@@ -51,7 +51,7 @@ Verification failure → the iteration is a failure; see [GUARDRAILS.md](GUARDRA
 
 ## File follow-ups
 
-New work discovered (bug found mid-fix, missing prerequisite, oversized sub-task) → file each as a new forge task in the same epic, silently. Rules and shapes: [TASK-CREATION.md](TASK-CREATION.md).
+New work discovered (bug found mid-fix, missing prerequisite, oversized sub-task) → file it without stopping to ask — current epic or E99 per the triage rule — and log one `+ Filed` line for each. Rules and shapes: [TASK-CREATION.md](TASK-CREATION.md).
 
 ## PR
 
