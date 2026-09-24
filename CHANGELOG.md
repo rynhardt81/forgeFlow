@@ -4,6 +4,14 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.7] — 2026-09-24
+
+> Patch. Stops the `forge` shorthand failing under zsh.
+
+### Fixed
+
+- **`$FORGE task ls` fails under zsh — `forge` is now documented as a shell function.** Skills say `forge task ls`, but a Bash tool call has no alias (each call is a fresh non-interactive shell), so the model invented `FORGE="python3 .claude/scripts/forge/forge.py"; $FORGE …`. zsh does not word-split an unquoted parameter, so the whole string was looked up as one command name: `no such file or directory: python3 .claude/scripts/forge/forge.py`, 180 times across session logs. `CLAUDE.md` now gives `forge() { python3 .claude/scripts/forge/forge.py "$@"; }`, which takes its arguments as words in every shell. A wiring test pins the function and rejects the variable form in any shipped doc.
+
 ## [v4.7.6] — 2026-09-24
 
 > Patch. Stops refresh re-adding permission rules a consumer removed, fixes `task ls --json` ordering, and lands a second prompt-audit pass.
