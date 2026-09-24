@@ -572,10 +572,6 @@ def cmd_ls(args, project_root: Path) -> int:
         print(f"error: registry not found at {_registry_path(project_root)}", file=sys.stderr)
         return 1
 
-    if args.json:
-        print(json.dumps(tasks, indent=2))
-        return 0
-
     # Stable, meaningful order: highest-priority epic first, then task
     # priority within it, then id. Before this the listing was registry
     # insertion order, which made "what next?" a coin toss.
@@ -588,6 +584,10 @@ def cmd_ls(args, project_root: Path) -> int:
         ops.priority_rank(t.get("priority")),
         t.get("id", ""),
     ))
+
+    if args.json:
+        print(json.dumps(tasks, indent=2))
+        return 0
 
     if not tasks:
         # Footer still prints: an empty queue with parked work is exactly
