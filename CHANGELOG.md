@@ -4,6 +4,14 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.5] — 2026-09-24
+
+> Patch. Upstreams a consumer's fix so the next refresh stops undoing it.
+
+### Fixed
+
+- **Task and ISA names broke every YAML reader except forge's own.** `templates/task.md` and `templates/isa.md` wrote `name: {{TASK_NAME}}` raw, so a colon or `#` made the frontmatter unparseable to any YAML tool; forge's regex reader coped, which is why it went unnoticed. A raw newline was worse — it split the line and the regex reader silently kept the first half — and names YAML types implicitly (`true`, `No`, `<<`, `=`) came back as the wrong type. The templates now take `{{TASK_NAME_YAML}}`; `_yaml_quote_if_needed` also quotes on control characters (C0, C1, NEL, LS/PS), YAML-typed starts and keywords, and escapes controls as `\n` / `\xNN`; `_yaml_unquote_scalar` decodes in one pass (sequential `replace()` re-read an escaped backslash followed by `n` as a newline); epic body files use the same encoder; the dashboard renderer carries a dependency-free twin of the decoder so it shows the name, not its escapes. One consumer had already re-quoted 24 task files — a refresh without this fix would have left its reader unable to decode them. 38 tests, 14 red before the fix.
+
 ## [v4.7.4] — 2026-09-24
 
 > Patch. Publishes consumer-found fixes developed on a local branch as unpublished `v4.5.1`/`v4.6.0` (2026-09-07) and merged onto `v4.7.3` on 2026-09-13 — two of them patches a consumer had been re-applying by hand after every refresh, the third the installer behaviour that kept eating them — plus a prompt audit of the shipped skills and rules.
