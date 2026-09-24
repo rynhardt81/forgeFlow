@@ -4,6 +4,18 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.9] — 2026-09-24
+
+> Patch. Cuts the framework's always-on rules from 46 KB to 29 KB, and makes `forge doctor` report everything a session loads before its first prompt.
+
+### Changed
+
+- **Seven advisory rules now load only when Claude reads a matching file.** `testing`, `release-engineering`, `hooks`, `error-handling`, `observability`, `patterns` and `coding-style` carry `paths:` frontmatter (test files; changelog/version/store config; hook scripts and settings; source files), so a docs-only or planning session no longer pays for them: shipped always-on rules drop from 46.5 KB to 28.8 KB (~4k tokens a session). The hard floors — `agent-verification`, `security`, `migrations`, `privacy`, `dependencies`, `framework-vs-project-root` — and `git-workflow` stay unscoped: path-scoped rules fire on the Read tool only, and a session that reaches a migration through Bash would never see a scoped copy. `CLAUDE.md` names the seven so a session that reached their files through Bash still knows to read them, each scoped rule's header now says how it loads, and `tests/wiring/test_rules_budget.py` pins both lists, the frontmatter, and a separate 32 KB always-on budget.
+
+### Added
+
+- **`forge doctor` `startup-context` check.** Totals what loads before the first prompt that the framework and project control — root `CLAUDE.md`/`CLAUDE.local.md` with every `@import` expanded (four hops, code spans and fences excluded, as Claude Code does), always-on rules including sidecars, and the capped memory injection — and warns above 100 KB (~25k tokens), naming the four largest files. Each piece had its own check or none; nothing reported the sum. On the two consumers measured: 138 KB (warns, largest an `@AGENTS.md` import) and 77 KB.
+
 ## [v4.7.8] — 2026-09-24
 
 > Patch. Upstreams a consumer's PR-template fix so the next refresh stops undoing it.
