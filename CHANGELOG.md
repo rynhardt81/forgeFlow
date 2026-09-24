@@ -4,7 +4,13 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
-> Five consumer-found fixes developed on a local branch as unpublished `v4.5.1`/`v4.6.0` (2026-09-07) and merged onto `v4.7.3` on 2026-09-13. Two of the three v4.6.0 items were patches a consumer had been re-applying by hand after every refresh; the third is the installer behaviour that kept eating them.
+## [v4.7.4] — 2026-09-24
+
+> Patch. Publishes consumer-found fixes developed on a local branch as unpublished `v4.5.1`/`v4.6.0` (2026-09-07) and merged onto `v4.7.3` on 2026-09-13 — two of them patches a consumer had been re-applying by hand after every refresh, the third the installer behaviour that kept eating them — plus a prompt audit of the shipped skills and rules.
+
+### Changed
+
+- **Dated prompt patterns removed from shipped skills and rules.** An audit against the current model generation found nine: numeric word/bullet caps in the `/create-pr` PR templates that contradicted `report-format.md`'s substance-sets-length rule; one consumer project's epic and PR IDs baked into `/audit-task-status` as examples; an incident-history table in the always-loaded `rules/agent-verification.md` (compressed to one generic example — every rule bullet kept); the Algorithm's verbatim re-read step (now an every-ask completeness gate anchored to the OBSERVE restatement); a `CRITICAL PRINCIPLE` and a `MUST` rewritten at normal volume with their reasons; two dangling task-ID / incident-date references; and a "validate mentally" instruction replaced by a real render check. No gate was relaxed.
 
 ### Fixed
 
