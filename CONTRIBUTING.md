@@ -109,6 +109,14 @@ rg -il "no bullet|avoid bullet|minimal formatting|no bold|hold all findings|doub
 
 A hit is a question, not a verdict. Check what the line is actually doing before removing it.
 
+## Hooks deliberately removed in v4
+
+Kept here rather than in `rules/hooks.md`, which every consumer session loads. Don't reintroduce these:
+
+- Automatic transcript capture (`memory-capture.py`) and the flush/compile pipeline — knowledge capture is manual and intentional via `/remember`.
+- The CLAUDE.md rule-reflection hook — hooks must never spawn `claude` subprocesses; rule reflection is `/audit-rules`, run by a human.
+- `security-check.py` and the `security/` allowlist pipeline — it warned into a channel nothing read. Blocking command security is the `/damage-control` skill's hooks, which actually block.
+
 ## Style
 
 - Read the existing code before adding more. Forge Flow prefers fewer, sharper primitives over feature accretion.

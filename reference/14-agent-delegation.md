@@ -1,6 +1,6 @@
 # Agent Delegation (Forge Flow v3)
 
-> Authoritative spec for **how** skills delegate work to framework agents and how users invoke agents directly. The agent roster and validator bindings live in `agents/README.md` (read on-demand, like all rules and reference docs — nothing here is auto-loaded at session start); this document owns the delegation patterns.
+> Authoritative spec for **how** skills delegate work to framework agents and how users invoke agents directly. The agent roster and validator bindings live in `agents/README.md` (read on demand, like the reference docs — unlike `rules/*.md`, neither is auto-loaded at session start); this document owns the delegation patterns.
 
 ---
 

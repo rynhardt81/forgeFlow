@@ -31,12 +31,6 @@ Validator hooks bind per-agent and per-skill via `hooks:` frontmatter in `agents
 
 If the banner shows blocking drift, fix it before continuing.
 
-## What was deliberately removed (v4)
-
-- Automatic transcript capture (`memory-capture.py`) and the flush/compile pipeline — knowledge capture is manual and intentional via `/remember`.
-- The CLAUDE.md rule-reflection hook — hooks must never spawn `claude` subprocesses; rule reflection is `/audit-rules`, run by a human.
-- `security-check.py` and the `security/` allowlist pipeline — it warned into a channel nothing read. Blocking command security is the `/damage-control` skill's hooks, which actually block.
-
 ## See also
 
 - `.claude/hooks/README.md` — hook authoring guidance, token economy, disable/configure procedures
