@@ -8,7 +8,7 @@ A report is read by someone deciding what to do next. Four fields answer that: w
 
 **Work happened.** A subagent returned, a skill finished, a task moved to `pr_pending`/`completed`, a fix was declared done.
 
-**Not** for questions, discussion, mid-work narration, or a single-fact lookup. Those stay plain prose — a four-field scaffold with an empty Action line is the output ceremony `ALGORITHM/v1.2.0.md` removed, and re-adding it re-creates the premature-completion failure mode that removal was measured against.
+**Not** for questions, discussion, mid-work narration, or a single-fact lookup. Those stay plain prose — a four-field scaffold with an empty Action line is output ceremony, and it pushes toward declaring completion early (`ALGORITHM/v1.2.0.md`).
 
 ## The four fields
 
