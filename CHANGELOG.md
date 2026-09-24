@@ -4,6 +4,14 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.7.8] — 2026-09-24
+
+> Patch. Upstreams a consumer's PR-template fix so the next refresh stops undoing it.
+
+### Changed
+
+- **`/create-pr` medium and large PR summaries lose their sentence counts** ("1-2 sentences", "2-3 sentences") and say who the summary is for instead — the same numeric-cap pattern v4.7.4 removed from the bullet lists. The small template keeps its one-line summary, which is a format, not a budget. From a consumer that had already made the change locally.
+
 ## [v4.7.7] — 2026-09-24
 
 > Patch. Stops the `forge` shorthand failing under zsh.
