@@ -130,14 +130,11 @@
     "allow": [
       "Read(.claude/**)",
       "Edit(.claude/**)",
-      "Write(.claude/**)",
       "Read(docs/tasks/**)",
       "Edit(docs/tasks/**)",
-      "Write(docs/tasks/**)",
       "Read(docs/epics/**)",
       "Read(docs/project-memory/**)",
       "Edit(docs/project-memory/**)",
-      "Write(docs/project-memory/**)",
       "Read(daily/**)",
       "Edit(daily/**)"
     ],
@@ -193,7 +190,10 @@
   "_retired_permissions": {
     "allow": [
       "Write(daily/**)",
-      "Bash(awk *)"
+      "Bash(awk *)",
+      "Write(.claude/**)",
+      "Write(docs/tasks/**)",
+      "Write(docs/project-memory/**)"
     ],
     "deny": [
       "Read(./**/dist/**)",

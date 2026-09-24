@@ -212,3 +212,18 @@ def test_shipped_settings_retires_the_blanket_dist_rules():
     retired = d.get("_retired_permissions", {}).get("deny", [])
     for r in ("Read(./**/dist/**)", "Read(./**/build/**)"):
         assert r in retired, f"{r} was narrowed but never retired — consumers keep the old rule"
+
+
+def test_shipped_settings_ships_no_write_rules_and_retires_them():
+    """`Write(...)` allow rules error in the CLI, and `Edit(...)` already covers the
+    same paths. A consumer removed them by hand and the union merge put them back
+    on the next refresh, so they must be retired, not just dropped — and each one
+    must keep its `Edit(...)` twin so no path loses access.
+    """
+    d = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    allow = d["permissions"]["allow"]
+    retired = d.get("_retired_permissions", {}).get("allow", [])
+    assert not [r for r in allow if r.startswith("Write(")], "a Write(...) rule is still shipped"
+    for path in (".claude/**", "docs/tasks/**", "docs/project-memory/**"):
+        assert f"Write({path})" in retired, f"Write({path}) dropped but not retired"
+        assert f"Edit({path})" in allow, f"Edit({path}) missing — retiring Write would remove access"
