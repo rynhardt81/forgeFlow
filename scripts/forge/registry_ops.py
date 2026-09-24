@@ -184,6 +184,17 @@ _FRONTMATTER_NAME_RE = re.compile(
     r"^(name[ \t]*:[ \t]*)(.+?)[ \t]*$", re.MULTILINE
 )
 _FRONTMATTER_EPIC_RE = re.compile(r"^(epic:\s*)(.*)$", re.MULTILINE)
+# YAML forbids C0 and C1 controls and splits plain scalars on NEL/LS/PS.
+_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\ufffe\uffff]")
+# Plain scalars YAML 1.1 (PyYAML) types implicitly: numbers, dates and
+# sexagesimals all start with a digit/sign/dot; the rest are keywords.
+# Conservative on purpose -- a needlessly quoted string still round-trips.
+_YAML_TYPED_START_RE = re.compile(r"^[-+.0-9]")
+_YAML_KEYWORDS = frozenset(
+    {"y", "n", "yes", "no", "true", "false", "on", "off", "null", "~", ".inf", ".nan", "<<", "="}
+)
+_ESCAPE_RE = re.compile(r'\\(["\\ntr]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})')
+_UNESCAPE = {'"': '"', "\\": "\\", "n": "\n", "t": "\t", "r": "\r"}
 
 
 # --- Errors ----------------------------------------------------------------
@@ -407,7 +418,9 @@ def _yaml_quote_if_needed(value: str) -> str:
     """Quote a YAML scalar if it contains chars YAML would interpret.
 
     Conservative: only quote when needed so common names round-trip
-    unquoted. Uses double-quotes and escapes embedded `"` and backslashes.
+    unquoted. Uses double-quotes and escapes embedded `"`, backslashes and
+    control characters (a raw newline in a name split the frontmatter line
+    and forge's regex reader silently kept the first half).
     """
     if not value:
         return '""'
@@ -417,10 +430,25 @@ def _yaml_quote_if_needed(value: str) -> str:
         or ":" in value
         or "#" in value
         or value.strip() != value
+        or _CONTROL_CHAR_RE.search(value) is not None
+        or _YAML_TYPED_START_RE.match(value) is not None
+        or value.lower() in _YAML_KEYWORDS
     )
     if not needs_quote:
         return value
-    escaped = value.replace("\\", "\\\\").replace("\"", "\\\"")
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\n", "\\n")
+        .replace("\t", "\\t")
+        .replace("\r", "\\r")
+    )
+    # Any other control byte (NUL, VT, FF, DEL, ...) is illegal raw inside a
+    # YAML double-quoted scalar; emit the \xNN form YAML defines for it.
+    escaped = _CONTROL_CHAR_RE.sub(
+        lambda m: f"\\x{ord(m.group()):02x}" if ord(m.group()) < 0x100 else f"\\u{ord(m.group()):04x}",
+        escaped,
+    )
     return f"\"{escaped}\""
 
 
@@ -480,7 +508,14 @@ def _yaml_unquote_scalar(raw: str) -> str:
     # asymmetrically and re-fire drift #8 on every consistency pass.
     if len(raw) >= 2 and raw[0] == raw[-1]:
         if raw[0] == '"':
-            return raw[1:-1].replace('\\"', '"').replace("\\\\", "\\")
+            # One left-to-right pass over the encoder's escapes. Sequential
+            # replace() calls are order-sensitive: the literal characters
+            # `\n` inside an escaped backslash (`\\n`) would be re-read as a
+            # newline by a later pass.
+            return _ESCAPE_RE.sub(
+                lambda m: _UNESCAPE.get(m.group(1)) or chr(int(m.group(1)[1:], 16)),
+                raw[1:-1],
+            )
         if raw[0] == "'":
             return raw[1:-1].replace("''", "'")
     return raw
@@ -859,7 +894,7 @@ def create_epic_dir(project_root: Path, epic: dict[str, Any]) -> Path:
         body.write_text(
             f"---\n"
             f"id: {epic_id}\n"
-            f"name: \"{epic.get('name', '')}\"\n"
+            f"name: {_yaml_quote_if_needed(epic.get('name', ''))}\n"
             f"category: {epic.get('category', '')}\n"
             f"status: {epic.get('status', 'pending')}\n"
             f"priority: {epic.get('priority', 1)}\n"
@@ -916,6 +951,10 @@ def create_task_body_file(
         "TASK_ID": task_id,
         "EPIC_ID": epic_id,
         "TASK_NAME": name,
+        # The frontmatter line needs a YAML-safe scalar (a colon or '#'
+        # in a name broke every yaml reader; forge's own regex reader was
+        # fine, which is why it went unnoticed). Headings keep the raw name.
+        "TASK_NAME_YAML": _yaml_quote_if_needed(name),
         "STATUS": task.get("status", "ready"),
         "PRIORITY": str(task.get("priority", 1)),
         "CATEGORY": task.get("category", ""),
@@ -971,6 +1010,7 @@ def scaffold_task_isa(
     substitutions = {
         "TASK_ID": task_id,
         "TASK_NAME": name,
+        "TASK_NAME_YAML": _yaml_quote_if_needed(name),
         "CREATED_AT": task.get("createdAt", utcnow()),
     }
     isa_path.write_text(_render_template("isa.md", substitutions), encoding="utf-8")

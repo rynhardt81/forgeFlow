@@ -1,7 +1,7 @@
 ---
 id: {{TASK_ID}}
 kind: task-isa
-name: {{TASK_NAME}}
+name: {{TASK_NAME_YAML}}
 phase: observe
 createdAt: {{CREATED_AT}}
 ---

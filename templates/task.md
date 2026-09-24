@@ -1,7 +1,7 @@
 ---
 id: {{TASK_ID}}
 epic: {{EPIC_ID}}
-name: {{TASK_NAME}}
+name: {{TASK_NAME_YAML}}
 status: {{STATUS}}
 priority: {{PRIORITY}}
 category: {{CATEGORY}}

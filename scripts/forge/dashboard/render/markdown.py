@@ -138,9 +138,29 @@ def parse_frontmatter(md: str) -> tuple[dict, str]:
         if ":" not in ln:
             continue
         key, _, value = ln.partition(":")
-        fm[key.strip()] = value.strip()
+        fm[key.strip()] = _unquote_scalar(value.strip())
     body = "".join(lines[end_idx + 1:])
     return fm, body
+
+
+# Twin of registry_ops._yaml_unquote_scalar, inlined because this renderer
+# stays dependency-free (see registry_view.py). Keep the two in step: task
+# and ISA names are written quoted when YAML needs it, and without this the
+# dashboard showed the quotes and escapes verbatim.
+_ESCAPE_RE = re.compile(r'\\(["\\ntr]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})')
+_UNESCAPE = {'"': '"', "\\": "\\", "n": "\n", "t": "\t", "r": "\r"}
+
+
+def _unquote_scalar(raw: str) -> str:
+    if len(raw) >= 2 and raw[0] == raw[-1]:
+        if raw[0] == '"':
+            return _ESCAPE_RE.sub(
+                lambda m: _UNESCAPE.get(m.group(1)) or chr(int(m.group(1)[1:], 16)),
+                raw[1:-1],
+            )
+        if raw[0] == "'":
+            return raw[1:-1].replace("''", "'")
+    return raw
 
 
 def _strip_frontmatter(md: str) -> str:
