@@ -6,11 +6,11 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [v4.8.0] — 2026-10-02
 
-> Minor. Every skill becomes a short router with an index, following Anthropic's skill-authoring guidance; model routing catches up to Claude Opus 5.5 and Sonnet 5.5; two tier-worker agents make the effort half of a route real.
+> Minor. Every skill becomes a short router with an index, following Anthropic's skill-authoring guidance; model routing catches up to Claude Opus 5.5 and Sonnet 5.5; two tier-worker agents make the effort half of a route real; `/ui-ux-pro-max` is removed and the deferred backlog is cleared.
 
 ### Changed
 
-- **All 27 skills restructured to a router layout** (`skills/_shared/skill-authoring.md`). `SKILL.md` keeps the steps, gates, exit codes and key rules, opens with an `## Index` that routes to bundled files (templates, worked examples, long sub-flows, rationale), and stays within 200 lines / 10 KB. Why the budget: after auto-compaction Claude Code keeps only the first 5,000 tokens of an invoked skill, so a long skill lost its tail mid-session. The three largest drop from 20.8–24.8 KB to 9.9–10.2 KB (create-pr, preflight-ci, new-project); all `SKILL.md` files together go from 236 KB to 192 KB. Bundled files over 100 lines open with a `## Contents` list; bundled files no longer name each other or reach into another skill's files, so every reference is one level deep from `SKILL.md`. The "Quick Scan" convention is retired in favour of the Index.
+- **All 27 skills restructured to a router layout** (`skills/_shared/skill-authoring.md`). `SKILL.md` keeps the steps, gates, exit codes and key rules, opens with an `## Index` that routes to bundled files (templates, worked examples, long sub-flows, rationale), and stays within 200 lines / 10 KB. Why the budget: after auto-compaction Claude Code keeps only the first 5,000 tokens of an invoked skill, so a long skill lost its tail mid-session. The three largest drop from 20.8–24.8 KB to 9.9–10.2 KB (create-pr, preflight-ci, new-project); all `SKILL.md` files together go from 236 KB to 185 KB (ui-ux-pro-max removal included). Bundled files over 100 lines open with a `## Contents` list; bundled files no longer name each other or reach into another skill's files, so every reference is one level deep from `SKILL.md`. The "Quick Scan" convention is retired in favour of the Index.
 - **Every skill description says when to use it.** Ten skills had no `Use when …` clause (build, create-pr, diagnose-ci, frontend-design, preflight-ci, refactor, release, security-review, triage-incident, vet-idea); the description is what triggers a skill.
 - **Model routing refreshed for the 5.5 generation** (`skills/_shared/model-routing.md`). Cites the Claude Opus 5.5 and Sonnet 5.5 guides; E2 starts at `sonnet` @ `medium` (Sonnet 5.5's recommended start for well-specified agentic coding); `opus` @ `low` joins the sweep column as first challenger (Opus 5.5's guide: `low` "comes close" to `medium` on coding at much lower cost), with 2026-10 prices shown. Documents that Claude Haiku 4.5 does not accept `effort`, so E1 is a model-only route until the `haiku` alias resolves to Haiku 5.5 — a model change that calls for a re-sweep.
 - `/run-epic --parallel` dispatches E1/E2 tasks to the tier workers instead of `general-purpose` with a model only. Hard-floor tasks still go to `general-purpose` at the session model.
@@ -19,12 +19,21 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 ### Added
 
 - **`agents/worker-e1.md` (`haiku` @ `low`) and `agents/worker-e2.md` (`sonnet` @ `medium`).** The Agent tool takes `model` only; effort comes from a named agent's frontmatter. Until now no agent carried `effort:`, so every routed dispatch ran at the session's effort.
-- **`tests/wiring/test_skill_structure.py`** enforces the layout: Index near the top, size budget, `Use when` description ≤1,024 chars, contents list on long bundled files, no orphaned or dangling bundled files, one-level references, manifest ↔ skill dirs.
+- **`tests/wiring/test_skill_structure.py`** enforces the layout: Index near the top, size budget, `Use when` description ≤1,024 chars, contents list on long bundled files, no orphaned or dangling bundled files, one-level references, manifest ↔ skill dirs, no descriptions in the manifest, every manifest validator exists.
+- **Eval runner sees what the agent did, not only what it said** (`scripts/forge/evals.py`). Runs record `claude -p --output-format stream-json`; new `tool_called` and `tool_order` checks assert on tool calls, and `fix-bug-reproduces-first` now fails a run that claims a reproduction but never ran a command before its first edit. Each run happens in a temp copy of a fixture project (`tests/evals/projects/login-apostrophe/`, a real SQL-interpolation bug) instead of the repo root, and `--runs N` gates on a pass rate. Billing stays API-key-only.
+
+### Removed
+
+- **`/ui-ux-pro-max`** — a 628 KB design catalog (CSV tables + search scripts) that no workflow used; `/frontend-design` and Anthropic's frontend-design plugin cover design direction. Listed in `cut-paths.txt`, so the next refresh removes it from consumers.
+- The skills manifest no longer repeats each skill's description (the `SKILL.md` frontmatter is the one copy) and no longer names the `release_changelog.py` validator, which was deliberately removed in v4.0.0.
 
 ### Fixed
 
 - `/preflight-ci`'s summary listed exit codes 0/2/3/4; the body also uses 5 (a self-skipped job). The core now lists all five.
 - `/create-pr`'s steps ran 3, 3.6, 3.7, 3.8, 3.5; the documentation step is now 3.9.
+- **`config-evals` nightly CI red since 2026-09-19:** the offline job never installed pytest. It now installs pytest and pyyaml, as `tests.yml` does.
+- **`tests/preflight/test_preflight.sh` had three stale failures:** it expected the v1 hook sentinel (now v2), an old `CLAUDE.md` table layout, and flagged a code comment as a `git push` call. 17/17 now; the push guard still catches a real call.
+- `CHEATSHEET.md` and `docs/USER-GUIDE.md` claimed 24 skills; the hard-coded counts are gone.
 
 ## [v4.7.9] — 2026-09-24
 
