@@ -4,6 +4,14 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+### Added
+
+- **`claude plugin eval` pilot suite for skills** (`tests/plugin-evals/`). Anthropic's eval command loads the framework's `skills/` and `agents/` as a plugin (via an eval-only `.claude-plugin/plugin.json`, excluded from every installer copy), runs each case three times with and without it, and reports `Δ` — what a skill adds. Four cases, all free graders: `/fix-bug` runs a command before its first edit and parameterises the query in a seeded login app; `/create-pr` and `/vet-idea` trigger on natural phrasing; a plain question triggers no skill. Runs use the normal Claude Code login and count against plan usage — always pass `--max-cost-usd`, run by hand.
+
+### Fixed
+
+- **`evals.py` runs tested plain Claude, not Forge Flow** (v4.8.0 regression). The temp workspace introduced in v4.8.0 held a fixture app and no framework, so a run loaded none of the `CLAUDE.md`/rules a case guards. Each run now installs the framework into the temp dir as `.claude/` with a root `CLAUDE.md` importing it. `evals.py` is now scoped to always-on doctrine (`CLAUDE.md`, `rules/`), which plugin eval cannot load; the `/fix-bug` case moved to the plugin suite. `no-claim-without-a-probe` gains a `tool_called` check, so an answer that names `settings.json` without reading it fails.
+
 ## [v4.8.0] — 2026-10-02
 
 > Minor. Every skill becomes a short router with an index, following Anthropic's skill-authoring guidance; model routing catches up to Claude Opus 5.5 and Sonnet 5.5; two tier-worker agents make the effort half of a route real; `/ui-ux-pro-max` is removed and the deferred backlog is cleared.
