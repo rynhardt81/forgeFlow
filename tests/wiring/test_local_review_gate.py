@@ -59,7 +59,7 @@ def test_gate_runs_before_the_pr_is_created():
 def test_round_cap_is_stated():
     """The bound is the cost control. Losing it restores the runaway shape."""
     text = _skill_text()
-    section = text[text.find("## Step 3.8"):text.find("## Step 3.5")]
+    section = text[text.find("## Step 3.8"):text.find("## Step 3.9")]
     assert re.search(r"\b3\b.{0,40}round", section, re.IGNORECASE | re.DOTALL), (
         "Step 3.8 must state its round cap"
     )
@@ -69,7 +69,7 @@ def test_round_cap_is_stated():
 def test_a_missing_reviewer_never_blocks():
     """Bare installs have no reviewer CLI; the gate must degrade, not gate."""
     section = _skill_text()
-    section = section[section.find("## Step 3.8"):section.find("## Step 3.5")]
+    section = section[section.find("## Step 3.8"):section.find("## Step 3.9")]
     assert "Never block" in section or "never block" in section
 
 

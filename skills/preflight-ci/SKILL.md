@@ -1,42 +1,38 @@
 ---
 name: preflight-ci
-description: Mirror GitHub Actions CI locally before push. Derives gating jobs from `.github/workflows/*.yml`, generates committed bash scripts at `.forge/preflight/<job>.sh`, executes them, and routes failures to the same `pr-review-toolkit` specialists `/diagnose-ci` uses. Proactive twin of `/diagnose-ci` — exists to keep failing pushes from burning Actions minutes. Local execution only — never pushes, commits, or invokes `gh run rerun`.
----
-
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Run the gating-CI matrix locally before push to spare Actions minutes |
-| **Inputs** | None (auto-detect); flags: `--regenerate`, `--with-act`, `--only <job>`, `--quick`, `--keep-going` |
-| **Output** | Per-job ✅/❌ summary; on red → specialist diagnosis + fix plan |
-| **Flow** | Derive gating jobs → generate scripts → drift-check → execute → route failures |
-| **Exit codes** | 0 green · 2 drift-detected · 3 red · 4 degraded/no-workflows |
-
+description: Mirrors GitHub Actions CI locally before push. Derives gating jobs from `.github/workflows/*.yml`, generates committed bash scripts at `.forge/preflight/<job>.sh`, executes them, and routes failures to the same `pr-review-toolkit` specialists `/diagnose-ci` uses. Proactive twin of `/diagnose-ci` — exists to keep failing pushes from burning Actions minutes. Local execution only — never pushes, commits, or invokes `gh run rerun`. Use when about to push or open a PR on a repo with GitHub Actions workflows, or after changing a workflow (`--regenerate`). NOT FOR diagnosing a CI run that already failed (/diagnose-ci).
 ---
 
 # /preflight-ci
 
-## Why this exists
+Runs the gating-CI matrix locally before push to spare Actions minutes. The mirror is **workflow-derived, not hand-maintained**: whatever `.github/workflows/*.yml` declares as `run:` steps for PR-trigger jobs runs locally, and drift between workflow and mirror is detected. Flow: derive gating jobs → generate scripts → drift-check → execute → route failures → report.
 
-GitHub Actions monthly minutes cap hard on solo-dev plans. Every push that fails CI burns the full job matrix on a known-red commit. `/diagnose-ci` already closes the post-failure side — read the failed logs, route to the right specialist, propose a fix. This skill closes the pre-push side: catch the same failure class **before** the push, with the exact commands CI runs.
+## Index
 
-The mirror is **workflow-derived, not hand-maintained**. Whatever your `.github/workflows/*.yml` declares as `run:` steps for PR-trigger jobs, this skill executes locally. Drift between workflow and mirror is detected and surfaced.
+| File or section | Read when… |
+|-----------------|------------|
+| `GENERATION.md` | Why this exists; Step 2 — script shape, refused steps, project shims, Compose port/password rewrites and `.env` discovery, `pyproject.toml` overrides, step `if:` translation, gotchas |
+| `REPORT.md` | Step 6 — report template; how self-skipped and `INCOMPLETE` jobs are shown in `--quick`, full and `--json` output |
+| `_shared/ci-failure-classifier.md` | Step 5 — classifying a red job and the specialist dispatch prompt |
+| Exit codes (below) | A caller needs to act on the result |
 
-### What that means: this skill runs code from the checked-out branch
+## Exit codes
 
-The mirror is generated from the workflows **on the branch you have checked out**, and executed on your machine with your `.env` files auto-exported into scope (see *Compose-aware rewrites* below). So:
+| Code | Meaning |
+|------|---------|
+| `0` | All green; safe to push |
+| `2` | Drift detected; refused to execute stale scripts |
+| `3` | At least one gating job failed |
+| `4` | Degraded (no workflows, `pr-review-toolkit` missing, etc.) |
+| `5` | Nothing failed, but a job self-skipped or ran without a gating `uses:` step — that coverage did NOT run locally |
 
-> **Running `/preflight-ci` on a branch you did not author is a code-execution path.** A `run:` step is arbitrary shell, and preflight is how it gets run locally.
+`5` is never folded into `0`: machine consumers read only the exit code. The **pre-push hook waves `5` through** with a warning (an absent local stack must not block a push; CI still runs the job); **`/create-pr --preflight` blocks on it** (a PR gate is cheap to re-run).
 
-This is not hypothetical plumbing — the drift gate actively funnels people into it. Check out a PR that touched any workflow and the very next thing you see is `run: /preflight-ci --regenerate`. The pre-push hook reaches the same code without anyone typing the command at all.
+## Security: this runs the checked-out branch's shell
 
-Two mitigations, neither of which removes the exposure:
+> **Running `/preflight-ci` on a branch you did not author is a code-execution path.** A `run:` step is arbitrary shell, executed on your machine with your `.env` files exported.
 
-- Destructive commands are **refused at generation time** rather than transcribed (see *Refused steps* under Step 2). That is a filter on the text of `run:` bodies, not a sandbox — anything reached through a script the step invokes is still mirrored.
-- Guards *inside* a `run:` body keyed on `CI`, `GITHUB_ACTIONS` or any other "runner-only" variable are **not** a control. The generator exports workflow- and job-level `env:` above every step body, so the workflow can set whatever its own guard reads.
-
-Before running it on someone else's branch, read the workflow diff. `git diff origin/main -- .github/workflows/` is the whole attack surface.
+Refused destructive steps are a text filter, not a sandbox, and `CI`/`GITHUB_ACTIONS` guards inside a `run:` body are not a control (the workflow sets them). Before running on someone else's branch, read `git diff origin/main -- .github/workflows/` — that is the whole attack surface. Detail: GENERATION.md.
 
 ## Invocation
 
@@ -59,87 +55,13 @@ Output (under the hood, not surfaced to user by default): `.forge/preflight/gati
 
 ## Step 2: Generate or refresh local scripts
 
-For each gating job, write `.forge/preflight/<job>.sh` containing:
+For each gating job, write `.forge/preflight/<job>.sh` (banner, env exports, one block per `run:` step; shape in GENERATION.md). `uses:` steps are emitted as `# Skipped step:` comments — scripted parity does not emulate composite actions. A `drift.lock` with the SHA-256 of each workflow file is written alongside. These files **are committed** for diff-reviewability.
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-# Generated by /preflight-ci from <workflow file>
-# DO NOT EDIT — regenerate with `/preflight-ci --regenerate`
-
-export FOO="bar"            # one per env: entry from workflow/job
-...
-
-# Step: <step name>
-<run: block>
-...
-```
-
-`uses:` steps are emitted as comments (`# Skipped step: actions/checkout@v4 (uses: ..., no local mirror)`) — scripted parity does not emulate composite actions. The opt-in `--with-act` tier runs `act` against the same job filter when full fidelity is needed.
-
-A `drift.lock` file is written alongside the scripts with SHA-256 of each workflow file. These files **are committed** to the project for diff-reviewability — when workflows change, the diff is visible.
-
-### Refused steps
-
-A step whose `run:` body contains a command that is free on an ephemeral runner and expensive on a workstation — a volume prune, a compose `down` that takes volumes with it, a recursive delete of the filesystem root — is **not written to the mirror at all**, and the **whole job is skipped**. The generated script emits:
-
-```
-FORGE_SKIP: job not mirrored locally — it contains destructive step(s): Clean up (docker volume prune). …
-```
-
-and exits 0 immediately, so the runner reports the job **SKIPPED** — coverage that did not run, not a pass.
-
-Skipping the whole job rather than just the step is deliberate. In a fresh-install gate the refused cleanup is what *establishes* the job's precondition (an empty volume); dropping only that step leaves the remainder running against retained state and reporting a clean green having tested nothing. The job's precondition cannot be established locally without doing the very thing being refused, so the honest outcome is to run none of it.
-
-Steps that CI itself never runs are excluded from this scan — `if: false` (`STEP_NEVER`) and conditions that cannot be evaluated locally (`STEP_UNTRANSLATABLE`, e.g. `github.*`). The renderer omits those anyway, so refusing the job over one would discard every other step's coverage to avoid mirroring a command that was never going to be mirrored.
-
-Refusing at generation time rather than guarding inside the body is the whole point: the generator exports workflow- and job-level `env:` at the top of the mirror, above every step body, so a guard keyed on `CI` or `GITHUB_ACTIONS` is armed by the very file an untrusted PR is allowed to edit. A command never written to the file cannot be re-armed by any variable.
-
-The list is deliberately narrow. A compose `down` **without** a volume flag stops containers and keeps volumes — recoverable, so it stays mirrored. Keep an in-workflow `if [ "$CI" = true ]` guard as well if you have one: it is still a useful accident guard, and `act` bypasses this mechanism entirely because it runs the workflow rather than the mirror.
-
-### Project-local portability shims
-
-Every generated script sources `_local_shims.sh` from its own directory, after the banner and before any env exports. It ships **empty** and is the project-local extension point for portability gaps between the CI runner and your local toolchain — e.g. `pip` → `python3 -m pip` when only `pip3` is on PATH, or `python` → `python3` on systems without the unversioned symlink. Each shim must be idempotent (`command -v <bin> >/dev/null 2>&1 || <bin>() { ... }`) so it's a no-op in CI.
-
-Check the shim file into the repo — it is project work, not a build artefact (`.forge/` is not ignored wholesale; only `.forge/venv/` is). It **survives both `install.sh --mode refresh` and `/preflight-ci --regenerate`**: the rsync excludes it, and the generator seeds it only when absent and never overwrites a copy that differs. If the framework's own copy gains a new helper, regenerate prints a note so you can merge it by hand. If the file is ever deleted, every generated script fails fast with a clear remediation hint pointing back to `/preflight-ci --regenerate`.
-
-### Compose-aware rewrites and `.env` sourcing
-
-The generator rewrites CI literals into shapes that match the dev's actual local stack, so `.forge/preflight/*.sh` is honest end-to-end without per-machine `.git/hooks/pre-push` patches:
-
-| Rewrite | What it does | Why |
-|---|---|---|
-| **Port** | `localhost:CONTAINER` → `localhost:HOST` in URL-shaped values (`postgresql://...@localhost:5432/...` → `:5440`) | CI's service-container topology binds container ports to the runner's localhost; dev Compose maps to non-default host ports to avoid collisions. Anchored on `localhost` / `127.0.0.1` only — other hostnames pass through. |
-| **Password** | Empty `*_PASSWORD` defaults (`REDIS_PASSWORD=""`) → bash env-ref (`${REDIS_PASSWORD:-}`) when a Compose service declares that password env | Generated scripts stay gitleaks-safe — never inline the literal Compose secret. The dev's local `.env` is the source of truth at run time. |
-| **`.env` sourcing** | Prelude sources every existing `.env` in layered order so the env-refs resolve | Without this the password env-refs are empty and DB auth fails. `set +eu` / `set -eu` guards survive malformed lines or inline `${UNDEF}` refs; `set -a` / `set +a` auto-exports into the step subshells. |
-
-Discovery order:
-
-- **Compose file** (first existing wins): `pyproject.toml [tool.forge.preflight] compose_file = "..."` override → `infrastructure/compose/docker-compose.yml` → `docker-compose.yml` → `compose.yaml` → `compose.yml`
-- **`.env` files** (every existing layer sourced, base-first / override-last): `pyproject.toml [tool.forge.preflight] env_files = ["..."]` override → `infrastructure/compose/.env` → `compose/.env` → `.env` next to the discovered compose file (if not already covered above) → root `.env`. The Compose-installer-generated `.env` is the base layer (always matches the running containers); root `.env` is the optional override (user-managed customisations win per-key via bash last-export semantics). Single-`.env` consumers see no difference.
-
-The compose-relative entry catches projects whose Compose stack lives outside the canonical paths (e.g. `deploy/compose/dev.yml`, monorepo subpaths) without requiring a `pyproject.toml` opt-in — Compose's own convention is that `.env` lives next to the compose file, so the discovery follows that structurally.
-
-**Silent-fail warning:** if the Compose introspection emits password env-refs but no `.env` file is discovered at any of the paths above, the generator prints a one-line stderr hint at generation time pointing at the `pyproject.toml` override. Lets non-canonical-layout consumers opt in without first hitting empty env-refs at runtime.
-
-#### `pyproject.toml` overrides
-
-Consumers whose Compose file or `.env` location is outside the canonical list opt in with explicit paths:
-
-```toml
-[tool.forge.preflight]
-# Pin a non-default Compose file (e.g. dev/prod split, monorepo subpath)
-compose_file = "deploy/compose/dev.yml"
-# Pin an ordered list of .env files — base-first / override-last; every
-# existing layer is sourced and later layers win per-key via bash
-# last-export semantics. Below: secrets/base.env is the base, .env wins
-# for any key it defines.
-env_files = ["secrets/base.env", ".env"]
-```
-
-Both are typo-safe — a missing override path falls through to the canonical discovery list rather than silently disabling the rewrite.
-
-Projects with no Compose file get the current behaviour (workflow values verbatim, no source-block emitted, no `pyproject.toml` needed). Run `bash .forge/preflight/test.sh` after `/preflight-ci --regenerate` to see the rewritten prelude.
+- **Refused steps (gate):** a step whose `run:` body holds a workstation-destructive command (volume prune, compose `down` with volumes, recursive delete of `/`) is not written at all, and the **whole job is skipped** — its script emits `FORGE_SKIP: job not mirrored locally — …` and exits 0, so it reports SKIPPED, never a pass. Steps CI never runs (`if: false`, untranslatable conditions) are excluded from this scan.
+- **Project shims:** every script sources `_local_shims.sh` (ships empty; idempotent project-local portability helpers). It survives `install.sh --mode refresh` and `--regenerate`: the generator seeds it only when absent and never overwrites a copy that differs. Commit it.
+- **Compose-aware rewrites:** CI `localhost` ports and empty `*_PASSWORD` defaults are rewritten to match the local Compose stack, and every discovered `.env` layer is sourced. Discovery order and `[tool.forge.preflight]` overrides: GENERATION.md.
+- **Step `if:` conditions:** `always()`/`failure()` keep GHA semantics; change-detection gates run anyway; anything mentioning `github.` or `false` is **not emitted** (table: GENERATION.md).
+- **Templates:** `${{ secrets|env|vars|inputs.X }}` become `${X:-}`; export them locally before running.
 
 ## Step 3: Drift check
 
@@ -151,7 +73,7 @@ Compute SHA-256 of each `.github/workflows/*.yml` and compare against `drift.loc
    run: /preflight-ci --regenerate
 ```
 
-Exit code 2. Refuses to execute stale scripts unless `--regenerate` was passed.
+Exit code 2. Refuses to execute stale scripts unless `--regenerate` was passed. First run (no `drift.lock`) writes scripts + lockfile, then executes.
 
 ## Step 4: Execute
 
@@ -165,129 +87,17 @@ For any red job, classify the stderr tail against `skills/_shared/ci-failure-cla
 
 ## Step 6: Report
 
-```markdown
-### Preflight summary
+Per-job ✅/❌/⏭️ summary with branch, job count, duration and drift; specialist diagnosis appended when red (template: REPORT.md).
 
-**Branch:** <branch>
-**Jobs run:** <count> (<duration>)
-**Result:** ✅ all green · safe to push    | ❌ <N> failed
-**Drift:** <none | <files>>
-
-#### Per-job
-- ✅ typecheck (3.2s)
-- ❌ test (8.1s)
-- ⏭️ lint (skipped — fail-fast)
-- ⏭️ test (0.04s) — SKIPPED
-     postgres not reachable (compose stack down) — …
-
-#### Specialist diagnosis (only when red)
-<output from the matched pr-review-toolkit specialist>
-```
-
-Exit codes:
-- `0` — all green; safe to push
-- `2` — drift detected; refused to execute
-- `3` — at least one gating job failed
-- `4` — degraded (no workflows, missing classifier specialist, etc.)
-- `5` — nothing failed, but a job self-skipped or ran without a gating step; that
-  coverage did NOT run locally
-
-### Self-skipped jobs
-
-Distinct from the fail-fast skip above (a job never *started* because an earlier
-one failed). A **self-skip** is a job that ran, found its infra dependency
-absent, announced `SKIP: <reason>` on stderr and exited 0 — the pg-reachability
-guard is the built-in case.
-
-Exit 0 is deliberate: an absent local stack must not block a push, and CI runs
-the real thing. But exit 0 alone is indistinguishable from a pass, so the runner
-detects the marker and reports it explicitly:
-
-- `--quick` → `⚠️  preflight: 1 job(s) DID NOT RUN (test); 3 passed` — never
-  "✓ … green", because this is the line that scrolls past during `git push`.
-- full → the `⏭️ … — SKIPPED` block above, and the summary line becomes
-  `✓ no gating job failed — but 1 SKIPPED (test); that coverage did NOT run`.
-  **The "safe to push" line is withheld whenever anything skipped.**
-- `--json` → `jobs_skipped: ["test"]`, plus `skip_reason` on each job entry.
-- **exit code `5`**, not `0` — the machine consumers (the pre-push hook,
-  `/create-pr --preflight`) read only the exit code, so folding this into `0`
-  would leave them seeing the plain green this mechanism exists to remove.
-
-Consumers differ deliberately: the **pre-push hook waves `5` through** with a
-warning (an absent local stack must not block a push, and CI still runs
-the job), while **`/create-pr` blocks on it** (a PR gate is cheap to re-run).
-
-To actually run a skipped job, bring its dependency up (`docker compose up -d`)
-and re-run.
-
-The marker is `FORGE_SKIP: `, namespaced so it cannot collide with the ordinary
-`SKIP:`/`SKIPPED` chatter that third-party tools write to stderr.
-
-### Step `if:` conditions
-
-GitHub runs a step only when its `if:` holds. The mirror translates what it can
-and is explicit about the rest:
-
-| `if:` | Local behaviour |
-|---|---|
-| absent, `success()` | Runs while nothing has failed (GHA default) |
-| `always()`, `!cancelled()` (bare or `${{ … }}`) | Runs even after an earlier step failed |
-| `failure()` | Runs **only** when an earlier step failed |
-| change detection — `steps.<id>.outputs.*`, `hashFiles(…)` | Runs anyway, with a note. CI skips these as an optimisation, so running locally is a superset — slower, never wrong |
-| context selection — anything mentioning `github.` | **Not emitted.** Named in the summary as a dropped step |
-| `false` (bare or `${{ … }}`) | **Not emitted**, as `# Disabled step:`. Switched off on purpose, so CI does not run it either — omitting it locally is faithful, and it is *not* counted as dropped work |
-
-The last two rows are the same "can't evaluate this locally" problem split by
-which way guessing wrong hurts. Over-running a change-detection gate costs time;
-over-running a context gate does work meant for another context — one real
-workflow has a `git add` / `git commit` / `git push` step behind
-`github.event_name == 'push'`, which the mirror used to run unconditionally
-against whatever branch was checked out. A compound like
-`steps.x.outputs.y == 'true' && github.event_name == 'push'` is treated as
-context-gated: the `github.` half is the dangerous one.
-
-A job containing an `always()` or `failure()` step is emitted with an explicit
-`_forge_failed` flag instead of relying on `set -e`, because `set -e` cannot
-express GHA's semantics — a failed step must not abort the script (later
-conditional steps still need to run) while normal steps after it are still
-skipped and the job still ends red. Jobs without such steps keep the simpler
-shape and their scripts are unchanged. The flag is re-raised as the exit status;
-it is never `|| true`, which would turn a real gate into a no-op.
-
-### Hollowed jobs (`INCOMPLETE`)
-
-The sibling case. `uses:` steps can't be mirrored locally, so they're emitted as
-inert comments — usually harmless, because most of them are `actions/checkout`
-or `setup-python`. But when a job's *actual gating work* is a `uses:` step, the
-job still runs its `run:` steps, exits 0, and reports a clean green having
-proved nothing. `image-scan` built two Docker images and scanned neither.
-
-A job is reported `INCOMPLETE` when a dropped `uses:` step is **not** on
-`LOCALLY_INERT_ACTIONS` (`script_generator.py`). That list is a **denylist of
-inert actions**, not an allowlist of dangerous ones, so an unrecognised action
-counts as lost work — over-warning is recoverable, under-warning is the bug.
-Inert means it prepares the environment (checkout, toolchain setup, cache,
-buildx) or ships results *out* of CI (artifact/coverage upload). Anything that
-brings data *in* that later steps consume, or performs the check itself, is not.
-
-```
-⚠️  image-scan  (6.8s) — INCOMPLETE
-   2 gating step(s) cannot run locally; CI still runs them:
-     · Scan Control Plane image (aquasecurity/trivy-action)
-     · Scan Portal image (aquasecurity/trivy-action)
-```
-
-Same exit code `5` and the same consumer contract as a self-skip — both mean
-"green overstates what was proved". `--json` exposes `jobs_incomplete` plus
-per-job `dropped_steps`. Classification reads the generated script's existing
-`# Skipped step:` comments, so it needs no regeneration to take effect.
+- **Self-skipped job** — ran, found its infra absent, printed `FORGE_SKIP: <reason>` and exited 0. Reported as SKIPPED, never green; **the "safe to push" line is withheld whenever anything skipped**; exit `5`. To actually run it, bring the dependency up (`docker compose up -d`) and re-run.
+- **Hollowed job (`INCOMPLETE`)** — its `run:` steps passed but a dropped `uses:` step is not on `LOCALLY_INERT_ACTIONS` (`script_generator.py`; a denylist of inert actions, so an unknown action counts as lost work). Exit `5`.
 
 ## Integration points
 
 | Caller | How it invokes |
 |--------|----------------|
 | Direct (user) | `/preflight-ci` in any chat — runs against current branch |
-| `/create-pr` | Step 3.6.5 (when `--preflight` flag is on) — runs preflight before specialist diff-review |
+| `/create-pr` | Step 3.6 (when `--preflight` flag is on) — runs preflight before specialist diff-review |
 | Pre-push hook | `.git/hooks/pre-push` — runs only when a locked in-progress task has `preflight_required: true` |
 
 ## Pre-push hook lifecycle
@@ -297,28 +107,17 @@ per-job `dropped_steps`. Classification reads the generated script's existing
 | `forge preflight enable-git-hook` | Install `.git/hooks/pre-push` (idempotent; refuses to clobber a non-Forge hook unless `--force`) |
 | `forge preflight disable-git-hook` | Remove the Forge hook if present (idempotent; refuses to remove a non-Forge hook) |
 
-The hook is installed by default during `install.sh --mode refresh-v3`. The hook reads `forge task ls --in-progress --json`; if no in-progress task exists, preflight runs as the safe default; if every in-progress task has `preflight_required: false`, the hook exits 0 silently.
-
-Tasks declare preflight at creation: `forge task add T### --epic E0X --name "..." --scope-dirs <paths> --preflight {auto|required|skip}`. Auto-detect: any non-doc scope path → required.
-
-Bypass: `FORGE_SKIP_PREFLIGHT=1 git push` (rare, for emergencies).
+The hook is installed by default during `install.sh --mode refresh-v3`. It reads `forge task ls --in-progress --json`; no in-progress task → preflight runs as the safe default; every in-progress task `preflight_required: false` → exits 0 silently. Tasks declare it at creation: `forge task add … --preflight {auto|required|skip}` (auto: any non-doc scope path → required). Bypass: `FORGE_SKIP_PREFLIGHT=1 git push` (rare, for emergencies).
 
 ## Key rules
 
 - **No pushes.** This skill never invokes `git push`, `gh run rerun`, `gh pr create`, or `gh pr edit`. It runs CI locally and reports. The user decides what to push.
-- **Running this on a branch you did not author executes that branch's shell.** Read the workflow diff first — `git diff origin/main -- .github/workflows/`. See *What that means* above.
+- **Running this on a branch you did not author executes that branch's shell.** Read the workflow diff first — `git diff origin/main -- .github/workflows/`.
 - **Workflow files are source of truth.** No hand-maintained mirror config; drift between `.github/workflows/` and `.forge/preflight/` is detected.
 - **Shared classifier with `/diagnose-ci`.** Failure routing lives in `skills/_shared/ci-failure-classifier.md`. Both skills `@see` it; neither embeds its own copy.
 - **Generated scripts are committed.** `.forge/preflight/*.sh` lives in the repo so the parity layer is diff-reviewable.
 - **Hook is opt-out per task, not per repo.** Tasks declare `preflight_required` at creation; doc-only commits push silently.
-
-## Gotchas
-
-- **`uses:` steps don't mirror locally.** Anything beyond `actions/checkout` (which is a no-op locally) is emitted as a skipped-step comment. If your CI relies on `uses:` for the actual work, scripted parity will under-cover; consider `--with-act` (when available).
-- **YAML coerces `run: true`/`run: false` to booleans.** The parser normalizes these to lowercase strings when generating scripts; if your workflow does this intentionally as a no-op, the local mirror runs the same no-op.
-- **macOS vs Ubuntu runner.** `bash`, `coreutils`, locale, and `sed` differ. False greens are possible; treat preflight as "very likely green on CI", not "guaranteed green".
-- **First run requires `--regenerate` implicitly.** If `.forge/preflight/drift.lock` is absent, the skill writes scripts + lockfile then executes — no second invocation needed.
-- **GitHub Actions templates are rewritten to env vars.** `${{ secrets.X }}`, `${{ env.X }}`, `${{ vars.X }}`, `${{ inputs.X }}` are emitted as `${X:-}` so generated scripts are valid bash and don't ship the literal `${{ secrets.* }}` pattern that gitleaks fires on. Export the corresponding env vars locally (or rely on the empty default) before invoking. Other contexts (`${{ github.* }}`, `${{ matrix.* }}`, `${{ steps.*.outputs.* }}`, function calls) pass through untouched — those steps will fail locally and need per-project handling.
+- **Green is "very likely green on CI", not guaranteed** — `uses:` steps don't mirror and macOS/Ubuntu tooling differs (GENERATION.md → Gotchas).
 
 ---
 

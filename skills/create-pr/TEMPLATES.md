@@ -1,5 +1,13 @@
 # PR Description Templates
 
+## Contents
+
+- Size Detection
+- Small / Medium / Large PR Template
+- Draft Prefix
+- Pre-flight notes
+- Content Generation Rules
+
 ## Size Detection
 
 | Size | Files Changed | Lines Changed |

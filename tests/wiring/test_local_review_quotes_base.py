@@ -24,7 +24,7 @@ SKILL = REPO_ROOT / "skills" / "create-pr" / "SKILL.md"
 def _step_38() -> str:
     text = SKILL.read_text(encoding="utf-8")
     start = text.index("## Step 3.8")
-    return text[start:text.index("## Step 3.5", start)]
+    return text[start:text.index("## Step 3.9", start)]
 
 
 def test_step_38_requires_the_branch_to_be_quoted():

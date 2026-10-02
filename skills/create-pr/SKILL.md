@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Creates pull requests with smart defaults. Infers target branch from branch name, adapts description detail to PR size, runs appropriate checks based on PR type (draft vs final), appends the configured review bot's mention (git config forge.reviewBot) when one is set, and offers a post-create review/merge-order loop for triaging review feedback across multiple open PRs.
+description: Creates pull requests with smart defaults. Infers target branch from branch name, adapts description detail to PR size, runs appropriate checks based on PR type (draft vs final), appends the configured review bot's mention (git config forge.reviewBot) when one is set, and offers a post-create review/merge-order loop for triaging review feedback across multiple open PRs. Use when shipping a branch as a PR, triaging review feedback on open PRs (`review`), or sequencing several ready PRs (`merge-order`).
 hooks:
   Stop:
     - hooks:
@@ -8,101 +8,65 @@ hooks:
           command: "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/validators/skills/create_pr_format.py --final"
 ---
 
-## Quick Scan
+# Create PR Workflow
 
-| | |
-|---|---|
-| **Purpose** | Create PRs with smart defaults + config-aware review-bot mention + post-create monitoring + merge-order guidance |
-| **Inputs** | Optional `--draft`, or `review [PR#]`, or `merge-order` |
-| **Output** | PR created (with bot mention when configured); or review-feedback triage; or recommended merge sequence |
-| **Flow** | Analyze → Target → Checks → **Local review** → Docs → Description → Create → Monitor → Merge-order |
+Opens a PR behind pre-push gates, then triages review feedback. Flow: Analyze → Target → Checks → **Pre-push gates** → Docs → Description → Create → Monitor → Merge-order.
 
----
+## Index
 
-## Review bot configuration (detect once per repo)
+| File or section | Read when… |
+|-----------------|------------|
+| `TEMPLATES.md` | Step 4 — PR body templates, size thresholds, Pre-flight notes |
+| `GATES.md` | Review-bot setup; Step 3.7 plugin check + specialist table; Step 3.8 mechanics and rationale |
+| `REVIEW.md` | Steps 6–7 — fetch commands, Codex endpoints, security re-review, merge-order procedure |
+| `_shared/ci-failure-classifier.md` | Step 3.6 exits 3 — routing failures |
+| `_shared/task-triage.md` | Deferring a finding as a follow-up task |
 
-```bash
-git config forge.reviewBot    # e.g. "cc @codex — please review."  (post-PR mention)
-git config forge.localReview  # e.g. "codex review --base {base}"  (pre-push gate, Step 3.8)
-```
+## Review bot configuration
 
-The two are independent and complementary: `localReview` runs the reviewer on your machine before the branch is pushed, `reviewBot` mentions it on the PR afterwards. Setting both is the intended configuration — the local pass absorbs the fix rounds that would otherwise each trigger CI.
+`git config forge.reviewBot` (post-PR mention line) and `forge.localReview` (Step 3.8 command); set both ideally (GATES.md).
 
-- **Set** — the value is the exact mention line. Append it to **every** PR body (draft or final) immediately before the Claude Code attribution, and run the Step 6 review loop against that bot.
-- **Unset** — skip the mention entirely; Step 6 falls back to triaging human reviews + CI feedback with the same buckets. Never invent a bot mention on a repo that hasn't configured one.
-
-To enable on a repo with a Codex-style reviewer installed: `git config forge.reviewBot "cc @codex — please review."`
-
----
+- **Set** — append the exact line to **every** PR body (draft or final) just before the Claude Code attribution; Step 6 reviews against that bot.
+- **Unset** — no mention (never invent one); Step 6 triages human reviews + CI with the same buckets.
 
 ## Output rules
 
-- **PR body** — shortest template that fits the size (see TEMPLATES.md). It is read by humans and the review bot, not by an agent re-reading its own work.
-- **Chat output** — after creation emit ONLY the PR URL, the one-line title, and the `/create-pr review <N>` hint. Never echo the body back; that doubles it into the calling agent's context.
+- **PR body** — shortest template that fits the size (TEMPLATES.md).
+- **Chat output** — ONLY the PR URL, title, and `/create-pr review <N>` hint. Never echo the body.
 
----
+## Untrusted values (every command)
 
-## Untrusted values (apply to EVERY command this skill runs)
+Branch names (`git check-ref-format` permits `;`, `$(…)`, `&&`), commit topics, review findings and the `forge.reviewBot` line may hold shell metacharacters. **Never interpolate them into a command string.**
 
-Almost every value this skill handles arrives from somewhere that permits shell metacharacters, and most of them end up inside a command:
-
-| Value | Comes from |
-|-------|-----------|
-| branch name | `git check-ref-format` permits `;`, `$(…)`, backticks, `&&`, `\|` |
-| PR title / commit topic | commit messages on the branch — authored by whoever opened the PR |
-| review findings | the review bot's output — external text, quoted back into a comment |
-| bot mention line | `git config forge.reviewBot`, never validated |
-
-**Never interpolate any of them into a command string.** Two rules cover every case in this skill:
-
-- **Pass values as separate arguments**, never inside a double-quoted string built by concatenation. `gh pr view "$n" --json body` — not `gh pr view $n ...` assembled into one line.
-- **Prose goes through a file.** `--body-file` / `--title` reading from a file, never `--body "…<finding>…"`. This is already mandated for `gh pr create` because HEREDOC bodies mangle @-mentions; the same mechanism is what makes bot output inert, so use it everywhere prose flows into a command.
-
-Apply both unconditionally rather than case by case: an unsafe value is indistinguishable from a safe one by looking at it.
-
----
-
-# Create PR Workflow
+- **Pass values as separate arguments** (`gh pr view "$n" --json body`), never concatenated into one command string.
+- **Prose goes through a file** (`--body-file`), never `--body "…<finding>…"` — it makes bot output inert and keeps @-mentions intact.
 
 ## Invocation
 
-| Form | Purpose |
-|------|---------|
-| `/create-pr` | Create final PR with full checks |
-| `/create-pr --draft` | Create draft PR for early feedback |
-| `/create-pr review [PR#]` | Poll open PRs for review feedback, triage, report safe-to-merge or fixes-needed |
-| `/create-pr merge-order` | Across all ready-to-merge PRs, output a recommended merge sequence |
-
-`review` and `merge-order` do NOT create PRs — they're follow-up loops.
+`/create-pr` (final PR, full checks) · `--draft` (draft PR) · `--preflight` (adds Step 3.6) · `review [PR#]` (triage review feedback, Step 6) · `merge-order` (merge sequence, Step 7). `review` and `merge-order` do NOT create PRs.
 
 ## Step 1: Analyze
 
-1. Current branch + commits since diverging from base; diff stats (files, lines).
-2. PR type: `--draft` flag, or branch/commits containing `wip`/`draft`/`poc`/`WIP` → suggest draft; otherwise final.
-3. Size (drives the template — see TEMPLATES.md): Small 1–3 files & <100 lines · Medium 4–10 files & 100–500 · Large 10+ files or 500+. Conflicting signals → the larger size.
-4. Present analysis for confirmation.
+Branch, commits since base, diff stats; PR type (`--draft`, or `wip`/`draft`/`poc` in branch/commits → suggest draft); size Small/Medium/Large (thresholds in TEMPLATES.md; conflicting signals → larger). Present for confirmation.
 
 ## Step 2: Determine Target
 
-Infer target from branch name and **confirm with the user** before proceeding:
+Infer target from branch name and **confirm with the user** before proceeding: `hotfix/*` → latest `release/*` if one exists, else `main`; everything else → `main`.
 
-- `hotfix/*` → latest `release/*` if one exists, else `main`.
-- Everything else (`feature/*`, `feat/*`, `fix/*`, `bugfix/*`, `refactor/*`, `docs/*`, `chore/*`, `release/*`, `dependabot/*`, unmatched) → `main`.
-
-Title: `<type>: <description>` with the type prefix from the branch pattern (`feat`, `fix`, `refactor`, `docs`, `chore`; `hotfix/*` → `fix`; otherwise infer from commits). Extract issue refs from branch name (`feature/123-…` → `#123`) and commit keywords (`fixes|closes|resolves #N`) into the body. If the branch isn't on the remote (`git ls-remote --heads origin "<branch>"` — quoted, see Untrusted values), push with `-u` first.
+Title `<type>: <description>`, type from the branch prefix (`hotfix/*` → `fix`; else infer from commits). Link issue refs from the branch name (`feature/123-…` → `#123`) and `fixes|closes|resolves #N` commits. Branch not on remote (`git ls-remote --heads origin "<branch>"`, quoted) → push with `-u`.
 
 ## Step 3: Run Checks
 
 | PR type | Tests | Types | Lint | On fail |
 |---------|-------|-------|------|---------|
 | Draft | run | skip | skip | proceed with warning, list failures in body |
-| Final | must pass | must pass | must pass | **no PR** — fix and retry, downgrade to draft, or abort |
+| Final | must pass | must pass | must pass | **no PR** — fix, downgrade to draft, or abort |
 
-Detect commands from project config (`package.json` scripts, `Makefile` targets, `pyproject.toml` tools, project CLAUDE.md); ask if unclear. Run tests → types → lint, failing fast for final PRs. `--skip-checks` requires explicit confirmation and adds a "created without running checks" note to the PR description.
+Detect commands from project config; ask if unclear. Tests → types → lint, fail fast for final PRs. `--skip-checks` needs explicit confirmation and adds a "created without running checks" note.
 
 ## Step 3.6: Preflight CI mirror (when `--preflight`)
 
-Step 3 runs generic project checks; this runs the **workflow-derived** matrix — the exact `run:` blocks `.github/workflows/*.yml` declares for PR-trigger jobs. Green preflight ≈ green CI; red preflight saves the Actions minutes.
+Runs the exact `run:` blocks of the PR-trigger jobs in `.github/workflows/*.yml` (`/preflight-ci`).
 
 ```bash
 python3 .claude/scripts/preflight/preflight.py --project-root . --regenerate
@@ -112,201 +76,65 @@ python3 .claude/scripts/preflight/preflight.py --project-root . --regenerate
 |------|-----------|
 | 0 (green) | Continue |
 | 2 (drift) | Exit with `error: workflow drift — run /preflight-ci --regenerate first` |
-| 3 (red) | **Block PR creation.** Per-job summary, route via `skills/_shared/ci-failure-classifier.md`; user fixes or passes `--skip-checks` |
+| 3 (red) | **Block PR creation.** Per-job summary, route via `_shared/ci-failure-classifier.md`; user fixes or passes `--skip-checks` |
 | 4 (degraded) | Warn `preflight degraded — continuing without local mirror`, continue |
-| 5 (incomplete) | **Block PR creation.** Coverage did not run — not a green. Two causes, both in the JSON: `jobs_skipped` (job self-skipped, infra absent → tell the user to bring it up with `docker compose up -d` and re-run) and `jobs_incomplete` (job ran but a gating `uses:` step can't be mirrored locally, e.g. the trivy scan — that one only CI can settle, so note it and let the user decide). `--skip-checks` overrides. Deliberately stricter than the pre-push hook, which waves 5 through so an absent local stack never blocks a push — a PR gate is cheap to re-run. |
-
-Opt-in flag because not every project has workflows.
+| 5 (incomplete) | **Block PR creation.** Coverage did not run: `jobs_skipped` (infra absent → `docker compose up -d`, re-run) or `jobs_incomplete` (gating `uses:` step only CI can run — user decides). `--skip-checks` overrides. Stricter than the pre-push hook on purpose. |
 
 ## Step 3.7: Specialist Review (pre-flight fan-out)
 
-Catches review-class issues *before* the push instead of burning CI minutes on fix-and-retry. **CI remains the gate of record** — this is additive.
+**CI remains the gate of record.** Check `pr-review-toolkit` is installed (GATES.md). Absent → cross-check first (a skip verdict earns *more* scrutiny): if `pr-review-toolkit:code-reviewer` is available, run it. Else emit `Specialist review skipped (pr-review-toolkit not installed)` and continue — **do not block**.
 
-**Plugin presence check first:**
+Select specialists from the diff (table: GATES.md; `code-reviewer` always), fan out in one message. An `Intent:` line in the task body adds a compliance question — a diff that misses the intent's outcome or constraints is `MUST-FIX`. Buckets: `MUST-FIX` / `NICE-TO-HAVE` / `NO-ACTION`.
 
-```bash
-python3 -c "import json,sys,os; d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'))); sys.exit(0 if any(k.split('@',1)[0]=='pr-review-toolkit' for k in d.get('plugins',{})) else 1)" 2>/dev/null
-```
-
-Matches the plugin by its name-portion regardless of `@marketplace` suffix — the `installed_plugins.json` (schema v2) key is `pr-review-toolkit@claude-plugins-official`, never the bare name, so a `grep '"pr-review-toolkit"'` would never match. Missing file / bad JSON → non-zero exit → treated as absent (safe default).
-
-Plugin absent → **cross-check before trusting it** (agent-verification.md: an "already-correct / nothing-to-do" verdict — which "absent, skip review" is — earns *more* scrutiny). If a `pr-review-toolkit:code-reviewer` agent is actually available, the check is wrong; run the review. Otherwise emit `Specialist review skipped (pr-review-toolkit not installed)` and continue to Step 3.5. **Do not block** — bare installs proceed on Step 3 checks + CI.
-
-**Agent selection** (deterministic — walk once against the changed files, accumulate matches):
-
-| Diff pattern | Specialist (`pr-review-toolkit:` prefix) |
-|--------------|------------------------------------------|
-| Any code file (always) | `code-reviewer` |
-| Test files (`*test*`, `*spec*`, `tests/`, `__tests__/`) | `pr-test-analyzer` |
-| New types (`interface`, `type`, `class`, dataclass/Pydantic in diff) | `type-design-analyzer` |
-| Error handling (`try/except`, `try/catch`, `.catch(`, `raise`) | `silent-failure-hunter` |
-| Comments/docstrings touched | `comment-analyzer` |
-| Final pass after MUST-FIX cleared (on request) | `code-simplifier` |
-
-**Intent compliance:** if the task body for this branch carries an `Intent: intent/<slug>.md` line, read the file and hand `code-reviewer` a third question alongside bugs and style: does the diff deliver the intent's **Proposed outcome** and respect its **Constraints**? A diff that is correct but does not do what was asked is `MUST-FIX`. No intent line → no compliance pass; do not invent one.
-
-**Fan-out:** single message, multiple Task tool uses — one per matched agent. Each gets the diff + changed-file list and returns findings as `MUST-FIX` (bug, security, broken test, regression) / `NICE-TO-HAVE` (style, naming, small refactor) / `NO-ACTION`. Aggregate into a compact per-agent count table + MUST-FIX detail lines.
-
-**Push gate:** cannot create the PR with unresolved MUST-FIX. Options: fix it (re-run checks + 3.7 on the new diff), defer (file a follow-up via `forge task add`, document in the PR body; **Before filing, apply `skills/_shared/task-triage.md`** — answer "what breaks if this ships later?" Deferred is the default (`--epic E99` parks it out of the ready queue); hard floors (schema/auth/money/security) are never deferred.), or `--proceed-anyway` (override reason recorded in the body's Pre-flight notes). NICE-TO-HAVE → Pre-flight notes section (TEMPLATES.md), doesn't gate. NO-ACTION → dropped.
+**Push gate:** unresolved MUST-FIX blocks PR creation. Fix (re-run checks + 3.7), defer (`forge task add` after applying `_shared/task-triage.md` — default `--epic E99`; schema/auth/money/security never deferred), or `--proceed-anyway` (reason in Pre-flight notes). NICE-TO-HAVE → Pre-flight notes, no gate.
 
 ## Step 3.8: Local review-bot gate (pre-push)
 
-Same idea as 3.7, aimed at the one reviewer that otherwise costs CI minutes to consult. The configured review bot only ever sees the code **after** the PR exists, so every finding it raises is paid for with a full Actions run: fix → push → the whole matrix re-runs → the bot re-scans → repeat. A PR that takes 19 review rounds burns 19 matrices. Running the same reviewer locally, before the branch is pushed, moves that loop off Actions entirely.
+Runs `forge.localReview` (e.g. `codex review --base {base}`) before the push, so findings don't each cost an Actions run. **Unset → skip silently.** Mechanics: GATES.md.
 
-**Config (per repo, mirrors `forge.reviewBot`):**
+- **Presence:** binary not on PATH (`command -v`) → emit `Local review skipped (<binary> not on PATH)`, continue. **Never block on a missing reviewer.**
+- **No prompt argument:** `--base` cannot be used with a `[PROMPT]` argument (codex-cli 0.144.1); put review guidance in `AGENTS.md` at the repo root instead.
+- **Resolve, then invoke — two steps, never one pipeline:** read `git config forge.localReview`; substitute `{base}` with the Step 2 target branch, **shell-quoted** (`git check-ref-format` permits `;`, `$(…)` and `&&` in branch names, so an unquoted branch can append a second command); show it, then run it as its own invocation — never piped to a shell or `eval`.
+- **Run it in the background** (`run_in_background`) alongside 3.7; no polling. **Do not edit files while a review is in flight** — kill and re-run instead.
+- Triage as in 3.7; ambiguous severity → MUST-FIX.
+- **Push gate:** unresolved MUST-FIX blocks PR creation, exactly as in 3.7. Fix → re-run Step 3 checks → re-run this step. Background execution does **not** relax this: never create the PR while a review is still running.
+- **Round cap:** stop after **3** local review rounds and hand back to the user. Never run it unattended, in a hook, or in a `/loop`.
 
-```bash
-git config forge.localReview 'codex review --base {base}'
-```
+## Step 3.9: Documentation Verification (final PRs only)
 
-`{base}` is substituted with the Step 2 target branch. The value is a full command, so any reviewer CLI works — nothing here is specific to one vendor. **Unset → skip this step silently** and continue to 3.5; bare installs are unaffected.
-
-**Do not append review instructions to the command.** In codex-cli 0.144.1 a base-branch diff and a prompt argument are mutually exclusive:
-
-```
-error: the argument '--base <BRANCH>' cannot be used with '[PROMPT]'
-Usage: codex review --base <BRANCH> [PROMPT]
-```
-
-The usage line printed with that error advertises the exact combination it just refused, so anyone who hits this will reasonably conclude they got the syntax wrong and keep trying variants. They didn't. The two are exclusive, and the base-branch diff is the half worth keeping — a prompt-only review has no defined scope.
-
-**Guidance belongs in `AGENTS.md`, not in the invocation.** Codex reads `AGENTS.md` from the repo root automatically, so review direction placed there applies with no prompt argument and no arg conflict. Three reasons this is the better home regardless of the constraint:
-
-- It is versioned and reviewed with the code, rather than living in one developer's shell history or a `git config` value nobody else has.
-- The same file steers the **cloud** review, which sees the assembled PR and is where the more expensive findings tend to come from. One file improves both passes.
-- It survives a framework refresh — it is project data at the repo root, not framework code under `.claude/`.
-
-Put what the reviewer should weight there: which documents are authoritative, what counts as MUST-FIX in this repo, and any area it should not spend attention on.
-
-**Presence check before running:** resolve the command's binary with `command -v`. Absent → emit `Local review skipped (<binary> not on PATH)` and continue. **Never block on a missing reviewer** — same default as 3.7.
-
-**Resolve, then invoke — two steps, never one pipeline:**
-
-1. Read the configured command: `git config forge.localReview`
-2. Substitute `{base}` with the Step 2 target branch, **shell-quoted**.
-3. Run the resolved command as its own invocation, and show it before you do.
-
-**Quote the branch — this string is executed.** `git check-ref-format` permits
-`;`, `$(…)`, backticks, `&&` and `|` in a branch name, so `release/foo;id` is a
-legal branch, and substituting it raw appends a second command to whatever the
-reviewer was supposed to run. Verified: a branch named `release/foo;touch PWNED`
-creates the file when substituted bare, and does not when quoted.
-
-```
---base 'release/foo;touch PWNED'      # inert: one argument
---base release/foo;touch PWNED        # two commands
-```
-
-Most branch names need no quoting, which is exactly why this is easy to miss —
-you cannot tell by looking at the usual case. Quote unconditionally.
-
-Piping the config value straight into a shell interpreter is the wrong shape and will be blocked outright on any machine running a defensive hook — it is the same pattern as the notorious download-and-execute one-liner, and the text being piped comes from config. `eval` is no better. Resolving first also means the exact command is visible in the transcript before it executes, which is what you want from something whose contents come out of config rather than out of this file.
-
-**Run it in the background.** A review over a real diff takes long enough that a blocking call is a frozen turn of unknown length. Launch it detached (`run_in_background`) and let the harness re-invoke you when it exits — do **not** sit in a polling loop, which burns turns to learn nothing the completion notification would have told you.
-
-The point of running it detached is that it overlaps **Step 3.7**: the specialist fan-out and this review read the same diff and do not depend on each other, so both proceed at once and the gate waits for the pair. That is the whole of the concurrency — see the gate note below.
-
-**Do not edit files while a review is in flight.** The reviewer reads the working tree. Editing underneath it means it reviews a mix of old and new state and reports findings against code that no longer exists — a phantom MUST-FIX that costs more to disprove than the review saved. If a fix cannot wait, kill the review and re-run it after the edit.
-
-Triage the output into the same three buckets as 3.7 and Step 6: **MUST-FIX** / **NICE-TO-HAVE** / **NO-ACTION**. The reviewer emits prose, not structured findings, so this is a judgement call on free text — when a finding's severity is genuinely ambiguous, treat it as MUST-FIX and let the fix or the explicit deferral be the record.
-
-**Push gate:** unresolved MUST-FIX blocks PR creation, exactly as in 3.7. Fix → re-run Step 3 checks → re-run this step on the new diff.
-
-Background execution does **not** relax this. Step 5 must never create the PR while a review is still running — that defeats the gate entirely and leaves you paying for the post-PR rounds this step exists to remove. The concurrency is with 3.7 only; everything after the gate waits.
-
-**Round cap — read this before looping.** Stop after **3** local review rounds and hand back to the user with what is still outstanding. Do not run the reviewer in an unattended loop, and never wire it into a hook or a `/loop`. This is the same failure shape as any LLM CLI invoked in a loop: a subscription meant for interactive use, billed by a process that never gets tired. Three rounds catches the ordinary case; a fourth means the change needs a human read, not another review pass.
-
-**What this does not change:** the `forge.reviewBot` mention still goes in the PR body (Step 5) and Step 6 still runs. The bot gets a second pass over the assembled PR with full context, which the local diff review does not have. The difference is that it should now come back `NO-ACTION` or close to it — one Actions run instead of nineteen.
-
-**Feedback signal:** if Step 6 surfaces a MUST-FIX that this step could have caught on the same diff, say so in the status report. Either the local invocation needs different instructions, or that finding class genuinely needs full-PR context — both worth knowing, and neither is visible unless it is named.
-
-## Step 3.5: Documentation Verification (final PRs only)
-
-Invoke `/refresh-project-context`: README matches new features/config, API docs current, CHANGELOG has Unreleased entries, doc examples still work. Issues found → present list, offer to fix before proceeding.
+Invoke `/refresh-project-context` (README, API docs, CHANGELOG Unreleased, doc examples). Issues → present, offer to fix.
 
 ## Step 4: Generate Description
 
-Use the size-matched template from [TEMPLATES.md](TEMPLATES.md); see Output rules above.
+Size-matched template from TEMPLATES.md; see Output rules.
 
 ## Step 5: Create PR
 
 1. Push the branch if needed.
-2. **If `forge.reviewBot` is set:** the PR body MUST end with the configured mention line before the Claude Code attribution — draft or final. Create via `gh pr create --body-file` (HEREDOC bodies sometimes mangle @-mentions), then verify post-create: `gh pr view <N> --json body --jq .body | grep -qF -- "$(git config forge.reviewBot)" || echo MISSING`. If missing, fix immediately via `gh pr edit --body-file`.
+2. **If `forge.reviewBot` is set:** the body MUST end with its line before the attribution. Create via `gh pr create --body-file`, then verify: `gh pr view <N> --json body --jq .body | grep -qF -- "$(git config forge.reviewBot)" || echo MISSING`. Missing → `gh pr edit --body-file`.
 3. **If unset:** create via `gh pr create --body-file` with no bot mention.
-4. Present the PR URL + the `/create-pr review <N>` follow-up hint (bot-configured repos: feedback usually lands in 2–10 min).
+4. Present the PR URL + the `/create-pr review <N>` hint.
 
 ## Step 6: Review Loop (`/create-pr review [PR#]`)
 
-Post-create monitoring: is this PR (or every open PR) safe to merge?
-
-1. **Targets:** `<PR#>` if given, else all open PRs authored by the user.
-2. **Fetch per PR:** `gh pr view <N> --json number,title,headRefName,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,reviews,comments` + `gh api repos/{owner}/{repo}/pulls/<N>/comments` (inline comments).
-3. **Feedback source:** with `forge.reviewBot` set, look for that bot's actor (verify the actual bot login on first run — e.g. `chatgpt-codex-connector[bot]`; it may differ from the mention handle). Without a bot, triage human review comments + failing CI checks from `statusCheckRollup` — same buckets, same loop.
-4. **Triage every finding:** **MUST-FIX** (actual bug, security gap, broken test, regression) / **NICE-TO-HAVE** (style, naming, docstring, small refactor) / **NO-ACTION** (nothing found, or acknowledgment only).
-5. **For each MUST-FIX:** `gh pr checkout <N>` → apply fix → re-run Step 3 checks → **re-run Step 3.7 specialists on the fix diff** (`git diff` of the fix commit — same fan-out, same MUST-FIX push gate) → commit `fix(review): address review feedback on <topic> (PR #<N>)` → push. **Same PR number — never close-and-recreate.** Then comment via `gh pr comment <N> --body-file <file>` — write the body (`Addressed in <sha>:`, one line per finding, then the bot mention line if configured, whose re-mention retriggers the re-scan) to a file first. **Never `--body "…"`**: those lines quote review-bot output straight back into a command. For human reviewers, request re-review via `gh pr edit --add-reviewer` or the comment.
-
-   **Why re-run 3.7 here:** the fix itself is unreviewed code. A review bot (Codex et al.) re-scans every commit, so it catches regressions the fix introduced — a misleading comment, an orphaned route, a guard that broke a sibling. If the framework's own specialists only run once at the *original* 3.7 and then go silent through the whole review phase, every self-inflicted fix bug is left for the bot to find, which is exactly the round-trip this loop exists to avoid. Re-running 3.7 on the fix diff closes the seam: catch your own regressions with your own tooling before the bot has to. Skip only when the fix is a pure revert or a one-line typo with no runtime surface.
-6. **NICE-TO-HAVE:** apply if cheap, else defer to a follow-up task; note the deferral in a PR comment.
-7. **Status report (always emit, one line per PR, no prose):**
-
-   ```
-   PR #<N> <title> — review:<status> ci:<status> | MUST:<n> NICE:<n> NO:<n> | <verdict>
-   ```
-
-   Verdicts: `safe-to-merge` / `re-review-pending` / `blocked`. Expand to per-finding detail only when MUST > 0 and the user asks.
-8. **Wait condition:** bot configured but silent after ~2 min → suggest `/loop 5m /create-pr review <N>` (where the host Claude Code ships /loop) or a one-shot scheduled wakeup. No bot → CI status + human review state is the answer now; no waiting.
-
-If a security finding surfaces in review, re-review the fix before re-requesting:
-
-```
-Use the Task tool:
-- subagent_type: "security-boss"
-- description: "Re-review <PR#> fix for the flagged security finding"
-- prompt: |
-    PR: <#>. Finding: <quote>. Fix commit: <hash>. Files: <list>.
-    Re-review the fix against the finding: mitigation correct and complete,
-    no new attack surface. Defer to reference/03 + reference/08.
-    Output feeds the comment that re-requests review.
-```
+1. **Targets:** `<PR#>`, else all the user's open PRs. Fetch reviews, comments, inline comments, CI (REVIEW.md).
+2. **Triage:** **MUST-FIX** (bug, security, broken test, regression) / **NICE-TO-HAVE** (style, small refactor) / **NO-ACTION**.
+3. **Each MUST-FIX:** `gh pr checkout <N>` → fix → Step 3 checks → **re-run Step 3.7 on the fix diff** (skip only for a pure revert/typo) → commit `fix(review): address review feedback on <topic> (PR #<N>)` → push. **Same PR — never close-and-recreate.** Comment via `gh pr comment <N> --body-file <file>` (`Addressed in <sha>:` per finding, then the bot line); **never `--body "…"`**. Security finding → `security-boss` re-review first (REVIEW.md).
+4. **NICE-TO-HAVE:** apply if cheap, else defer and note it in a PR comment.
+5. **Status report (always emit, one line per PR, no prose):** `PR #<N> <title> — review:<status> ci:<status> | MUST:<n> NICE:<n> NO:<n> | <verdict>`. Verdicts: `safe-to-merge` / `re-review-pending` / `blocked`.
+6. **Wait condition:** bot silent after ~2 min → suggest a `/loop` or scheduled wakeup (REVIEW.md). No bot → no waiting.
 
 ## Step 7: Multi-PR Merge Order (`/create-pr merge-order`)
 
-1. Gather open PRs with verdict `safe-to-merge` from Step 6.
-2. File-overlap matrix: `gh pr diff <N> --name-only` per PR, intersect pairs — overlap means the later PR rebases after the earlier merges.
-3. Score: risk band (infra/docs low < backend non-runtime med < backend runtime/security/migration high ≈ frontend behavior high), prefer smaller diffs first, flag deploy-affecting changes (migrations, routes) for a separate window.
-4. Output — one line per PR in merge order; append Deploy/Conflict lines only if non-empty:
-
-   ```
-   Merge order:
-   1. PR #X — <title> — risk:low +N/-M
-   2. PR #Y — <title> — risk:med +N/-M — rebase after #X
-
-   Conflicts: PR #Y ↔ PR #Z on <file>
-   ```
-
-5. **Never auto-merge.** Hand the order to the user.
+Order `safe-to-merge` PRs by file overlap, risk and size (REVIEW.md). **Never auto-merge.**
 
 ## Key Rules
 
 - Always confirm target branch before creating.
 - Never create a final PR with failing checks (offer draft instead).
-- Review-bot mention is config-driven: `forge.reviewBot` set → its line on every PR body, verified post-create; unset → no mention, Step 6 triages human + CI feedback.
-- **Consult the review bot locally BEFORE pushing** (`forge.localReview`, Step 3.8). Its post-PR findings cost a full Actions run each; its pre-push findings cost nothing. Capped at 3 rounds, never unattended, never in a hook or `/loop`.
-- After review feedback, push fixes to the SAME PR (never close-and-recreate); re-mention the bot in a comment to retrigger its review.
-- Always include the Claude Code attribution; extract and link related issues.
-- For multi-PR sequences, present a merge order; never auto-merge without explicit instruction.
-
-## Gotchas
-
-- **Codex findings arrive on three endpoints — poll all of them.** The bot
-  (`chatgpt-codex-connector[bot]`; match `'codex' in login`, case-insensitive)
-  posts to issue-comments (`issues/{n}/comments`), formal reviews
-  (`pulls/{n}/reviews`, sometimes `state:COMMENTED` with an empty body), and inline
-  review comments (`pulls/{n}/comments`, with P-badges). A finding can sit in one
-  while the others are empty.
-- **On re-push, codex re-anchors old inline findings to the new head** (line and
-  `commit_id`), so a stale finding and a fresh clean verdict can share a commit and
-  line. Read the newest entry by `created_at` for the current verdict.
+- Consult the review bot locally BEFORE pushing (Step 3.8): max 3 rounds, never unattended.
+- Review fixes go to the SAME PR; re-mention the bot to retrigger review.
+- Always include the Claude Code attribution. Never auto-merge.
 
 ---
 
