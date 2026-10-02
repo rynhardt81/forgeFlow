@@ -72,7 +72,7 @@ A consumer that wants a specific framework rule gone can drop it durably with a 
 
 ## Don't duplicate the harness
 
-Claude Code injects a substantial system prompt of its own before any framework file is read. Re-stating an instruction it already gives makes behaviour **worse**, not better: both current prompting guides name compounding as a real cost, and the Claude Opus 5 guide is explicit that such instructions "compound with the model's own behavior and add cost without improving results."
+Claude Code injects a substantial system prompt of its own before any framework file is read. Re-stating an instruction it already gives makes behaviour **worse**, not better: the prompting guides name compounding as a real cost, and the Claude Opus 5 guide is explicit that such instructions "compound with the model's own behavior and add cost without improving results." The Claude Opus 5.5 guide keeps those patterns in force — *"Existing Claude Opus 5 prompts should perform well without changes, and the patterns in Prompting Claude Opus 5 remain a reasonable starting point"* — so the Opus 5 citations below still apply on Opus 5.5.
 
 So a framework file's job is what the harness does *not* say — the forge CLI's mutation discipline, the ISA verification trail, the gate domains, the task-triage defaults. Not a second copy of general good behaviour.
 
@@ -82,7 +82,7 @@ So a framework file's job is what the harness does *not* say — the forge CLI's
 |---|---|
 | A "Delivering work" block: the request sets the scope, don't quietly narrow or widen it, make routine judgment calls yourself, finish the whole task, stop short of what's clearly beyond the ask | A framework restatement of scope discipline |
 | A corrections limiter: only correct an earlier statement when the error changes the user's code, conclusions, or decisions | "Don't over-apologise", "don't narrate mistakes" |
-| Deterministic subagent caps as environment variables — always. Plus a delegation instruction, but only on Claude Opus 5 **and** only when the harness uses its `claude_code` system-prompt preset; a custom or omitted system prompt gets no such line | A framework rule telling the model when to delegate in general (per-tier *routing* in `skills/_shared/model-routing.md` is different — it says which model and effort, not whether to delegate at all) |
+| Deterministic subagent caps as environment variables — always. Plus a delegation instruction, but only when the harness uses its `claude_code` system-prompt preset (documented in the Claude Opus 5 guide; the Opus 5.5 guide does not restate which models get it); a custom or omitted system prompt gets no such line | A framework rule telling the model when to delegate in general (per-tier *routing* in `skills/_shared/model-routing.md` is different — it says which model and effort, not whether to delegate at all) |
 | A parallel-tool-call nudge: make independent calls in the same block | "Batch your tool calls" |
 | Context-management guidance for long sessions | "Wrap up early", "hand off before you run out" |
 
