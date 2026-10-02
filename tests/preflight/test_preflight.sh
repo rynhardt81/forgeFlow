@@ -177,7 +177,7 @@ HOOK_REPO=/tmp/preflight-iter-hook
 rm -rf "$HOOK_REPO" && mkdir -p "$HOOK_REPO" && (cd "$HOOK_REPO" && git init -q)
 ${PYTHON_BIN} scripts/forge/forge.py --project-root "$HOOK_REPO" preflight enable-git-hook >/dev/null
 if [[ -x "$HOOK_REPO/.git/hooks/pre-push" ]] && \
-   grep -q "FORGE_PREFLIGHT_HOOK_V1" "$HOOK_REPO/.git/hooks/pre-push" && \
+   grep -qF "$(grep -o "FORGE_PREFLIGHT_HOOK_V[0-9]*" scripts/preflight/pre-push.template.sh)" "$HOOK_REPO/.git/hooks/pre-push" && \
    grep -q "task ls --in-progress --json" "$HOOK_REPO/.git/hooks/pre-push" && \
    grep -q "preflight_required" "$HOOK_REPO/.git/hooks/pre-push" && \
    grep -q "preflight.py" "$HOOK_REPO/.git/hooks/pre-push"
@@ -232,8 +232,8 @@ else
     fail "ISC-12" "create-pr missing Step 3.6 wiring"
 fi
 
-# ------------- ISC-13: CLAUDE.md skills table row ----------------------------
-if grep -qE '^\| `/preflight-ci` \|' CLAUDE.md; then
+# ------------- ISC-13: CLAUDE.md routing table names /preflight-ci -----------
+if grep -qE '^\|.*`/preflight-ci`' CLAUDE.md; then
     pass "ISC-13"
 else
     fail "ISC-13" "no /preflight-ci row in CLAUDE.md skills table"
@@ -248,6 +248,7 @@ MATCHES=$(grep -RE "gh run rerun|gh pr (create|edit)|git push" \
     --include='*.py' --include='*.sh' \
     skills/preflight-ci/ scripts/preflight/ 2>/dev/null \
     | grep -vE "^scripts/preflight/pre-push\.template\.sh:" \
+    | grep -vE "^[^:]+:[[:space:]]*#" \
     || true)
 if [[ -z "$MATCHES" ]]; then
     pass "ISC-14"

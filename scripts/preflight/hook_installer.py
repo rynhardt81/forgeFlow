@@ -1,6 +1,6 @@
 """Install / uninstall the Forge Flow pre-push hook.
 
-Sentinel comment `FORGE_PREFLIGHT_HOOK_V1` marks Forge-owned hooks so we
+Sentinel comment `FORGE_PREFLIGHT_HOOK_V<n>` marks Forge-owned hooks so we
 never clobber a hook the user wrote by hand. Operations are idempotent —
 install over an existing Forge hook is fine; disable when no hook exists
 is fine.
