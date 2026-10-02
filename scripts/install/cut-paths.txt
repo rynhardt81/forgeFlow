@@ -115,3 +115,7 @@ scripts/install/migrate.ps1
 scripts/install/migrate.sh
 scripts/install/upgrade-template.sh
 scripts/install/versions/
+
+# 2026-10-02 — v4.8.0: ui-ux-pro-max skill removed (unused 628 KB design
+# catalog; /frontend-design and Anthropic's frontend-design plugin cover it).
+skills/ui-ux-pro-max/

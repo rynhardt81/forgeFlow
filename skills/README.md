@@ -55,7 +55,6 @@ One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter
 | Skill | Purpose |
 |-------|---------|
 | `/frontend-design` | Design direction (defers to native plugin when present) |
-| `/ui-ux-pro-max` | Searchable local design DB — styles, palettes, font pairings |
 
 ## Security hardening
 

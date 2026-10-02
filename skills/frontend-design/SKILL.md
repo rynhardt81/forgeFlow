@@ -1,6 +1,6 @@
 ---
 name: frontend-design
-description: Design direction for building distinctive, intentional UI — aesthetic choices, typography, color, motion — instead of templated defaults. Use when building new UI or reshaping an existing one and the aesthetic direction, typography, color, or motion needs deciding. NOT FOR component data/state logic, or for picking from the design catalog (use /ui-ux-pro-max for searchable styles/palettes/font pairings).
+description: Design direction for building distinctive, intentional UI — aesthetic choices, typography, color, motion — instead of templated defaults. Use when building new UI or reshaping an existing one and the aesthetic direction, typography, color, or motion needs deciding. NOT FOR component data/state logic.
 ---
 
 # Frontend Design
@@ -12,7 +12,6 @@ This is a routing card, not a vendored design course. Anthropic's full `frontend
 | File or section | Read when… |
 |---|---|
 | Core discipline (fallback) | The first-party plugin is not installed — the six rules, including visual verification |
-| Catalog lookups | Needing concrete styles, palettes, or font pairings |
 
 ## Core discipline (fallback)
 
@@ -23,10 +22,6 @@ This is a routing card, not a vendored design course. Anthropic's full `frontend
 4. **Spacing rhythm over decoration.** A consistent spacing scale (4/8px base) reads as polish; borders and shadows rarely do.
 5. **States are design too** — empty, loading, error, and long-content states get designed, not discovered in production.
 6. **Verify visually.** A design change is not done until you've looked at it rendered — screenshot the target route(s) at mobile and desktop widths. Judging CSS from source is forbidden.
-
-## Catalog lookups
-
-For concrete style references, palettes, and font pairings, use `/ui-ux-pro-max` — a searchable local database, no network needed.
 
 ---
 

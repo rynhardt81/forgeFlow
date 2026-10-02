@@ -132,7 +132,6 @@ The summary block injected at SessionStart looks like this:
 Files: 42 | LOC: 10,418 | Langs: python:10,418
 Modules: hooks, scripts, security, skills
 Top 10 largest:
-  skills/ui-ux-pro-max/scripts/design_system.py (1067 LOC)
   scripts/forge/check_consistency.py (745 LOC)
   ...
 Full map: docs/code-map.md

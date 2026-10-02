@@ -70,7 +70,7 @@ Each agent's frontmatter binds an advisory PostToolUse validator that fires on i
 | `@build-resolver` | `@devops` (build / CI failures are CI / infra) |
 | `@refactor-cleaner` | `/refactor` skill (risk-scaled refactor IS a workflow) |
 | `@doc-updater` | `/refresh-project-context` skill (doc refresh IS a workflow) |
-| `@ux-designer` | `/ui-ux-pro-max` + `/frontend-design` |
+| `@ux-designer` | `/frontend-design` |
 | `@visual-mistro` | `/frontend-design` (its `interventions/*` reference library) |
 | `@whimsy` | `/frontend-design` (reads `interventions/delight.md`) |
 | `@orchestrator` | The Algorithm itself + skill orchestration |

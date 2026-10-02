@@ -290,7 +290,6 @@ python3 .claude/scripts/forge/forge.py task complete T042
 | `/audit-rules` | Advisory audit of rules and CLAUDE.md for staleness/contradiction |
 | `/audit-task-status` | Align task/epic statuses with the registry (registry is truth) |
 | `/frontend-design` | Design direction (defers to native plugin when installed) |
-| `/ui-ux-pro-max` | Searchable local design DB — styles, palettes, fonts |
 
 Full command index: [CHEATSHEET.md](../CHEATSHEET.md)
 

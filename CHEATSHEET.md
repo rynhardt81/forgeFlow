@@ -115,7 +115,6 @@ python3 .claude/scripts/forge/forge.py dashboard              # http://127.0.0.1
 | `/remember` | Manual knowledge capture → `docs/project-memory/` |
 | `/refresh-project-context` | Sync CLAUDE.md + project docs with reality |
 | `/frontend-design` | Design direction (defers to native plugin when installed) |
-| `/ui-ux-pro-max` | Searchable local design DB — styles, palettes, fonts |
 | `/damage-control` | Install defense-in-depth blocking security hooks |
 | `forge dashboard` | Local cockpit at `http://127.0.0.1:4847/` (`forge` = `python3 .claude/scripts/forge/forge.py` — alias it) |
 
