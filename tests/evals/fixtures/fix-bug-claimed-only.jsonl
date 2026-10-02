@@ -1,0 +1,4 @@
+{"type": "system", "subtype": "init", "session_id": "fixture", "model": "claude-sonnet-5-5"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "I reproduced it: HTTP 500 \u2014 confirmed. Writing a regression test that fails without the fix."}, {"type": "tool_use", "id": "t1", "name": "Edit", "input": {"file_path": "app.py", "old_string": "x", "new_string": "y"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "File edited"}]}}
+{"type": "result", "subtype": "success", "result": "Done."}

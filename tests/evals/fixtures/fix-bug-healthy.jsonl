@@ -1,0 +1,12 @@
+{"type": "system", "subtype": "init", "session_id": "fixture", "model": "claude-sonnet-5-5"}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Let me reproduce this first before changing anything."}, {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "python3 app.py \"O'Brien\""}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "500"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": "Reproduced: HTTP 500 \u2014 confirmed, the apostrophe breaks the query. Root cause: surname is interpolated into SQL rather than parameterised. Writing a regression test that fails without the fix."}, {"type": "tool_use", "id": "t2", "name": "Write", "input": {"file_path": "test_app.py", "content": "from app import login\n\ndef test_apostrophe_surname():\n    assert login(\"O'Brien\") == 200\n"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t2", "content": "File created"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t3", "name": "Bash", "input": {"command": "python3 -m pytest -q test_app.py"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t3", "content": "1 failed"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t4", "name": "Edit", "input": {"file_path": "app.py", "old_string": "f\"SELECT id FROM users WHERE surname = '{surname}'\"", "new_string": "\"SELECT id FROM users WHERE surname = ?\", (surname,)"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t4", "content": "File edited"}]}}
+{"type": "assistant", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "t5", "name": "Bash", "input": {"command": "python3 -m pytest -q test_app.py"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t5", "content": "1 passed"}]}}
+{"type": "result", "subtype": "success", "result": "Fixed: the query is parameterised; the regression test fails before the fix and passes after."}

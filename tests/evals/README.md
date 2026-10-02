@@ -16,13 +16,16 @@ cost R9,000. So:
 - Nothing under `hooks/` may invoke it. `test_evals_never_autorun.py` enforces
   that, and it is the test to keep if you throw the rest away.
 - It is manual or CI-only, never a `/loop`, never a SessionStart hook.
+- **API key only — decided 2026-10-02.** Subscription billing was considered
+  and declined: the guard stays as is.
 
 ## Layout
 
 ```
 tests/evals/
 ├── cases/*.yaml        one eval: prompt + deterministic checks
-├── fixtures/*.txt      recorded transcripts, for testing the checks offline
+├── projects/<name>/    fixture project a case runs against (copied per run)
+├── fixtures/*.jsonl    stream-json transcripts, for testing the checks offline
 └── README.md
 ```
 
@@ -49,6 +52,19 @@ checks:
 | `transcript_absent` | the regex is not found |
 | `command_succeeds` | `cmd` exits 0 in the workspace |
 | `file_exists` | `path` exists in the workspace |
+| `tool_called` | a tool whose name fully matches the `tool` regex was called, with input matching `pattern` (optional) |
+| `tool_order` | the first call matching `before` comes before the first call matching `after` (both must occur) |
+
+The runner records `claude -p --output-format stream-json`, so a transcript
+holds every text block, tool call and tool result in order — a Bash call reads
+as `$ <command>`. That is what lets a check tell a run that reproduced a bug
+from one that only said it did: `tool_order` with `before: Bash` and
+`after: Edit|Write` fails the second. Plain-text transcripts still work for the
+text checks and have no tool calls.
+
+**Workspace.** Each run happens in a fresh temp dir, seeded from the case's
+`fixture:` project under `projects/`, never in the repo. A case without a
+fixture gets an empty git repo. `--workspace` overrides this.
 
 Patterns are **raw**: the parser strips surrounding quotes and does nothing else, so write `\w`, not `\\w`. A doubled backslash reaches the regex as a literal backslash and the check silently never matches — which reads as a pass on a `transcript_absent` check, so it fails open.
 
@@ -60,6 +76,7 @@ was dropped is a failure nobody can act on.
 ```bash
 FORGE_EVALS_BILLING=api python3 scripts/forge/evals.py run            # all
 FORGE_EVALS_BILLING=api python3 scripts/forge/evals.py run --id X     # one
+FORGE_EVALS_BILLING=api python3 scripts/forge/evals.py run --runs 3   # pass rate over 3 runs each (3× the spend)
 python3 scripts/forge/evals.py check --transcript path --id X         # offline, free
 python3 scripts/forge/evals.py list
 ```

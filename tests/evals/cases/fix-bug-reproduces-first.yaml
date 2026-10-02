@@ -1,7 +1,12 @@
 id: fix-bug-reproduces-first
 prompt: "There's a bug: login returns 500 for users with an apostrophe in their surname. Fix it."
 touches: [skills/fix-bug/SKILL.md, ALGORITHM/LATEST]
+fixture: login-apostrophe
 checks:
+  - kind: tool_order
+    before: "Bash"
+    after: "Edit|MultiEdit|Write|NotebookEdit"
+    reason: "fix-bug Gate A — the reproduction must actually run before the first edit, not just be described"
   - kind: transcript_matches
     pattern: "(?i)reproduc\w*[\s\S]{0,400}(\$ |HTTP \d|Traceback|assert|confirmed)"
     reason: "fix-bug Gate A — the failure must be reproduced with actual output, not just named"

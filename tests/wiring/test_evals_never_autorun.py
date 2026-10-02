@@ -85,10 +85,50 @@ def test_dropped_gate_produces_a_red_run():
     import evals
     case = next(c for c in evals.load_cases() if c.id == "fix-bug-reproduces-first")
     fixtures = REPO_ROOT / "tests" / "evals" / "fixtures"
-    healthy = evals.apply_checks(case, (fixtures / "fix-bug-healthy.txt").read_text(), REPO_ROOT)
-    dropped = evals.apply_checks(case, (fixtures / "fix-bug-gate-dropped.txt").read_text(), REPO_ROOT)
+    healthy = evals.apply_checks(case, (fixtures / "fix-bug-healthy.jsonl").read_text(), REPO_ROOT)
+    dropped = evals.apply_checks(case, (fixtures / "fix-bug-gate-dropped.jsonl").read_text(), REPO_ROOT)
     assert all(c["passed"] for c in healthy), "a compliant run must be green"
     assert not any(c["passed"] for c in dropped), "a run that skipped the gates must be red"
+
+
+def test_claimed_reproduction_without_running_anything_is_red():
+    """T921: a final-reply-only transcript let a run that merely *said* it
+    reproduced the bug pass. With stream-json the tool calls are visible, and a
+    reproduction that never ran a command before the first edit fails."""
+    import evals
+    case = next(c for c in evals.load_cases() if c.id == "fix-bug-reproduces-first")
+    text = (REPO_ROOT / "tests" / "evals" / "fixtures" / "fix-bug-claimed-only.jsonl").read_text()
+    results = {c["reason"]: c["passed"] for c in evals.apply_checks(case, text, REPO_ROOT)}
+    order = [r for r in results if "actually run" in r]
+    assert order and results[order[0]] is False
+    assert sum(results.values()) == len(results) - 1, "only the tool-order check should catch it"
+
+
+def test_run_works_in_a_temp_copy_and_leaves_the_repo_untouched(tmp_path, monkeypatch):
+    """T921: `run` used the repo root as the workspace, so a fix-bug prompt
+    edited real files. Exercised with a fake `claude` on PATH — no model, no
+    cost — that writes a file wherever it is started."""
+    import evals
+    fake = tmp_path / "bin" / "claude"
+    fake.parent.mkdir()
+    fake.write_text("#!/bin/sh\necho touched > EVAL_RAN\n"
+                    "echo '{\"type\":\"result\",\"result\":\"ok\"}'\n")
+    fake.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake.parent}:{__import__('os').environ['PATH']}")
+
+    def status():
+        return subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
+                              capture_output=True, text=True).stdout
+
+    before = status()
+    case = next(c for c in evals.load_cases() if c.id == "fix-bug-reproduces-first")
+    result = evals.run_case(case, None, None)
+    ws = Path(result["workspace"])
+    assert status() == before, "an eval run changed the repo's git status"
+    assert (ws / "EVAL_RAN").exists() and (ws / "app.py").exists(), (
+        "the run should happen in a temp copy of the case's fixture project"
+    )
+    assert REPO_ROOT not in ws.parents and ws != REPO_ROOT
 
 
 def test_patterns_are_raw_not_double_escaped():

@@ -19,8 +19,10 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -49,6 +51,9 @@ def _cases_dir() -> Path:
 
 REPO_ROOT = _framework_root()
 CASES_DIR = _cases_dir()
+# Fixture projects a case runs against, copied to a temp dir per run so a
+# `fix-bug` prompt never edits this repo (or a consumer's) real files.
+PROJECTS_DIR = CASES_DIR.parent / "projects"
 
 BILLING_ENV = "FORGE_EVALS_BILLING"
 BILLING_REQUIRED = "api"
@@ -73,6 +78,9 @@ class Check:
     pattern: str | None = None
     cmd: str | None = None
     path: str | None = None
+    tool: str | None = None      # tool_called: tool-name regex
+    before: str | None = None    # tool_order: tool-name regex that must come first
+    after: str | None = None     # tool_order: tool-name regex that must come later
 
 
 @dataclass
@@ -81,6 +89,7 @@ class Case:
     prompt: str
     checks: list[Check]
     touches: list[str] = field(default_factory=list)
+    fixture: str | None = None
 
 
 def _parse_case(text: str, source: Path) -> Case:
@@ -127,6 +136,7 @@ def _parse_case(text: str, source: Path) -> Case:
     if isinstance(touches, str):
         touches = [t.strip() for t in touches.strip("[]").split(",") if t.strip()]
     return Case(id=data["id"], prompt=data["prompt"], touches=touches,
+                fixture=data.get("fixture") or None,
                 checks=[Check(**c) for c in checks])
 
 
@@ -142,8 +152,59 @@ def load_cases() -> list[Case]:
             for f in sorted(CASES_DIR.glob("*.yaml"))]
 
 
+def parse_transcript(raw: str) -> tuple[str, list[tuple[str, str]]]:
+    """Flatten a transcript into (text, tool calls).
+
+    `claude -p --output-format stream-json` emits one JSON event per line; the
+    plain `claude -p` output is only the final reply. From stream-json, every
+    text block, tool call and tool result goes into the text in order — a Bash
+    call renders as `$ <command>` — and tool calls are also returned as
+    (name, input-json) pairs so a check can assert on what was *done*, not on
+    what the summary claims. Plain text passes through with no tool calls.
+    """
+    lines = [l for l in raw.splitlines() if l.strip()]
+    try:
+        if not lines or "type" not in json.loads(lines[0]):
+            return raw, []
+    except (json.JSONDecodeError, TypeError):
+        return raw, []
+    parts: list[str] = []
+    calls: list[tuple[str, str]] = []
+    for line in lines:
+        try:
+            ev = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if ev.get("type") == "result":
+            parts.append(str(ev.get("result") or ""))
+            continue
+        content = (ev.get("message") or {}).get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            kind = block.get("type")
+            if kind == "text":
+                parts.append(block.get("text", ""))
+            elif kind == "tool_use":
+                name, inp = block.get("name", ""), block.get("input") or {}
+                calls.append((name, json.dumps(inp)))
+                parts.append(f"$ {inp['command']}" if name == "Bash" and "command" in inp
+                             else f"[{name}] {json.dumps(inp)}")
+            elif kind == "tool_result":
+                body = block.get("content")
+                if isinstance(body, list):
+                    body = "\n".join(b.get("text", "") for b in body if isinstance(b, dict))
+                parts.append(str(body or ""))
+    return "\n".join(parts), calls
+
+
+def _first(calls: list[tuple[str, str]], name_re: str | None) -> int | None:
+    return next((i for i, (n, _) in enumerate(calls) if re.fullmatch(name_re or "", n)), None)
+
+
 def apply_checks(case: Case, transcript: str, workspace: Path) -> list[dict]:
     """Evaluate a case's checks. Pure and free — no model involved."""
+    transcript, calls = parse_transcript(transcript)
     results = []
     for c in case.checks:
         if c.kind == "transcript_matches":
@@ -155,6 +216,12 @@ def apply_checks(case: Case, transcript: str, workspace: Path) -> list[dict]:
                                 capture_output=True).returncode == 0
         elif c.kind == "file_exists":
             ok = (workspace / (c.path or "")).exists()
+        elif c.kind == "tool_called":
+            ok = any(re.fullmatch(c.tool or "", n) and re.search(c.pattern or "", i)
+                     for n, i in calls)
+        elif c.kind == "tool_order":
+            b, a = _first(calls, c.before), _first(calls, c.after)
+            ok = b is not None and a is not None and b < a
         else:
             raise ValueError(f"{case.id}: unknown check kind {c.kind!r}")
         results.append({"kind": c.kind, "reason": c.reason, "passed": ok})
@@ -181,16 +248,34 @@ def guard_billing(env: dict | None = None) -> None:
         )
 
 
-def run_case(case: Case, workspace: Path, model: str | None) -> dict:
-    cmd = ["claude", "-p", case.prompt]
+def prepare_workspace(case: Case) -> Path:
+    """A fresh temp dir per run, seeded from the case's fixture project.
+
+    Never the repo root: a `fix-bug` prompt edits files, and the eval must leave
+    the caller's `git status` untouched.
+    """
+    ws = Path(tempfile.mkdtemp(prefix=f"forge-eval-{case.id}-"))
+    if case.fixture:
+        src = PROJECTS_DIR / case.fixture
+        if not src.is_dir():
+            raise ValueError(f"{case.id}: fixture project {src} does not exist")
+        shutil.copytree(src, ws, dirs_exist_ok=True)
+    subprocess.run(["git", "init", "-q"], cwd=ws, check=True)
+    return ws
+
+
+def run_case(case: Case, workspace: Path | None, model: str | None) -> dict:
+    ws = workspace or prepare_workspace(case)
+    cmd = ["claude", "-p", case.prompt, "--output-format", "stream-json", "--verbose"]
     if model:
         cmd += ["--model", model]
-    proc = subprocess.run(cmd, cwd=workspace, capture_output=True, text=True,
+    proc = subprocess.run(cmd, cwd=ws, capture_output=True, text=True,
                           timeout=900)
     transcript = proc.stdout + proc.stderr
-    checks = apply_checks(case, transcript, workspace)
+    checks = apply_checks(case, transcript, ws)
     return {"id": case.id, "passed": all(c["passed"] for c in checks),
-            "checks": checks, "transcript_bytes": len(transcript)}
+            "checks": checks, "transcript_bytes": len(transcript),
+            "workspace": str(ws)}
 
 
 def _report(results: list[dict], threshold: float) -> int:
@@ -212,8 +297,12 @@ def main(argv: list[str] | None = None) -> int:
 
     r = sub.add_parser("run", help="run evals against the current config (SPENDS MONEY)")
     r.add_argument("--id", help="run one case")
-    r.add_argument("--workspace", type=Path, default=REPO_ROOT)
+    r.add_argument("--workspace", type=Path, default=None,
+                   help="run in this dir instead of a fresh temp copy of the case's fixture")
     r.add_argument("--model", default=None)
+    r.add_argument("--runs", type=int, default=1,
+                   help="runs per case; the threshold applies to the pass rate over all "
+                        "runs, so one noisy run cannot flip the result (each run spends)")
     r.add_argument("--threshold", type=float, default=1.0)
     r.add_argument("--json", action="store_true")
 
@@ -255,7 +344,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 2
     selected = [c for c in cases if not a.id or c.id == a.id]
-    results = [run_case(c, a.workspace, a.model) for c in selected]
+    results = [run_case(c, a.workspace, a.model)
+               for c in selected for _ in range(max(1, a.runs))]
     if a.json:
         print(json.dumps(results, indent=2))
         return 0
