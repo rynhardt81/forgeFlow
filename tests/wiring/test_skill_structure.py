@@ -199,3 +199,25 @@ def test_manifest_matches_skill_dirs():
         f"manifest-only: {sorted(names - set(IDS))}; "
         f"dir-only: {sorted(set(IDS) - names)}"
     )
+
+
+def test_manifest_holds_no_skill_descriptions():
+    """SKILL.md frontmatter is the only copy of a skill's description.
+
+    A second copy here drifted from the frontmatter with nothing to sync it.
+    """
+    dup = [s["name"] for s in json.loads(MANIFEST.read_text())["skills"] if "description" in s]
+    assert not dup, f"manifest repeats SKILL.md descriptions for: {dup}"
+
+
+def test_manifest_hook_validators_exist():
+    """Every validator the manifest names is a real file (release_changelog.py was not)."""
+    validators = REPO_ROOT / "hooks" / "validators" / "skills"
+    missing = [
+        f"{s['name']}: {v}"
+        for s in json.loads(MANIFEST.read_text())["skills"]
+        for vs in (s.get("hooks") or {}).values()
+        for v in vs
+        if not (validators / v).is_file()
+    ]
+    assert not missing, f"manifest names missing validators: {missing}"
