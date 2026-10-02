@@ -58,7 +58,7 @@ Until 2026-09-12 fourteen of these files claimed the opposite in their own heade
 
 **Writing a rule, therefore:**
 
-- State the floor and stop. If a reader would only want the detail when actually doing the thing, it belongs in a skill (loads on invocation) or `reference/` (never auto-loaded).
+- State the floor and stop. If a reader would only want the detail when actually doing the thing, it belongs in a skill's bundled files (read only when the skill's index routes there; see `skills/_shared/skill-authoring.md`) or `reference/` (never auto-loaded).
 - Don't explain the framework to itself. Disambiguation between framework features is a question only a framework developer asks, and every consumer pays for the answer.
 - Don't point at another rule that is also always-on — both are already in context, so the pointer costs and buys nothing.
 - Don't repeat a convention across files. Fourteen copies of the same sidecar paragraph is fourteen copies in one context window; say it once here.

@@ -1,6 +1,6 @@
 # Claude Forge Skills
 
-One directory per skill; each skill's `SKILL.md` is its complete definition (frontmatter description drives triggering). **`skills-manifest.json` is the canonical machine-readable roster** — this README is a human index only. If they disagree, fix the manifest first, then this table.
+One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter (the description drives triggering), the core steps and gates, and an `## Index` that routes to the skill's bundled files. Layout rules: `_shared/skill-authoring.md`. **`skills-manifest.json` is the canonical machine-readable roster** — this README is a human index only. If they disagree, fix the manifest first, then this table.
 
 ## Daily spine
 
@@ -67,6 +67,7 @@ One directory per skill; each skill's `SKILL.md` is its complete definition (fro
 
 - `_shared/ci-failure-classifier.md` — single source of CI-failure routing, used by `/preflight-ci`, `/diagnose-ci`, and `/create-pr`
 - `_shared/continuity-preservation.md` — what a handoff/continuation artifact must preserve across a context boundary, used by `/reflect handoff`, `/reflect resume`, and `templates/session.md`
+- `_shared/skill-authoring.md` — how a skill is laid out (router `SKILL.md` + `## Index`, budgets, one-level references); enforced by `tests/wiring/test_skill_structure.py`
 - `visualize/Tools/` — dashboard rendering engine (not a skill; `forge dashboard` serves it)
 
 ## Removed in v4
