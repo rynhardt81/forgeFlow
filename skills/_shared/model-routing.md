@@ -2,7 +2,7 @@
 
 > Single source of truth for per-task model selection. **Binding on every subagent dispatch** — `/run-epic --parallel`, any skill that spawns Task-tool agents, and ad-hoc `Agent` calls from the main loop alike. Update this file; consumers inherit.
 
-**A route is a pair: model *and* effort.** Naming only the model is half a route. Both current prompting guides put effort first — Claude Opus 5: *"use `low` and `medium` liberally as your primary control for token cost and response time wherever quality holds, and step up to `xhigh` for demanding coding and agentic work."* Claude Fable 5.1: *"Effort is the primary control for trading off intelligence, latency, and cost."* A bigger model at low effort is frequently cheaper **and** better than a smaller model at default effort, which is the trade a model-only table cannot express.
+**A route is a pair: model *and* effort.** Naming only the model is half a route. Every current prompting guide puts effort first — Claude Opus 5.5: *"Effort is the main control for how much Claude Opus 5.5 thinks, and because thinking is always on, it's the first setting to adjust when trading off intelligence, latency, and cost."* Claude Sonnet 5.5: *"For agentic coding and multistep tool use, start with `medium` for well-specified tasks and move to `high` for harder or longer ones."* Claude Fable 5.1: *"Effort is the primary control for trading off intelligence, latency, and cost."* A bigger model at low effort is frequently cheaper **and** better than a smaller model at default effort, which is the trade a model-only table cannot express.
 
 **At dispatch, name the tier, the model, and the effort.** One line before the call — "E2 → sonnet @ medium" — so an unjustified route is visible rather than silent. Routing up *by default* is the failure this file exists to prevent: a bigger model on a mechanical task costs more, is slower, and buys nothing. Route down to the tier, and up only for a hard floor below or a stated reason.
 
@@ -32,22 +32,31 @@ Classify the task with the framework's effort-tier vocabulary (CLAUDE.md → Mod
 
 | Tier | Task shape | Model | Effort | Sweep against |
 |------|-----------|-------|--------|---------------|
-| E1 | Mechanical: typo, rename, doc sync, config bump, single obvious one-file fix | `haiku` | `low` | `fable` @ `low` |
-| E2 | Single-domain substantial: isolated bug with a clear repro, single-module feature, test backfill | `sonnet` | `low`–`medium` | `fable` @ `low` |
+| E1 | Mechanical: typo, rename, doc sync, config bump, single obvious one-file fix | `haiku` (agent `worker-e1`) | `low` — not applied on Haiku 4.5, see below | `sonnet` @ `low`, `opus` @ `low` |
+| E2 | Single-domain substantial: isolated bug with a clear repro, single-module feature, test backfill | `sonnet` (agent `worker-e2`) | `medium` (`low` once swept) | `opus` @ `low`, `fable` @ `low` |
 | E3 | Multi-file, needs planning | inherit (session model) | `medium`–`high` | inherit @ `medium` before inherit @ `high` |
 | E4 | Architectural, cross-cutting | do not dispatch — main loop only (matches PARALLEL.md selection rules) | — | — |
 
 **This table is a starting point, not a measurement, and sweeping it is the consuming project's job.** Neither column has been swept — and a sweep run against the framework repo would not transfer anyway, because a route is only as good as the task shapes it was measured on. An E2 task in a Python API project and an E2 task in a React app exercise different things; the tier vocabulary is shared, the measurement is not. So this table ships as a defensible default that every project inherits, and the "Sweep against" column names the challenger each project should measure it against on its own tasks. Nothing upstream will fill this in for you: results land in your `model-routing.local.md` (see the foot of this file), not here.
 
-## Why Fable is a candidate at every down-routed tier
+## Named agents that carry the effort half
 
-Claude Fable 5.1's guide: *"At `low`, Claude Fable 5.1 is often competitive with Claude Opus and Claude Sonnet models on cost per task while scoring higher, so include it in the comparison wherever you'd otherwise run a smaller model at a higher effort level."*
+`agents/worker-e1.md` (`haiku` @ `low`) and `agents/worker-e2.md` (`sonnet` @ `medium`) exist so the E1/E2 rows can be applied as a whole route: dispatch with `subagent_type: "worker-e1"` / `"worker-e2"`. Framework agents are replaced on refresh, so a project that sweeps a different route does not edit these files: it records the route in `model-routing.local.md` and either passes the model per call or adds its own agent under `agents/specialists/`. Never point a hard-floor task at either worker (see Hard floors).
 
-E1 and E2 are precisely "a smaller model at a higher effort level" — `haiku` and `sonnet` at whatever effort the session happens to carry. So the guide's instruction lands on both rows. It says *include it in the comparison*, which is what the column does; promoting Fable into the model column is a claim about measured cost-per-task, and that claim is only ever true of a specific project's tasks. So it is not promoted here. Sweep it in your project, and record the win in your `model-routing.local.md` — which overrides this row for that project without waiting on a framework release.
+**Haiku 4.5 has no effort control.** The effort reference lists the models that accept `effort`, and Claude Haiku 4.5 is not among them. Until the `haiku` alias resolves to Claude Haiku 5.5 (announced, not shipped as of 2026-10-02), `worker-e1`'s `effort: low` has nothing to act on and E1 is a model-only route. When Haiku 5.5 lands, the alias moves by itself — treat that as a model change and re-sweep E1 (next section).
+
+## Why the challengers are bigger models at `low`
+
+Prices per million input/output tokens, 2026-10 ([models overview](https://platform.claude.com/docs/en/about-claude/models/overview)): Haiku 4.5 $1/$5, Sonnet 5.5 $2/$10, Opus 5.5 $4/$20, Fable 5.1 $10/$50. Price per token is not cost per task — a bigger model at `low` often finishes in fewer, shorter turns.
+
+- Claude Opus 5.5's guide: *"Claude Opus 5.5 at `medium` matches or exceeds Claude Opus 5 at `high` on coding and knowledge-work evaluations, and on several coding evaluations `low` comes close to it at much lower cost."* That makes `opus` @ `low` the first challenger at both down-routed tiers. At E1, `sonnet` @ `low` is the second: it is the cheapest model that accepts an effort setting while Haiku 4.5 does not.
+- Claude Fable 5.1's guide: *"At `low`, Claude Fable 5.1 is often competitive with Claude Opus and Claude Sonnet models on cost per task while scoring higher."* At 2.5× Opus 5.5's token price it stays a challenger for E2, where quality per task matters more than for mechanical E1 work.
+
+The column says *include it in the comparison*. Promoting a challenger into the model column is a claim about measured cost per task, and that claim is only ever true of a specific project's tasks. Sweep it in your project and record the win in your `model-routing.local.md`, which overrides this row for that project without waiting on a framework release.
 
 ## Effort names do not transfer between models
 
-Standing caveat, from both guides. Claude Fable 5.1: *"Re-run the sweep even if you already ran one on Claude Fable 5: effort level names don't correspond to the same amount of thinking across models."* Claude Opus 5: *"If you carried effort defaults over from a prior model, re-run an effort sweep on your own evals."*
+Standing caveat, from every current guide. Claude Opus 5.5: *"Effort level names don't correspond to the same amount of thinking across models."* Claude Sonnet 5.5: *"Its levels are recalibrated, so a level doesn't produce the same amount of thinking as the same level on Claude Sonnet 5."* Claude Fable 5.1: *"Re-run the sweep even if you already ran one on Claude Fable 5: effort level names don't correspond to the same amount of thinking across models."* Claude Opus 5: *"If you carried effort defaults over from a prior model, re-run an effort sweep on your own evals."*
 
 `medium` on one model is not `medium` on another. Consequences for this file:
 

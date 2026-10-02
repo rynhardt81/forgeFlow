@@ -1,6 +1,6 @@
 # Agents
 
-Forge Flow ships **5 framework agents** (`architect`, `project-manager`, `quality-engineer`, `security-boss`, `devops`). User-owned project specialists live in `specialists/`. Nothing here is auto-loaded at session start — this roster, like the rules, is discovered on-demand.
+Forge Flow ships **5 framework agents** (`architect`, `project-manager`, `quality-engineer`, `security-boss`, `devops`) and **2 tier workers** (`worker-e1`, `worker-e2`) that exist only to carry the E1/E2 model+effort routes from `skills/_shared/model-routing.md`. User-owned project specialists live in `specialists/`. Nothing here is auto-loaded at session start — this roster, like the rules, is discovered on-demand.
 
 ## Layout
 
@@ -11,6 +11,8 @@ agents/
 ├── quality-engineer.md       # Test plans + code reviews + verification
 ├── security-boss.md          # Threat modeling + auth + OWASP + secrets
 ├── devops.md                 # CI/CD + deployment + infra + runbooks
+├── worker-e1.md              # E1 route: haiku @ low, mechanical tasks
+├── worker-e2.md              # E2 route: sonnet @ medium, single-domain tasks
 ├── specialists/              # User-owned project agents (refresh-v3 never touches)
 │   └── README.md             # Scaffold + EXPERT.md vendoring contract
     └── <agent-name>.md       # One per framework agent
@@ -27,7 +29,7 @@ Each framework agent file is ≤80 lines, no persona narrative, defers to Tier 2
 
 The Task-tool wiring shape and multi-agent flow patterns live in `reference/14-agent-delegation.md` — this README owns the roster and validator bindings.
 
-**Model routing:** every agent file accepts `model:` frontmatter (`haiku` | `sonnet` | `opus` | full model ID | `inherit`) — framework agents ship with `inherit`; specialists doing bounded mechanical work can pin a smaller model. Per-task routing for autonomous dispatch lives in `skills/_shared/model-routing.md`.
+**Model routing:** every agent file accepts `model:` frontmatter (`haiku` | `sonnet` | `opus` | `fable` | full model ID | `inherit`) and `effort:` (`low` … `max`) — framework agents ship with `inherit` except the two tier workers (`worker-e1`, `worker-e2`), which carry the E1/E2 route; specialists doing bounded mechanical work can pin a smaller model. Per-task routing for autonomous dispatch lives in `skills/_shared/model-routing.md`.
 
 ## Roster — when to delegate
 

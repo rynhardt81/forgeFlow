@@ -41,6 +41,8 @@ FRAMEWORK_AGENTS = {
     "quality-engineer",
     "security-boss",
     "devops",
+    "worker-e1",
+    "worker-e2",
 }
 
 # subagent_type values that are intentionally NOT framework agents.
@@ -152,6 +154,9 @@ EXPECTED_VALIDATOR_BINDINGS = {
     "quality-engineer": ["quality_coverage.py", "tdd_aaa.py"],
     "security-boss": ["security_secrets.py"],
     "devops": ["build_deps.py"],
+    # Tier workers do generic bounded edits; no domain validator fits.
+    "worker-e1": [],
+    "worker-e2": [],
 }
 
 
