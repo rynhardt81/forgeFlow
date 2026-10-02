@@ -118,7 +118,7 @@ python3 .claude/scripts/forge/forge.py dashboard              # http://127.0.0.1
 | `/damage-control` | Install defense-in-depth blocking security hooks |
 | `forge dashboard` | Local cockpit at `http://127.0.0.1:4847/` (`forge` = `python3 .claude/scripts/forge/forge.py` — alias it) |
 
-Canonical roster: `skills/skills-manifest.json` (24 skills). Human index: `skills/README.md`.
+Canonical roster: `skills/skills-manifest.json`. Human index: `skills/README.md`.
 
 ---
 

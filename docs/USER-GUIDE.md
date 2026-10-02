@@ -263,7 +263,7 @@ python3 .claude/scripts/forge/forge.py task complete T042
 
 ## 5. Core skills reference
 
-24 skills total (23 slash-invocable plus the ISA skill, which workflows invoke); canonical roster is `skills/skills-manifest.json`, human index `skills/README.md`.
+Every skill is slash-invocable except ISA, which workflows invoke; the canonical roster is `skills/skills-manifest.json`, human index `skills/README.md`.
 
 | Skill | When to use |
 |-------|-------------|
