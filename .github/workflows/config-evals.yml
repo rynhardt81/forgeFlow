@@ -37,6 +37,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install test dependencies
+        # Same set as tests.yml; without it the guard step dies on
+        # "No module named pytest" and the nightly run is red.
+        run: pip install pytest pyyaml
       - name: Validate eval definitions
         run: python3 scripts/forge/evals.py list
       - name: Guard tests (no hook may invoke the runner)
