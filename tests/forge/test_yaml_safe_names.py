@@ -8,7 +8,6 @@ types implicitly (`true`, `123`, dates) came back as bools, ints and dates.
 """
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 import yaml
