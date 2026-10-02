@@ -1,7 +1,6 @@
 id: fix-bug-reproduces-first
 prompt: "There's a bug: login returns 500 for users with an apostrophe in their surname. Fix it."
 touches: [skills/fix-bug/SKILL.md, ALGORITHM/LATEST]
-fixture: login-apostrophe
 checks:
   - kind: tool_order
     before: "Bash"

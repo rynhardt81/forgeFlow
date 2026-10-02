@@ -1,0 +1,7 @@
+{
+  "name": "forge-flow",
+  "description": "Forge Flow skills and agents, loaded as a plugin only so `claude plugin eval` can test them. Consumers install Forge Flow with scripts/install/install.sh, never as a plugin.",
+  "experimental": {
+    "evals": "tests/plugin-evals"
+  }
+}

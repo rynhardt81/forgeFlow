@@ -1,5 +1,7 @@
 # Config-regression evals
 
+> **Scope: always-on doctrine** — `CLAUDE.md` and `rules/`. Skill behaviour (triggering, gates inside a skill) is tested with `claude plugin eval` in `tests/plugin-evals/`, which measures what a skill adds against a no-plugin baseline but cannot load `CLAUDE.md` or rules.
+
 A change to `CLAUDE.md`, a skill, a rule or a hook is a behaviour change with no
 test. The 650+ wiring tests check that the framework is *wired* correctly; they
 cannot tell you that editing `/fix-bug` quietly dropped the reproduce-first gate.
@@ -24,24 +26,23 @@ cost R9,000. So:
 ```
 tests/evals/
 ├── cases/*.yaml        one eval: prompt + deterministic checks
-├── projects/<name>/    fixture project a case runs against (copied per run)
-├── fixtures/*.jsonl    stream-json transcripts, for testing the checks offline
+├── fixtures/           stream-json transcripts + a check-machinery case, for testing the checks offline
 └── README.md
 ```
 
 ## A case
 
 ```yaml
-id: fix-bug-reproduces-first
-prompt: "There's a bug: login returns 500 for users with an apostrophe in their surname. Fix it."
-touches: [skills/fix-bug/SKILL.md]      # which config this eval guards
+id: no-claim-without-a-probe
+prompt: "Is the consistency-banner hook wired into SessionStart in this project?"
+touches: [CLAUDE.md, rules/agent-verification.md]   # which config this eval guards
 checks:
-  - kind: transcript_matches            # the gate must be visible in the work
-    pattern: "(?i)reproduc"
-    reason: "fix-bug must reproduce before fixing (Gate A)"
+  - kind: tool_called                   # the probe must actually happen
+    tool: "Read|Grep|Glob|Bash"
+    reason: "no claim without a probe — a file must actually be read or searched"
   - kind: transcript_absent
-    pattern: "(?i)the fix is straightforward, skipping"
-    reason: "must not skip the reproduction"
+    pattern: "(?i)(should be|should work|presumably|I believe it is) wired"
+    reason: "a guess wearing a claim's clothing is the failure this gate catches"
 ```
 
 `kind` is one of:
@@ -62,9 +63,10 @@ from one that only said it did: `tool_order` with `before: Bash` and
 `after: Edit|Write` fails the second. Plain-text transcripts still work for the
 text checks and have no tool calls.
 
-**Workspace.** Each run happens in a fresh temp dir, seeded from the case's
-`fixture:` project under `projects/`, never in the repo. A case without a
-fixture gets an empty git repo. `--workspace` overrides this.
+**Workspace.** Each run happens in a fresh temp dir, never in the repo. The
+runner installs the framework there the way a consumer has it — runtime files
+under `.claude/` and a root `CLAUDE.md` containing `@.claude/CLAUDE.md` — so the
+run loads exactly the doctrine the case guards. `--workspace` overrides this.
 
 Patterns are **raw**: the parser strips surrounding quotes and does nothing else, so write `\w`, not `\\w`. A doubled backslash reaches the regex as a literal backslash and the check silently never matches — which reads as a pass on a `transcript_absent` check, so it fails open.
 

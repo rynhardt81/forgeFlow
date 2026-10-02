@@ -51,9 +51,11 @@ def _cases_dir() -> Path:
 
 REPO_ROOT = _framework_root()
 CASES_DIR = _cases_dir()
-# Fixture projects a case runs against, copied to a temp dir per run so a
-# `fix-bug` prompt never edits this repo (or a consumer's) real files.
-PROJECTS_DIR = CASES_DIR.parent / "projects"
+# What a run loads: the framework's runtime files, copied into each run's temp
+# workspace as `.claude/` with a root CLAUDE.md that imports it — the shape of a
+# consumer install. Without this a run tests plain Claude, not Forge Flow.
+FRAMEWORK_PARTS = ("CLAUDE.md", "VERSION", "rules", "skills", "agents",
+                   "ALGORITHM", "reference", "templates", "scripts")
 
 BILLING_ENV = "FORGE_EVALS_BILLING"
 BILLING_REQUIRED = "api"
@@ -89,7 +91,6 @@ class Case:
     prompt: str
     checks: list[Check]
     touches: list[str] = field(default_factory=list)
-    fixture: str | None = None
 
 
 def _parse_case(text: str, source: Path) -> Case:
@@ -136,7 +137,6 @@ def _parse_case(text: str, source: Path) -> Case:
     if isinstance(touches, str):
         touches = [t.strip() for t in touches.strip("[]").split(",") if t.strip()]
     return Case(id=data["id"], prompt=data["prompt"], touches=touches,
-                fixture=data.get("fixture") or None,
                 checks=[Check(**c) for c in checks])
 
 
@@ -249,17 +249,25 @@ def guard_billing(env: dict | None = None) -> None:
 
 
 def prepare_workspace(case: Case) -> Path:
-    """A fresh temp dir per run, seeded from the case's fixture project.
+    """A fresh temp dir per run with the framework installed as `.claude/`.
 
-    Never the repo root: a `fix-bug` prompt edits files, and the eval must leave
-    the caller's `git status` untouched.
+    Never the repo root, so a run leaves the caller's `git status` untouched;
+    and never an empty dir, because then the run would load none of the config
+    the case guards. These cases guard always-on doctrine (CLAUDE.md, rules/),
+    which `claude plugin eval` cannot load — skill behaviour is tested there
+    (tests/plugin-evals/).
     """
     ws = Path(tempfile.mkdtemp(prefix=f"forge-eval-{case.id}-"))
-    if case.fixture:
-        src = PROJECTS_DIR / case.fixture
-        if not src.is_dir():
-            raise ValueError(f"{case.id}: fixture project {src} does not exist")
-        shutil.copytree(src, ws, dirs_exist_ok=True)
+    dot_claude = ws / ".claude"
+    dot_claude.mkdir()
+    skip = shutil.ignore_patterns("__pycache__", "*.pyc")
+    for part in FRAMEWORK_PARTS:
+        src = REPO_ROOT / part
+        if src.is_dir():
+            shutil.copytree(src, dot_claude / part, ignore=skip)
+        elif src.is_file():
+            shutil.copy2(src, dot_claude / part)
+    (ws / "CLAUDE.md").write_text("@.claude/CLAUDE.md\n")
     subprocess.run(["git", "init", "-q"], cwd=ws, check=True)
     return ws
 
@@ -298,7 +306,7 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("run", help="run evals against the current config (SPENDS MONEY)")
     r.add_argument("--id", help="run one case")
     r.add_argument("--workspace", type=Path, default=None,
-                   help="run in this dir instead of a fresh temp copy of the case's fixture")
+                   help="run in this dir instead of a fresh temp workspace with the framework installed")
     r.add_argument("--model", default=None)
     r.add_argument("--runs", type=int, default=1,
                    help="runs per case; the threshold applies to the pass rate over all "

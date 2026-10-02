@@ -1,0 +1,2 @@
+{"type": "assistant", "message": {"content": [{"type": "text", "text": "Per settings.json, yes, it's wired into SessionStart."}]}}
+{"type": "result", "result": "Yes."}

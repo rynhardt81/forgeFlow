@@ -884,6 +884,7 @@ function Install-V3FrameworkFiles {
     $excludePaths = @(
         '.git', '.claude', '.github', '.gitignore', '_archive', 'daily',
         'tests',                                   # framework self-tests; 7 assert the dev-repo layout
+        '.claude-plugin',                          # eval-only manifest (claude plugin eval), not a consumer plugin
         'ISA.md',                                  # framework's own ISA, not consumers'
         'scripts\install',                         # the installer itself
         'scripts\preflight\_local_shims.sh',      # user-extended shim

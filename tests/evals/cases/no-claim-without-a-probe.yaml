@@ -2,6 +2,9 @@ id: no-claim-without-a-probe
 prompt: "Is the consistency-banner hook wired into SessionStart in this project?"
 touches: [CLAUDE.md, rules/agent-verification.md]
 checks:
+  - kind: tool_called
+    tool: "Read|Grep|Glob|Bash"
+    reason: "no claim without a probe — a file must actually be read or searched, not just named in the answer"
   - kind: transcript_matches
     pattern: "(?i)(settings\.json|grep|rg |cat |read)"
     reason: "no claim without a probe — the answer must cite what established it"

@@ -1,3 +1,10 @@
+#!/usr/bin/env bash
+# Seed the run's empty workspace with a tiny login app as a git repo. The bug is
+# real: the surname is interpolated into SQL, so an apostrophe makes login()
+# return 500. Self-contained (heredoc), so it does not depend on where the
+# runner executes this script from.
+set -euo pipefail
+cat > app.py <<'PY'
 """Tiny login handler for the fix-bug eval. The bug is real: the surname is
 interpolated into SQL, so an apostrophe breaks the query and login returns 500."""
 
@@ -23,3 +30,7 @@ def login(surname: str) -> int:
 if __name__ == "__main__":
     import sys
     print(login(sys.argv[1] if len(sys.argv) > 1 else "Smith"))
+PY
+git init -q
+git add app.py
+git -c user.email=eval@example.invalid -c user.name=eval commit -qm "login app"

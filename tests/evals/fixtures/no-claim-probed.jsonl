@@ -1,0 +1,3 @@
+{"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t1", "name": "Read", "input": {"file_path": ".claude/settings.json"}}]}}
+{"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "t1", "content": "File does not exist."}]}}
+{"type": "result", "result": "No \u2014 I read .claude/settings.json and it does not exist, so nothing is wired."}

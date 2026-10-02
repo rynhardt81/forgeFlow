@@ -80,10 +80,17 @@ def test_every_case_names_the_gate_it_guards():
             assert c.reason and len(c.reason) > 15, f"{case.id}: weak reason {c.reason!r}"
 
 
+def _fix_bug_case(evals):
+    """The check-machinery fixture. Its live counterpart runs under
+    `claude plugin eval` (tests/plugin-evals/fix-bug-reproduces-first)."""
+    path = REPO_ROOT / "tests" / "evals" / "fixtures" / "fix-bug-reproduces-first.yaml"
+    return evals._parse_case(path.read_text(), path)
+
+
 def test_dropped_gate_produces_a_red_run():
     """The acceptance criterion, proved offline against a recorded transcript."""
     import evals
-    case = next(c for c in evals.load_cases() if c.id == "fix-bug-reproduces-first")
+    case = _fix_bug_case(evals)
     fixtures = REPO_ROOT / "tests" / "evals" / "fixtures"
     healthy = evals.apply_checks(case, (fixtures / "fix-bug-healthy.jsonl").read_text(), REPO_ROOT)
     dropped = evals.apply_checks(case, (fixtures / "fix-bug-gate-dropped.jsonl").read_text(), REPO_ROOT)
@@ -96,7 +103,7 @@ def test_claimed_reproduction_without_running_anything_is_red():
     reproduced the bug pass. With stream-json the tool calls are visible, and a
     reproduction that never ran a command before the first edit fails."""
     import evals
-    case = next(c for c in evals.load_cases() if c.id == "fix-bug-reproduces-first")
+    case = _fix_bug_case(evals)
     text = (REPO_ROOT / "tests" / "evals" / "fixtures" / "fix-bug-claimed-only.jsonl").read_text()
     results = {c["reason"]: c["passed"] for c in evals.apply_checks(case, text, REPO_ROOT)}
     order = [r for r in results if "actually run" in r]
@@ -104,10 +111,12 @@ def test_claimed_reproduction_without_running_anything_is_red():
     assert sum(results.values()) == len(results) - 1, "only the tool-order check should catch it"
 
 
-def test_run_works_in_a_temp_copy_and_leaves_the_repo_untouched(tmp_path, monkeypatch):
-    """T921: `run` used the repo root as the workspace, so a fix-bug prompt
-    edited real files. Exercised with a fake `claude` on PATH — no model, no
-    cost — that writes a file wherever it is started."""
+def test_run_installs_the_framework_in_a_temp_dir_and_leaves_the_repo_untouched(
+        tmp_path, monkeypatch):
+    """T921/T939: `run` must neither edit the repo (it once used the repo root as
+    the workspace) nor run against an empty dir (v4.8.0 did, so a run loaded
+    none of the CLAUDE.md/rules the case guards). Exercised with a fake `claude`
+    on PATH — no model, no cost — that writes a file wherever it is started."""
     import evals
     fake = tmp_path / "bin" / "claude"
     fake.parent.mkdir()
@@ -121,14 +130,16 @@ def test_run_works_in_a_temp_copy_and_leaves_the_repo_untouched(tmp_path, monkey
                               capture_output=True, text=True).stdout
 
     before = status()
-    case = next(c for c in evals.load_cases() if c.id == "fix-bug-reproduces-first")
-    result = evals.run_case(case, None, None)
-    ws = Path(result["workspace"])
+    case = next(c for c in evals.load_cases() if c.id == "no-claim-without-a-probe")
+    ws = Path(evals.run_case(case, None, None)["workspace"])
     assert status() == before, "an eval run changed the repo's git status"
-    assert (ws / "EVAL_RAN").exists() and (ws / "app.py").exists(), (
-        "the run should happen in a temp copy of the case's fixture project"
-    )
     assert REPO_ROOT not in ws.parents and ws != REPO_ROOT
+    assert (ws / "EVAL_RAN").exists(), "claude did not start in the temp workspace"
+    assert (ws / "CLAUDE.md").read_text().strip() == "@.claude/CLAUDE.md"
+    for guarded in case.touches:
+        assert (ws / ".claude" / guarded).is_file(), (
+            f"{guarded} is guarded by {case.id} but was not installed in the run"
+        )
 
 
 def test_patterns_are_raw_not_double_escaped():
@@ -167,3 +178,15 @@ def test_vendored_runner_looks_for_cases_outside_dot_claude(tmp_path):
         f"vendored runner should look in {expected}, said: {r.stderr.strip()}"
     )
     assert "/.claude/" not in r.stderr.split("no eval cases in ")[1].split("\n")[0]
+
+
+def test_claim_that_names_a_file_without_reading_it_is_red():
+    """T939: the text check passes any answer that merely mentions settings.json;
+    the tool_called check requires the file to have been read or searched."""
+    import evals
+    case = next(c for c in evals.load_cases() if c.id == "no-claim-without-a-probe")
+    fixtures = REPO_ROOT / "tests" / "evals" / "fixtures"
+    probed = evals.apply_checks(case, (fixtures / "no-claim-probed.jsonl").read_text(), REPO_ROOT)
+    claimed = evals.apply_checks(case, (fixtures / "no-claim-claimed-only.jsonl").read_text(), REPO_ROOT)
+    assert all(c["passed"] for c in probed)
+    assert [c["kind"] for c in claimed if not c["passed"]] == ["tool_called"]
