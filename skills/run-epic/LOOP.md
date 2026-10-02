@@ -38,7 +38,7 @@ Read the task body (`forge task show <T###> --json | jq -r '.file'`). If its Not
 Follow the matching discipline **inline**, in this context:
 
 - `bug` → `skills/fix-bug/SKILL.md`
-- `feature` → `skills/new-feature/PHASES.md`
+- `feature` → `skills/new-feature/SKILL.md` (follow its Index to the phase guide)
 - `refactor` → `skills/refactor/SKILL.md`
 
 Inline means: read the discipline file and follow its phases here — do not invoke the skill via `Skill(...)`. Spawning a sub-skill loses the epic-level context (queued tasks, files touched in earlier iterations, follow-ups already filed). The loop is the orchestrator; the discipline files are how-to guides. The skills' user-confirmation stops are replaced by this loop's guardrails — that's the autonomy trade the user accepted by invoking `/run-epic`.
@@ -47,11 +47,11 @@ Inline means: read the discipline file and follow its phases here — do not inv
 
 Per `ALGORITHM/LATEST` (v1.2.0): every ISC/criterion for the task flips `[x]` only with tool-verified evidence in the same block. Forbidden language: "should work", "looks fine", "tests pass" without the actual output.
 
-Verification failure → the iteration is a failure; see [GUARDRAILS.md](GUARDRAILS.md) for the circuit breaker.
+Verification failure → the iteration is a failure; see the circuit breaker (Index in SKILL.md).
 
 ## File follow-ups
 
-New work discovered (bug found mid-fix, missing prerequisite, oversized sub-task) → file it without stopping to ask — current epic or E99 per the triage rule — and log one `+ Filed` line for each. Rules and shapes: [TASK-CREATION.md](TASK-CREATION.md).
+New work discovered (bug found mid-fix, missing prerequisite, oversized sub-task) → file it without stopping to ask — current epic or E99 per the triage rule — and log one `+ Filed` line for each. Rules and shapes: the auto-file guide (see the Index in SKILL.md).
 
 ## PR
 

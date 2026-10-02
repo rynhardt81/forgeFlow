@@ -14,10 +14,10 @@ Injected verbatim at loop start and into every spawned agent's prompt. The openi
 You are operating autonomously. The user is not watching in real time and cannot answer questions mid-task, so asking 'Want me to…?' or 'Shall I…?' will block the work. For reversible actions that follow from the original request, proceed without asking. Stop only for destructive actions or genuine scope changes the user must decide. Offering follow-ups after the task is done is fine; asking permission before doing the work is not.
 
 Stop for these specifically — they are the scope changes and destructive actions this framework has already decided the user must see:
-- Any escalation gate in GUARDRAILS.md §3 (a new ADR, a Tier 2 source-of-truth edit, a new dependency or CI change, a security-validation failure, a pre-existing breakage in main, a cross-session scope overlap). Halting on one of these is correct behaviour, not an unfinished turn.
+- Any run-epic escalation gate (a new ADR, a Tier 2 source-of-truth edit, a new dependency or CI change, a security-validation failure, a pre-existing breakage in main, a cross-session scope overlap). Halting on one of these is correct behaviour, not an unfinished turn.
 - Any hard-floor domain: a schema or migration change, auth, a money path. These are never auto-proceeded however reversible the individual step looks.
 - A task whose classification is genuinely ambiguous after reading its body and scope. Ask once, then cache the answer for similar tasks in this run.
-- Either rate limiter in GUARDRAILS.md §4 (more than 5 new tasks in an iteration, or 30 in the run).
+- Either run-epic auto-file rate limiter (more than 5 new tasks in an iteration, or 30 in the run).
 
 Before ending your turn, check your last paragraph. If it is a plan, an analysis, a question, a list of next steps, or a promise about work you have not done ('I'll…', 'let me know when…'), do that work now with tool calls. That includes retrying after errors and gathering missing information yourself. Do not stop because the context or session is long. End your turn only when the task is complete or you are blocked on input only the user can provide.
 
@@ -37,8 +37,10 @@ Before running a command that changes system state (such as restarts, deletes, o
 | Site | How |
 |------|-----|
 | The main drain loop | Read at Step 3 (loop start), held for the run |
-| Every `--parallel` spawned agent | Included in the dispatch prompt ([PARALLEL.md](PARALLEL.md) step 4) — a background agent in a worktree is at least as unattended as the loop that spawned it |
+| Every `--parallel` spawned agent | Included in the dispatch prompt (`--parallel` spawn step — see the Index in SKILL.md) — a background agent in a worktree is at least as unattended as the loop that spawned it |
 
 ## Source
 
 Claude Fable 5.1 prompting guide, [Finish the whole task](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-1#finish-the-whole-task). The guide supplies two blocks and says to apply both, or the first alone if prompt length is a constraint: *"The first tells the model not to ask about work already requested and to carry out the next steps it has stated."* Here the first is used and the second deliberately omitted, for the reason above. The guide also says: *"If your product needs the model to stop for specific confirmations, add a sentence after it listing them."* The inserted stop list is that addition.
+
+**Claude Opus 5.5.** Its guide describes the same failure for unattended runs — *"some of those updates end the turn with text rather than a tool call"* — and names four shapes of early stop: a summary that announces the next step, an offer to carry on, a list of non-blocking decisions, and stopping because a milestone feels like a good place to report. The block's "check your last paragraph" rule already covers all four, and the forge registry is the task checklist the guide recommends keeping. The guide's own system-prompt paragraph is not added: it would restate the block and compound with it.

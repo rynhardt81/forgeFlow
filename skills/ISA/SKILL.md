@@ -1,6 +1,6 @@
 ---
 name: ISA
-description: Articulate the ideal state of a task or project as testable criteria. Invoked at Algorithm OBSERVE for non-trivial work; produces an ISA.md the rest of the run reads from and writes back to.
+description: Articulates the ideal state of a task or project as testable criteria. Invoked at Algorithm OBSERVE for non-trivial work; produces an ISA.md the rest of the run reads from and writes back to. Use when scaffolding or extending an ISA at E3+ OBSERVE, gating `phase: complete` at VERIFY, resolving interdependent design decisions before freezing criteria, or on `/ISA scaffold`, `/ISA check`, `/ISA interview`.
 model: inherit
 type: skill
 ---
@@ -22,14 +22,14 @@ Created at OBSERVE, refined through pursuit, verified at VERIFY.
 - **E2** — inline criteria checklist in the reply; no ISA document.
 - **E3/E4** — ISA document required. Two homes: **project ISA** at `<project>/ISA.md` (long-lived) or **task ISA** at `docs/tasks/<task-id>/ISA.md` (per-task; auto-created by `forge task add --isa`). Prefer extending the project ISA for project tasks; task ISA for ad-hoc work.
 
-## When invoked
+## Index
 
-| Trigger | Action |
-|---------|--------|
-| Algorithm OBSERVE, E3+ | [Scaffold](Workflows/Scaffold.md) — create or extend the relevant ISA |
-| Algorithm VERIFY | [CheckCompleteness](Workflows/CheckCompleteness.md) — gate `phase: complete` |
-| OBSERVE at E3/E4, unresolved interdependent design decisions | [Interview](Workflows/Interview.md) — dependency-ordered design interview (optional, skippable) |
-| `/ISA scaffold "..."` · `/ISA check <path>` · `/ISA interview <path>` | Same workflows, manual |
+| File or section | Read when… |
+|---|---|
+| `Workflows/Scaffold.md` | Algorithm OBSERVE, E3+, or `/ISA scaffold "..."` — create or extend the relevant ISA |
+| `Workflows/CheckCompleteness.md` | Algorithm VERIFY, or `/ISA check <path>` — gate `phase: complete` |
+| `Workflows/Interview.md` | OBSERVE at E3/E4 with unresolved interdependent design decisions, or `/ISA interview <path>` — dependency-ordered design interview (optional, skippable) |
+| 12-section structure · ISC quality gates · Operating rules (below) | Every workflow |
 
 A plain `forge task add` carries no ISA — track + nudge, never enforce. `task lock` prints a non-blocking reminder; the consistency checker reports advisory `task-without-isa` findings. Attaching one stays your choice.
 

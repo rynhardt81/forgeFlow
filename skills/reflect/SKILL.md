@@ -3,17 +3,6 @@ name: reflect
 description: Session continuity for Forge task work — resume an interrupted session, epic or task (`resume`), show task/lock/session status (`status`), print a cold-start brief for a fresh session (`handoff`), release a stale lock (`unlock`/`cleanup`), or capture learnings into a skill's sidecar. Use when picking work back up, handing off before a context reset, or when a task lock is stuck.
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Manage sessions, resume work, track tasks, coordinate parallel work |
-| **Inputs** | Command (resume, status, handoff, unlock, cleanup, config), optional task/epic ID |
-| **Output** | Session context loaded, task status, configuration updates |
-| **Flow** | Parse command → Load context → Execute → Update session |
-
----
-
 # Reflect Skill
 
 ## Purpose
@@ -23,17 +12,18 @@ description: Session continuity for Forge task work — resume an interrupted se
 3. **Parallel Session Coordination:** Prevent conflicts between concurrent sessions
 4. **Skill Improvement:** Extract learnings to make skills better over time
 
-## Command Routing
+## Index
 
-| Command | Flow File |
-|---------|-----------|
-| `/reflect resume` / `resume E##` / `resume T###` | [flows/resume.md](flows/resume.md) |
-| `/reflect status` (`--locked`, `--ready`, `--sessions`) | [flows/status.md](flows/status.md) |
-| `/reflect handoff` | [flows/handoff.md](flows/handoff.md) |
-| `/reflect unlock T###` | [flows/unlock.md](flows/unlock.md) |
-| `/reflect cleanup` | [flows/unlock.md](flows/unlock.md) |
-| `/reflect config` / `config <key> <value>` | [flows/config.md](flows/config.md) |
-| `/reflect` (no args) | [flows/manual-reflection.md](flows/manual-reflection.md) |
+| File or section | Read when… |
+|---|---|
+| `flows/resume.md` | `/reflect resume` / `resume E##` / `resume T###` |
+| `flows/status.md` | `/reflect status` (`--locked`, `--ready`, `--sessions`) |
+| `flows/handoff.md` | `/reflect handoff` |
+| `flows/unlock.md` | `/reflect unlock T###` or `/reflect cleanup` |
+| `flows/config.md` | `/reflect config` / `config <key> <value>` |
+| `flows/manual-reflection.md` | `/reflect` (no args) |
+| `_shared/continuity-preservation.md` | Binding before writing any continuity — the handoff brief, a resume Continuation Context (pause, blocker, cannot-complete), or the session file's Handoff Notes at session end |
+| Session Start Protocol · Key Rules · Storage Locations (below) | Every command |
 
 ## Session Start Protocol
 

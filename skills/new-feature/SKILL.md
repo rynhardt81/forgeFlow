@@ -3,18 +3,14 @@ name: new-feature
 description: Orchestrates full feature development workflow from discovery through commit. Infers scope (small/medium/large) from the feature description and adapts phases accordingly. Auto-invokes ISA at E3+ and hands off to /create-pr for shipping (its Step 3.7 pre-flight reviews the diff before push). Use when the user wants to add any new feature, capability, or functionality — regardless of size. NOT FOR draining a forge-registry epic (use /run-epic).
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Full feature development from discovery to commit |
-| **Inputs** | Feature description |
-| **Output** | Implemented feature, tests, documentation, commit |
-| **Flow** | Discover → Design → Plan → Implement → Verify → Commit |
-
----
-
 # New Feature Workflow
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| `PHASES.md` | Step 2 — before each phase: its instructions and the concrete `Task(subagent_type=…)` blocks at each invocation point (Discovery, Design, Planning, Implementation, Verification, Review, Doc Update, Commit) |
+| Step 0 · Step 1 · Step 3 · Step 4 · Key Rules (below) | Every run — surface map, scope, checkpoints, PR hand-off |
 
 ## Invocation
 

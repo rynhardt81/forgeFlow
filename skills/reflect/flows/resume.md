@@ -2,6 +2,14 @@
 
 Handles `/reflect resume`, `/reflect resume E##`, and `/reflect resume T###`.
 
+## Contents
+
+- `/reflect resume` — resume from the last session
+- `/reflect resume E##` — resume an epic
+- `/reflect resume T###` — resume a task
+- Wrap-up handoff to `/create-pr`
+- Task Completion — steps 1–8, and if the task cannot be completed
+
 > **Writing continuity is compaction.** Every `## Continuation Context` this flow writes — on pause, on a blocker, on "If Task Cannot Be Completed" — is the only thing the next session gets. `skills/_shared/continuity-preservation.md` is binding on all of them: the six categories that must survive, constraints stated exactly rather than paraphrased, and counts re-derived from a live probe rather than copied forward.
 
 ---

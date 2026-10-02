@@ -1,10 +1,21 @@
 # Phase Execution Details
 
+## Contents
+
+- Phase 1: Discovery
+- Phase 2: Design
+- Phase 3: Planning
+- Phase 4: Implementation
+- Phase 5: Verification
+- Phase 6: Review
+- Phase 7: Documentation Update
+- Phase 8: Commit
+
 ## Phase 1: Discovery
 
 **Always runs**
 
-**Invoke (native, no external dependency):** the ISA `Interview` workflow (`skills/ISA/Workflows/Interview.md`) — a dependency-ordered design interview that resolves the feature's open design decisions in topological order and writes them into the ISA. This is the in-framework path and works on a bare clone.
+**Invoke (native, no external dependency):** the `/ISA` skill's `Interview` workflow — a dependency-ordered design interview that resolves the feature's open design decisions in topological order and writes them into the ISA. This is the in-framework path and works on a bare clone.
 
 **Optional fallback:** if the `superpowers:brainstorming` plugin is installed and you prefer open-ended intent exploration, `Skill tool → brainstorming` may be used instead. On a bare clone that plugin is absent (silent no-op), so prefer the native ISA Interview.
 

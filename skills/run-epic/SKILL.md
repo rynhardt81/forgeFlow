@@ -1,22 +1,28 @@
 ---
 name: run-epic
-description: Autonomously drain every open task in a single epic. Pulls ready tasks via the forge CLI, executes the work in-context using the matching discipline (fix-bug / new-feature / refactor), files newly-discovered work as follow-up tasks without stopping to ask, opens a PR per completed task via /create-pr, and repeats until the epic has zero ready/in-progress/pending tasks. Use when the user says `/run-epic E##`, "run epic autonomously", "finish all remaining tasks for epic X", or "drive epic X to completion".
+description: Autonomously drains every open task in a single epic. Pulls ready tasks via the forge CLI, executes the work in-context using the matching discipline (fix-bug / new-feature / refactor), files newly-discovered work as follow-up tasks without stopping to ask, opens a PR per completed task via /create-pr, and repeats until the epic has zero ready/in-progress/pending tasks. Use when the user says `/run-epic E##`, "run epic autonomously", "finish all remaining tasks for epic X", or "drive epic X to completion".
 ---
-
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Drive a single epic to zero open tasks autonomously |
-| **Inputs** | Epic ID (`E##`), optional flags (`--max-iter`, `--dry-run`, `--no-pr`, `--resume`, `--parallel`) |
-| **Output** | Completed tasks, opened PRs, new tasks filed for discovered work |
-| **Flow** | Init → Loop(pick → execute → verify → PR → file follow-ups) → Halt |
 
 # Run Epic
 
 `/run-epic` takes a named epic and drains it to zero open tasks without human ping-pong between every task. The skill runs the work itself — it follows the discipline of `/fix-bug`, `/new-feature`, or `/refactor` inline in the same context rather than spawning them as sub-skills, which would lose the epic-level context (queued tasks, files already touched, follow-ups already filed).
 
 The distinguishing capability is the **self-feeding loop**: when execution surfaces a bug, a missing prerequisite, or a task too coarse to finish in one go, `/run-epic` files a new forge task into the same epic and continues. The epic grows until reality stops surprising it; then it shrinks to zero. It works directly on the forge task registry (`docs/tasks/registry.json`) via `forge task ...` — the only sanctioned mutation path.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| `AUTONOMY.md` | Step 3 start — read it and hold its block for the rest of the run; with `--parallel`, paste the block verbatim into every spawned agent's prompt |
+| `LOOP.md` | Step 3 — every iteration's body: pick, lock, classify, execute, verify, file follow-ups, PR |
+| `GUARDRAILS.md` | Step 1 with `--parallel` (§5 spawn projection); any iteration failure (circuit breaker); an escalation gate (§3) or auto-file rate limit (§4); Step 4 halt-summary format |
+| `TASK-CREATION.md` | The loop's file-follow-ups step — auto-file rules, task shapes, dependency wiring, limits |
+| `PARALLEL.md` | `--parallel` only — per-iteration spawn, checkpoint discipline, reaping, guardrail interactions |
+| `_shared/task-triage.md` | Before auto-filing any follow-up, and when the loop meets a backlog epic — "what breaks if this ships later?" |
+| `_shared/model-routing.md` | `--parallel` spawn and the §5 cap probe — tier → (model, effort) table and documented environment caps |
+| `_shared/report-format.md` | `--parallel` spawn — the four-field report every spawned agent returns |
+
+The loop's execute step follows `/fix-bug`, `/new-feature` (its phase guide) or `/refactor` inline, and the PR step invokes `/create-pr`.
 
 ## Invocation
 
@@ -74,16 +80,6 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 - **Never spawn into a refusal** — with `--parallel`, check spawn-budget headroom before each batch and degrade to serial rather than failing mid-epic (GUARDRAILS.md §5).
 - **Auto-file only into the current epic or the backlog epic (E99)**, per `skills/_shared/task-triage.md` — work that belongs to another roadmap epic is surfaced at end-of-run, not filed there.
 - **Never resume `in_progress` tasks without `--resume`.**
-
-## See also
-
-- [LOOP.md](LOOP.md) — the per-iteration body
-- [GUARDRAILS.md](GUARDRAILS.md) — caps, circuit breaker, escalation gates, halt format
-- [TASK-CREATION.md](TASK-CREATION.md) — auto-file rules and task shapes
-- [PARALLEL.md](PARALLEL.md) — `--parallel` worktree mode
-- [AUTONOMY.md](AUTONOMY.md) — the unattended-operation block, and why it never leaves this skill
-- `skills/fix-bug/SKILL.md`, `skills/new-feature/PHASES.md`, `skills/refactor/SKILL.md` — the disciplines the loop follows inline
-- `skills/create-pr/SKILL.md` — invoked per task at the PR step
 
 ## Gotchas
 

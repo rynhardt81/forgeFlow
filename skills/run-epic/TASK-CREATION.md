@@ -14,7 +14,7 @@ File a new task when execution surfaces:
 | **Duplicate logic discovered** | DRY hotspot that should be extracted | `refactor` (separate task; don't expand current scope) |
 | **Test gap exposed** | Fix landed but coverage is now < threshold | `bug` if regression-prevention; `feature` if new test surface |
 | **`/create-pr` pre-flight finding** | The review pre-flight raises an issue we won't fix in this PR | task with the specific finding + dep on current task's PR |
-| **Architecture decision needed** | Pattern question, no clear precedent | **ESCALATE** (see [GUARDRAILS.md](GUARDRAILS.md)) — do NOT auto-file |
+| **Architecture decision needed** | Pattern question, no clear precedent | **ESCALATE** (an escalation gate — see the Index in SKILL.md) — do NOT auto-file |
 
 ## When NOT to auto-file
 
@@ -59,7 +59,7 @@ The "(from T###)" suffix makes the lineage explicit and survives `forge task ls`
 - **Prereq** tasks invert the dependency — the *current* task gets `--deps T<new>` added retroactively. The current task transitions from `in_progress` back to `pending` and the new prereq task becomes `ready`.
 - **DRY refactor** tasks do NOT block the current PR. The current task ships, the refactor task lands in a later iteration.
 
-## Limits (also in GUARDRAILS.md)
+## Limits (also in the guardrails — see the Index in SKILL.md)
 
 - **5 per iteration max.** More than 5 means the iteration was wrongly scoped — halt with `escalation: scope-explosion`.
 - **30 per run max.** More than 30 means the epic's scope is fundamentally larger than originally planned — halt and let the human re-plan.

@@ -14,7 +14,7 @@ I carry the E2 route from `skills/_shared/model-routing.md`: Sonnet at `medium` 
 
 - One task in one domain, inside the files and directories the dispatch names.
 - Reproduce before fixing; leave a test that fails without the change when the task is a bug or a feature.
-- No subagents, no fan-out, no scope growth. Work found along the way is reported under Recommends, not done.
+- No fan-out of the task itself and no scope growth: do the work yourself. Subagents that a skill you were told to run dispatches on its own (e.g. `/create-pr`'s review step) are fine. Work found along the way is reported under Recommends, not done.
 - If the task touches schema/migrations, auth, money paths or security, or needs multi-file planning, stop and return it with that reason — it routes at the session model (model-routing.md, Hard floors and Failure escalation).
 
 ## Report

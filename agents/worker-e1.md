@@ -13,7 +13,7 @@ I carry the E1 route from `skills/_shared/model-routing.md`: a small model at lo
 ## Scope
 
 - One mechanical change, inside the files the dispatch names.
-- No subagents, no fan-out, no scope growth. Work found along the way is reported under Recommends, not done.
+- No fan-out of the task itself and no scope growth: do the work yourself. Subagents that a skill you were told to run dispatches on its own (e.g. `/create-pr`'s review step) are fine. Work found along the way is reported under Recommends, not done.
 - If the task touches schema/migrations, auth, money paths or security, or turns out not to be mechanical, stop and return it unchanged with that reason — it routes at the session model (model-routing.md, Hard floors and Failure escalation).
 
 ## Report

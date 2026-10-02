@@ -6,27 +6,28 @@
 
 1. **Reap finished agents first.** Integrate results from agents spawned in prior iterations: their `pr_pending` flips, the follow-up tasks they filed, lock release. A failed agent run ticks the consecutive-failure counter.
 2. **Select parallelizable tasks.** From the current ready set, pick tasks whose `scope-dirs`/`scope-files` overlap neither the primary task nor each other. Tasks without scope declarations are treated as conflicting with everything — they stay in the main loop. While selecting, classify each task's effort tier (E1–E4) from its body + scope — it feeds the model route below.
-3. **Cap** the batch at `--max-agents` (default 3), clamped to the environment's concurrency cap when that is lower. The cap is a ceiling, not a target. Check spawn-budget headroom first — [GUARDRAILS.md](GUARDRAILS.md) §5; `--max-agents` bounds the batch, not the run.
+3. **Cap** the batch at `--max-agents` (default 3), clamped to the environment's concurrency cap when that is lower. The cap is a ceiling, not a target. Check spawn-budget headroom first — guardrails §5 (see the Index in SKILL.md); `--max-agents` bounds the batch, not the run.
 4. **Spawn each** as a background agent in an isolated worktree:
 
    ```
    Task tool:
-   - subagent_type: "general-purpose"
+   - subagent_type: by tier, per the (model, effort) table in
+     skills/_shared/model-routing.md:
+       E1 → "worker-e1" (haiku @ low)
+       E2 → "worker-e2" (sonnet @ medium)
+       E3 → "general-purpose", no model (inherits the session model and effort)
+     Hard floors override: a gate-domain task always goes to "general-purpose"
+     at the session model, never to a worker. The workers exist because the
+     Agent tool takes `model` only — effort comes from a named agent's
+     `effort:` frontmatter. State the tier and route you used.
    - description: "T### : <task name>"
    - isolation: "worktree"
    - run_in_background: true
-   - model: per the tier → (model, effort) table in skills/_shared/model-routing.md
-     (E1 → haiku @ low, E2 → sonnet @ low-medium, E3 → inherit @ medium-high;
-     hard floors override — gate-domain tasks always run at the session model
-     and never below high effort)
-     NOTE: the Agent tool takes `model` only. The effort half needs a named
-     agent carrying `effort:` in its frontmatter; an ad-hoc general-purpose
-     dispatch inherits the session's effort. State which you used.)
-   - prompt: the AUTONOMY.md block verbatim (a background agent in a worktree
+   - prompt: the autonomy block verbatim (a background agent in a worktree
      is at least as unattended as the loop that spawned it — without it the
      agent ends its turn describing what it would do next, and the parent
      reaps a worktree with no commits) + task body + scope declaration + the
-     matching discipline (bug/feature/refactor, same inline rules as LOOP.md)
+     matching discipline (bug/feature/refactor, same inline rules as the main loop)
      + the epic's session ID + instruction to follow Background Agent
      Checkpoint Discipline (ALGORITHM v1.2.0) and finish via Skill("create-pr")
    - report: the session's feedback level + report back in the four fields
@@ -36,7 +37,7 @@
    ```
 
    Then `forge task lock <T###> --session <session-id>-agent-<n>` so the registry shows who owns what.
-5. **Main loop continues** with the primary task using the standard [LOOP.md](LOOP.md) body.
+5. **Main loop continues** with the primary task using the standard per-iteration body (see the Index in SKILL.md).
 
 ## Checkpoint Discipline (binding for every spawned agent)
 
@@ -66,7 +67,7 @@ plus the heartbeat per active agent branch. Completed → integrate (their auto-
 
 ## Guardrail interactions
 
-[GUARDRAILS.md](GUARDRAILS.md) caps apply with these clarifications:
+The guardrail caps (see the Index in SKILL.md) apply with these clarifications:
 
 - **`--max-iter`** counts main-loop iterations, not agent spawns. Agent spawns are counted separately against the spawn budget (§5) — `--max-agents x --max-iter` is the projection, and it is reported at init and in the halt summary.
 - **Consecutive-failure counter** ticks on either a main-loop failure or an agent failure; three across the run → halt.
