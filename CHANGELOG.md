@@ -4,6 +4,28 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+## [v4.8.0] — 2026-10-02
+
+> Minor. Every skill becomes a short router with an index, following Anthropic's skill-authoring guidance; model routing catches up to Claude Opus 5.5 and Sonnet 5.5; two tier-worker agents make the effort half of a route real.
+
+### Changed
+
+- **All 27 skills restructured to a router layout** (`skills/_shared/skill-authoring.md`). `SKILL.md` keeps the steps, gates, exit codes and key rules, opens with an `## Index` that routes to bundled files (templates, worked examples, long sub-flows, rationale), and stays within 200 lines / 10 KB. Why the budget: after auto-compaction Claude Code keeps only the first 5,000 tokens of an invoked skill, so a long skill lost its tail mid-session. The three largest drop from 20.8–24.8 KB to 9.9–10.2 KB (create-pr, preflight-ci, new-project); all `SKILL.md` files together go from 236 KB to 192 KB. Bundled files over 100 lines open with a `## Contents` list; bundled files no longer name each other or reach into another skill's files, so every reference is one level deep from `SKILL.md`. The "Quick Scan" convention is retired in favour of the Index.
+- **Every skill description says when to use it.** Ten skills had no `Use when …` clause (build, create-pr, diagnose-ci, frontend-design, preflight-ci, refactor, release, security-review, triage-incident, vet-idea); the description is what triggers a skill.
+- **Model routing refreshed for the 5.5 generation** (`skills/_shared/model-routing.md`). Cites the Claude Opus 5.5 and Sonnet 5.5 guides; E2 starts at `sonnet` @ `medium` (Sonnet 5.5's recommended start for well-specified agentic coding); `opus` @ `low` joins the sweep column as first challenger (Opus 5.5's guide: `low` "comes close" to `medium` on coding at much lower cost), with 2026-10 prices shown. Documents that Claude Haiku 4.5 does not accept `effort`, so E1 is a model-only route until the `haiku` alias resolves to Haiku 5.5 — a model change that calls for a re-sweep.
+- `/run-epic --parallel` dispatches E1/E2 tasks to the tier workers instead of `general-purpose` with a model only. Hard-floor tasks still go to `general-purpose` at the session model.
+- `CONTRIBUTING.md`'s "Don't duplicate the harness" section notes that the Opus 5.5 guide keeps the Opus 5 prompting patterns in force. `run-epic/AUTONOMY.md` records why the Opus 5.5 unattended-run paragraph is not added: the existing block already covers the four early-stop shapes it names.
+
+### Added
+
+- **`agents/worker-e1.md` (`haiku` @ `low`) and `agents/worker-e2.md` (`sonnet` @ `medium`).** The Agent tool takes `model` only; effort comes from a named agent's frontmatter. Until now no agent carried `effort:`, so every routed dispatch ran at the session's effort.
+- **`tests/wiring/test_skill_structure.py`** enforces the layout: Index near the top, size budget, `Use when` description ≤1,024 chars, contents list on long bundled files, no orphaned or dangling bundled files, one-level references, manifest ↔ skill dirs.
+
+### Fixed
+
+- `/preflight-ci`'s summary listed exit codes 0/2/3/4; the body also uses 5 (a self-skipped job). The core now lists all five.
+- `/create-pr`'s steps ran 3, 3.6, 3.7, 3.8, 3.5; the documentation step is now 3.9.
+
 ## [v4.7.9] — 2026-09-24
 
 > Patch. Cuts the framework's always-on rules from 46 KB to 29 KB, and makes `forge doctor` report everything a session loads before its first prompt.
