@@ -1,11 +1,18 @@
 ---
 name: frontend-design
-description: Design direction for building distinctive, intentional UI — aesthetic choices, typography, color, motion — instead of templated defaults. NOT FOR component data/state logic, or for picking from the design catalog (use /ui-ux-pro-max for searchable styles/palettes/font pairings).
+description: Design direction for building distinctive, intentional UI — aesthetic choices, typography, color, motion — instead of templated defaults. Use when building new UI or reshaping an existing one and the aesthetic direction, typography, color, or motion needs deciding. NOT FOR component data/state logic, or for picking from the design catalog (use /ui-ux-pro-max for searchable styles/palettes/font pairings).
 ---
 
 # Frontend Design
 
 This is a routing card, not a vendored design course. Anthropic's full `frontend-design` skill ships as a first-party Claude Code plugin — if it's installed in your environment, invoke it and stop reading here. What follows is the self-contained fallback for bare installs.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Core discipline (fallback) | The first-party plugin is not installed — the six rules, including visual verification |
+| Catalog lookups | Needing concrete styles, palettes, or font pairings |
 
 ## Core discipline (fallback)
 

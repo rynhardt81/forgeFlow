@@ -1,22 +1,26 @@
 ---
 name: security-review
-description: Portable security review for a feature, endpoint, or change before it ships. Orchestrates the existing OWASP review (@security-boss) and secrets scan (security_secrets validator), then adds the pass they miss — an explicit business-logic-flaw walkthrough (IDOR, race/TOCTOU, state-machine bypass, privilege escalation, price/quantity tampering). Advisory and non-mutating — produces a findings report; real findings are filed as tasks.
+description: Portable security review for a feature, endpoint, or change before it ships. Orchestrates the existing OWASP review (@security-boss) and secrets scan (security_secrets validator), then adds the pass they miss — an explicit business-logic-flaw walkthrough (IDOR, race/TOCTOU, state-machine bypass, privilege escalation, price/quantity tampering). Advisory and non-mutating — produces a findings report; real findings are filed as tasks. Use when a change touching money, access control, or multi-step state is about to ship, or when the auth looks fine but the flow could be abused. NOT FOR SAST or dependency-CVE scanning (consumer CI owns those).
 allowed-tools: Read, Glob, Grep, Bash, Write, TodoWrite, Task
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Review a feature/change for security flaws before it ships — including the business-logic flaws generic OWASP red-flags miss. |
-| **Inputs** | The change under review (a diff, a feature's files, or a task ID). |
-| **Output** | A findings report; real findings filed as tasks via the `@security-boss` convention. |
-| **Mutates** | Nothing. Advisory — findings become tasks, never a hard gate. |
-| **Flow** | OWASP pass (@security-boss) → secrets scan → business-logic walkthrough → report |
-
----
-
 # security-review Workflow
+
+Reviews a feature or change for security flaws before it ships — including the business-logic flaws generic OWASP red-flags miss. Input is the change (a diff, a feature's files, or a task ID); output is a findings report, with real findings filed as tasks. Mutates nothing — findings become tasks, never a hard gate.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| What it orchestrates | Knowing which existing pieces (`@security-boss`, secrets validator) own which pass |
+| When to use / When NOT to use | Deciding whether the change has a surface worth reviewing |
+| Invocation | Choosing scope (diff, task, `--files`, `--output`) |
+| Steps 1–3 | Scoping the surface, running OWASP + secrets, the business-logic walkthrough |
+| Step 4: Report and file findings | Writing the report and filing findings as tasks or intents |
+| `_shared/task-triage.md` | Step 4 — security findings are a hard floor: blocker-or-next, never deferred by default |
+| Anti-criteria for this skill | Checking the run stayed advisory and self-contained |
+
+## What it orchestrates
 
 This skill **orchestrates** Forge's existing security pieces and adds the one missing pass. It does **not** re-implement OWASP or secret detection — those already exist:
 
@@ -88,7 +92,7 @@ Write the findings to `memories/security-review-{date}.md` (or `--output`). For 
 - `agents/security-boss.md` — the OWASP + authn/authz reviewer this skill orchestrates
 - `hooks/validators/agents/security_secrets.py` + `hooks/config/secret-patterns.yaml` — the secrets scan + its (now live) pattern config
 - `rules/security.md` — the authn-vs-authz distinction + when to invoke `@security-boss`
-- `skills/audit-rules/SKILL.md` / `skills/vet-idea/SKILL.md` — sibling advisory, non-mutating, report-only skills this mirrors
+- `/audit-rules` / `/vet-idea` — sibling advisory, non-mutating, report-only skills this mirrors
 
 ---
 

@@ -1,11 +1,23 @@
 ---
 name: remember
-description: Save and retrieve project knowledge that persists across sessions — bug patterns, technical decisions, key facts, and code patterns. Use whenever the user wants to record a lesson learned, save a debugging insight, document a technical choice, note a convention, or search past memories.
+description: Saves and retrieves project knowledge that persists across sessions — bug patterns, technical decisions, key facts, and code patterns. Use whenever the user wants to record a lesson learned, save a debugging insight, document a technical choice, note a convention, or search past memories.
 ---
 
 # Remember
 
 **`/remember` is the capture path** for project memory — capture is manual and intentional. (v4 removed the automatic session-end/pre-compact extraction pipeline; nothing captures for you.) Schema of record: `MEMORY-SCHEMA.md` at the framework root.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Types | Choosing the target file — and what is never memory |
+| Commands | Picking add, search, show, or archive |
+| Adding an entry | Writing an entry — dedup, format, confirm, reindex |
+| Searching / Archiving | Retrieving entries or moving stale ones out |
+| Read path | Knowing which files load at SessionStart vs on demand |
+
+## Types
 
 Four types, four target files under `docs/project-memory/` (committed, shared with the team):
 

@@ -1,6 +1,6 @@
 ---
 name: refactor
-description: Disciplined refactoring with risk-scaled process, scope boundaries, and behavior-preservation verification. Restructures existing code without changing behavior — extract, split, rename, reorganize, simplify, optimize. NOT FOR bug fixes (use /fix-bug), new features (use /new-feature), or framework migration (use /migrate).
+description: Disciplined refactoring with risk-scaled process, scope boundaries, and behavior-preservation verification. Use when restructuring existing code without changing behavior — extract, split, rename, reorganize, simplify, optimize. NOT FOR bug fixes (use /fix-bug), new features (use /new-feature), or framework migration (use /migrate).
 ---
 
 # Refactor
@@ -8,6 +8,16 @@ description: Disciplined refactoring with risk-scaled process, scope boundaries,
 `/refactor <description>` — what to change and where.
 
 Refactoring changes structure, never behavior. If the work requires new behavior, that's a feature — handle it separately.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| 1. Classify by risk | Always first — Low/Medium/High decides the process and the scope doc |
+| 2. Establish the baseline | Before touching code — green suite, coverage, benchmarks |
+| 3. Refactor | Making changes; out-of-scope temptations; structural moves |
+| 4. Verify behavior preserved | After changes; Python structural splits **run** `Tools/check_undefined_names.py` |
+| 5. Ship / Principles | Commit, `/create-pr` hand-off, deferred-improvements list |
 
 ## 1. Classify by risk
 

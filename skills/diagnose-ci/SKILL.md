@@ -1,6 +1,6 @@
 ---
 name: diagnose-ci
-description: Diagnose a failed GitHub Actions run locally and route to the correct pr-review-toolkit specialist agent. Reads run logs via `gh run view --log-failed`, classifies the failure, dispatches the matching specialist, and outputs a proposed fix plan. Does not push, commit, or modify files without explicit user approval — diagnosis is advisory.
+description: Diagnoses a failed GitHub Actions run locally and routes to the correct pr-review-toolkit specialist agent. Reads run logs via `gh run view --log-failed`, classifies the failure, dispatches the matching specialist, and outputs a proposed fix plan. Does not push, commit, or modify files without explicit user approval — diagnosis is advisory. Use when a GitHub Actions run has failed and the cause needs diagnosing before another push. NOT FOR pre-push CI mirroring (/preflight-ci) or production incidents (/triage-incident).
 hooks:
   Stop:
     - hooks:
@@ -8,18 +8,20 @@ hooks:
           command: "python3 $CLAUDE_PROJECT_DIR/.claude/hooks/validators/skills/diagnose_ci_format.py --final"
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Diagnose a failed CI run locally and propose a fix path via pr-review-toolkit specialists, without burning more Actions minutes on blind retries |
-| **Inputs** | Optional `<run-id>` (defaults to latest failed run on current branch) |
-| **Output** | Failure classification + which specialist ran + proposed fix plan (no files modified) |
-| **Flow** | Locate run → Fetch failed logs → Classify → Dispatch specialist → Output plan |
-
----
-
 # Diagnose CI Workflow
+
+Diagnoses a failed CI run locally and proposes a fix path via pr-review-toolkit specialists, without burning more Actions minutes on blind retries. Input is an optional `<run-id>` (default: latest failed run on the current branch); output is a failure classification, the specialist(s) consulted, and a proposed fix plan. No files are modified.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Why this exists / Invocation | Deciding whether to run it; the no-failed-run exit |
+| Steps 1–2 | Locating the run and fetching its failed logs |
+| `_shared/ci-failure-classifier.md` | Step 3 — the routing table, degradation rules, dispatch prompt |
+| Step 4: Dispatch the specialist | Fanning out to matched specialists |
+| Steps 5–6 | The fix-plan format and the user-approval gate |
+| Key Rules / Gotchas | Always — diagnosis only, no re-run, large matrix logs |
 
 ## Why this exists
 

@@ -14,6 +14,20 @@ hooks:
 
 If the superpowers plugin is installed, its systematic-debugging skill governs the investigation; otherwise follow the inline discipline below. Either way the two hard gates — reproduce-first and regression-test — are non-negotiable. (The prod fast path below defines exactly one permitted deferral shape for the regression test; nothing waives it.)
 
+## Index
+
+| File or section | Read when… |
+|---|---|
+| 1. Memory check | Before investigating — prior art in project-memory bugs |
+| 2. Reproduce FIRST | Always — Gate A, the reproduction table, first confirmation stop |
+| 3. Root cause before fix | Before writing any fix |
+| 4. Fix + regression test | Writing the fix; the regression-test gate and optional test lock |
+| 5. Verify | After the fix — re-run the probe, E2E and security fan-out |
+| Production incident fast path | The bug is live in production |
+| `_shared/task-triage.md` | Fast path step 5 — filing a deferred regression-test follow-up |
+| Debug doc | The investigation spans hypotheses or sessions |
+| 6. Ship / Rules | Second confirmation stop, commit, `/create-pr` hand-off |
+
 ## 1. Memory check
 
 If `docs/project-memory/bugs.md` exists, grep it for keywords from the bug description. Surface any prior art ("we hit this class of bug before, root cause was X") before investigating. Skip silently if the file doesn't exist.
@@ -44,7 +58,7 @@ If reproduction is genuinely impossible (prod-only race, third-party outage), sa
 
 - Smallest fix that addresses the confirmed root cause. No scope creep, no drive-by refactoring — file follow-ups instead.
 - **Regression test required:** a test that fails without the fix and passes with it, asserting on the failure path from step 2. The Stop-hook validator (`fix_bug_regression.py`) checks for it.
-- **If the project installed the test-lock damage control** (`skills/damage-control/cookbook/install_test_lock.md`): commit the failing test, then write its path into `.claude/.test-lock`. That makes the test unwritable while you fix the source — the escape this closes is editing the test until it passes, which turns the suite green and ships the bug. Skip this silently if the project has not installed the hook; framework hooks stay advisory.
+- **If the project installed the test-lock damage control** (the test-lock recipe in `/damage-control`): commit the failing test, then write its path into `.claude/.test-lock`. That makes the test unwritable while you fix the source — the escape this closes is editing the test until it passes, which turns the suite green and ships the bug. Skip this silently if the project has not installed the hook; framework hooks stay advisory.
 
 ## 5. Verify
 

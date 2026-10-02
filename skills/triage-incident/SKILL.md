@@ -1,18 +1,22 @@
 ---
 name: triage-incident
-description: Production incident triage — from "something is broken for users" to fixed, verified, and learned-from. Pulls the error signal (Sentry/logs/user report), reproduces before touching code, routes the fix through /fix-bug's prod fast path, and closes with a postmortem entry. NOT FOR bugs found in development (use /fix-bug directly) or CI failures (use /diagnose-ci).
+description: Production incident triage — from "something is broken for users" to fixed, verified, and learned-from. Pulls the error signal (Sentry/logs/user report), reproduces before touching code, routes the fix through /fix-bug's prod fast path, and closes with a postmortem entry. Use when something is broken for users in production — an outage, data corruption, a Sentry spike, or a crash-rate alert. NOT FOR bugs found in development (use /fix-bug directly) or CI failures (use /diagnose-ci).
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Structured path from production incident to verified fix + recorded learning |
-| **Inputs** | An error signal: Sentry issue, log excerpt, user report, crash-rate alert |
-| **Output** | Fix shipped via prod fast path + postmortem entry + follow-up tasks filed |
-| **Flow** | Assess → Stabilize → Reproduce → Fix → Verify in prod → Postmortem |
-
 # Triage Incident
+
+Structured path from a production incident to a verified fix and recorded learning. Input is an error signal (Sentry issue, log excerpt, user report, crash-rate alert); output is a fix shipped via the prod fast path, a postmortem entry, and filed follow-up tasks. Flow: Assess → Stabilize → Reproduce → Fix → Verify in prod → Postmortem.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Steps 1–2 | Assessing severity and mitigating before root-causing |
+| Step 3: Reproduce | Always — no fix until the failure is captured |
+| Steps 4–5 | Handing off to `/fix-bug`'s prod fast path; verifying in production |
+| Step 6: Postmortem | Writing the postmortem, filing prevention work, adding an eval |
+| `_shared/task-triage.md` | Step 6 — filing prevention follow-ups |
+| Key Rules | Always |
 
 ## Step 1: Assess — how bad, how many, since when
 

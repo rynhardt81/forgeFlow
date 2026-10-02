@@ -1,11 +1,19 @@
 ---
 name: build
-description: Production build and containerization guidance. Detects the project's stack and points at the right build path — native platform tooling first (Expo/EAS, Vercel, plain bundlers), a Dockerfile only when the deployment target actually needs one. NOT FOR CI mirroring (use /preflight-ci) or releasing versions (use /release).
+description: Production build and containerization guidance. Detects the project's stack and points at the right build path — native platform tooling first (Expo/EAS, Vercel, plain bundlers), a Dockerfile only when the deployment target actually needs one. Use when a project needs a production build path or a container image for a deployment target. NOT FOR CI mirroring (use /preflight-ci) or releasing versions (use /release).
 ---
 
 # Build
 
 Modern models write correct Dockerfiles, compose files, and CI build steps directly — this skill is deliberately a rules-and-routing card, not a wizard.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Step 1: Detect the stack and route | Always first — pick the build path and confirm the target |
+| Step 2: Generate, then verify | Generating the build setup; it is not done until it runs |
+| Key Rules | Writing any Dockerfile or build config |
 
 ## Step 1: Detect the stack and route
 

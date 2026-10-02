@@ -1,20 +1,21 @@
 ---
 name: setup-review-bot
-description: Configure this repo's AI code reviewers — the post-PR mention bot and the pre-push local reviewer — and write the AGENTS.md the reviewers read. Interviews the user for what the reviewer should weight, then sets git config forge.reviewBot / forge.localReview and populates AGENTS.md at the project root. Use when a repo has no reviewer configured, when review findings are consistently off-target, or when onboarding a new project.
----
-
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Wire up review bots and give them repo-specific direction |
-| **Inputs** | None — interviews the user |
-| **Output** | `git config forge.reviewBot` / `forge.localReview` + a populated `AGENTS.md` |
-| **Flow** | Detect what's already set → choose reviewers → interview → write config → write AGENTS.md |
-
+description: Configures a repo's AI code reviewers — the post-PR mention bot and the pre-push local reviewer — and writes the AGENTS.md the reviewers read. Interviews the user for what the reviewer should weight, then sets git config forge.reviewBot / forge.localReview and populates AGENTS.md at the project root. Use when a repo has no reviewer configured, when review findings are consistently off-target, or when onboarding a new project.
 ---
 
 # /setup-review-bot
+
+Wires up a repo's review bots and gives them repo-specific direction. Takes no inputs — it interviews the user — and outputs `git config forge.reviewBot` / `forge.localReview` plus a populated `AGENTS.md`. Flow: detect what's set → choose reviewers → interview → write config → write AGENTS.md.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Why this exists | Understanding the pre-push vs post-PR reviewer split |
+| Steps 1–2 | Detecting current config; choosing reviewers and the `{base}` placeholder |
+| Step 3: Interview for AGENTS.md | The four questions |
+| Steps 4–5 | Writing git config and creating or appending AGENTS.md |
+| Step 6: Report / Key rules | Finishing — never overwrite, never invent, verify the CLI |
 
 ## Why this exists
 

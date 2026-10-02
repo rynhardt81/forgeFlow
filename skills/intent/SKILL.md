@@ -1,21 +1,23 @@
 ---
 name: intent
-description: Capture a change request as a committed intent.md that a non-engineer can author, then promote an accepted intent into a forge epic and tasks. Use when someone describes a problem or wish for the product ("we need", "users keep", "it should"), when a product owner wants to file work without the task CLI, or when an accepted intent is ready to enter the queue. NOT for vetting whether to build it (/vet-idea) or for project bootstrap (/new-project).
+description: Captures a change request as a committed intent.md that a non-engineer can author, then promotes an accepted intent into a forge epic and tasks. Use when someone describes a problem or wish for the product ("we need", "users keep", "it should"), when a product owner wants to file work without the task CLI, or when an accepted intent is ready to enter the queue. NOT for vetting whether to build it (/vet-idea) or for project bootstrap (/new-project).
 allowed-tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Turn a conversation into a version-controlled intent, then turn an accepted intent into queue state |
-| **Inputs** | `/intent "<problem>"` or `/intent promote intent/<slug>.md [--epic E0X]` |
-| **Output** | `intent/<slug>.md` (capture); an epic + tasks in the forge registry (promote) |
-| **Flow** | Brainstorm → write intent → author corrects → commit ‖ read accepted intent → epic + tasks → mark promoted |
-
----
-
 # /intent
+
+Turns a conversation into a version-controlled intent, then turns an accepted intent into queue state. `/intent "<problem>"` writes `intent/<slug>.md`; `/intent promote intent/<slug>.md [--epic E0X]` files an epic and tasks in the forge registry.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Capture | Writing a new intent from a described problem |
+| Promote | An intent has `Status: accepted` and is ready for the queue |
+| Where it sits | Choosing between `/vet-idea`, `/intent`, ISA, and `/run-epic` |
+| `_shared/task-triage.md` | Derived work surfaces while promoting |
+
+## Artifact chain
 
 The entry point to the artifact chain: **intent → PRD/ISA → tasks → PR**. The originator does not need the forge CLI, the Algorithm, or a task id. They need to describe a problem well enough that the next person can act on it. This skill gets them there and stops.
 

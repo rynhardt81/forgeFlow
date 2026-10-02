@@ -1,11 +1,21 @@
 ---
 name: migrate
-description: Onboard an existing project to Claude Forge or upgrade a project across framework versions (v2 → v3 → v4), preserving and merging existing .claude content. Use after the installer has placed the framework; /migrate completes the content merge and optional brownfield analysis.
+description: Onboards an existing project to Claude Forge or upgrades a project across framework versions (v2 → v3 → v4), preserving and merging existing .claude content. Use when onboarding an existing project or upgrading its framework version, after the installer has placed the framework; /migrate completes the content merge and optional brownfield analysis.
 ---
 
 # Migrate
 
 Thin driver over the installer. The setup mechanics live in **`scripts/install/install.sh`** (Windows: `install.ps1`); `/migrate` completes what the script can't do mechanically — content-aware merging from the old configuration and brownfield project analysis.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| When to use / Setup first: the installer | Before running — the installer must have run first |
+| Invocation | Choosing `--skip-analysis` or `--dry-run` |
+| What /migrate does | Always — the four steps and the two decision points |
+| Rollback | Undoing a full install, a refresh, or a merge |
+| Version-specific notes | Migrating from v2/v3 to v4 |
 
 ## When to use
 

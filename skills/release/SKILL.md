@@ -1,11 +1,23 @@
 ---
 name: release
-description: Release workflow — analyzes conventional commits, infers version bumps, runs pre-release checks and a release-safety checklist (rollback verified, staged rollout, feature-flag inventory), updates CHANGELOG.md, creates git tags, publishes GitHub Releases, and probes the release post-publish. Handles pre-releases (alpha/beta/rc) and hotfixes.
+description: Release workflow — analyzes conventional commits, infers version bumps, runs pre-release checks and a release-safety checklist (rollback verified, staged rollout, feature-flag inventory), updates CHANGELOG.md, creates git tags, publishes GitHub Releases, and probes the release post-publish. Handles pre-releases (alpha/beta/rc) and hotfixes. Use when cutting a new version, a pre-release, or a hotfix release and publishing it. NOT FOR building artifacts (/build) or mirroring CI locally (/preflight-ci).
 ---
 
 # Release
 
 Doctrine home: `rules/release-engineering.md` — read it when it exists in the project; this skill implements its workflow.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Invocation | Choosing bump, pre-release, or `--skip-checks` |
+| Workflow | Always — the eight steps and the two confirmation gates |
+| Version bump inference / Version file detection | Analyze step — commits to bump, which files to change |
+| Pre-release checks / Release safety | Verify step — all must pass before Gate 1 |
+| Changelog / Documentation audit | Update step |
+| PR-first option / Configuration | The project reviews release-prep commits, or has `.release-config.json` |
+| Key rules | Checking a release is actually done |
 
 ## Invocation
 

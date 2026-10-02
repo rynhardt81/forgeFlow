@@ -1,27 +1,23 @@
 ---
 name: refresh-project-context
-description: Updates CLAUDE.md project sections while keeping it lean. Adds detailed content to CHEATSHEET.md. Use after framework upgrades, when project context has drifted, or when the user says "update project docs", "refresh context", "CLAUDE.md is outdated", or "sync documentation".
+description: Updates CLAUDE.md project sections while keeping it lean. Adds detailed content to CHEATSHEET.md. Use when a framework upgrade has landed, when project context has drifted, or when the user says "update project docs", "refresh context", "CLAUDE.md is outdated", or "sync documentation".
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task, TodoWrite, AskUserQuestion
----
-
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Refresh CLAUDE.md project context (keep lean, defer to CHEATSHEET) |
-| **Inputs** | Existing codebase, optional flags (--quick, --prd, --full) |
-| **Output** | Filled `## Project context` skeleton in root CLAUDE.md (lean), updated CHEATSHEET.md (detailed) |
-| **Flow** | Analyze → Fill the root CLAUDE.md project-context skeleton (lean) → Update CHEATSHEET.md (detailed) |
-
 ---
 
 # Refresh Project Context Skill
 
-> Keep the project-context section of CLAUDE.md to about 100 lines: it loads into every
-> session, so each line costs context on every turn. Detailed reference content goes in
-> CHEATSHEET.md, which is read on demand.
+Fills the root CLAUDE.md `## Project context` skeleton (lean) and moves detailed reference content into CHEATSHEET.md. Keep the project-context section of CLAUDE.md to about 100 lines: it loads into every session, so each line costs context on every turn. CHEATSHEET.md is read on demand. Flow: Analyze → fill the skeleton → update CHEATSHEET.md.
 
----
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Key Principles / Invocation | Choosing a mode (`--quick`, `--prd`, `--full`) |
+| Phase 1: Analyze | Discovering the stack and comparing documented vs actual state |
+| Phase 2: Fill the skeleton | Writing the six project-context headers, and what never goes there |
+| Phase 3: Update CHEATSHEET.md | Moving detail out of CLAUDE.md |
+| Phase 4–5 | Optional documentation audit and the progress-notes summary |
+| Error Handling / Key Paths | Sentinel missing, CLAUDE.md bloated, or locating framework paths |
 
 ## Key Principles
 

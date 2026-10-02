@@ -1,26 +1,30 @@
 ---
 name: vet-idea
-description: Vet an idea, decision, or plan BEFORE building it. Runs a single model through five fixed adversarial advisor roles, a peer-review pass, and a chairman synthesis that emits a halt-capable GO / NO-GO / RECONSIDER verdict. Advisory and non-mutating — outputs a report, never writes task state.
+description: Vets an idea, decision, or plan BEFORE it is built. Runs a single model through five fixed adversarial advisor roles, a peer-review pass, and a chairman synthesis that emits a halt-capable GO / NO-GO / RECONSIDER verdict. Advisory and non-mutating — outputs a report, never writes task state. Use when an idea, feature, or costly hard-to-reverse decision is of uncertain worth and the question is whether to build it at all. NOT FOR settled work (bug fixes, approved features) or for shaping how to build it (the ISA Interview workflow).
 allowed-tools: Read, Glob, Grep, Bash, Write, TodoWrite
----
-
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Decide *whether* an idea is worth building, before any time/money/effort is spent. |
-| **Inputs** | An idea / decision / plan statement (and optionally a path to its ISA or design doc). |
-| **Output** | A council report ending in a categorical **GO / NO-GO / RECONSIDER** verdict + minority report. |
-| **Mutates** | Nothing. Advisory only — the user (or the Algorithm) acts on the verdict. |
-| **Flow** | Independent analysis (5 roles) → peer review → chairman synthesis |
-
 ---
 
 # vet-idea Workflow
 
+Decides *whether* an idea is worth building, before any time, money, or effort is spent. Input is an idea / decision / plan statement (optionally an ISA or design doc); output is a council report ending in a categorical **GO / NO-GO / RECONSIDER** verdict plus minority report. Mutates nothing — the user (or the Algorithm) acts on the verdict.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| When to use / When NOT to use | Deciding whether this skill applies at all |
+| Invocation | Choosing flags (`--isa`, `--roles 7`, `--output`) |
+| Steps 1–3 | Framing the idea and running the five roles + peer review |
+| Step 4: Chairman synthesis | Writing the verdict block and its meanings |
+| Step 5: Write the report and surface | Saving the report; the NO-GO halt inside an Algorithm flow |
+| Anti-criteria for this skill | Checking the run stayed advisory, single-model, and non-averaging |
+| What this gate is not | Confusing it with the ISA Interview or the Algorithm premortem |
+
+## What this gate is not
+
 This is the **WHETHER** gate. It is deliberately distinct from two things it is often confused with:
 
-- **NOT the ISA Interview** (`skills/ISA/Workflows/Interview.md`) — that resolves *how* to shape the work (design-decision dependencies). `/vet-idea` asks *whether* to do the work at all.
+- **NOT the ISA Interview** (the `/ISA` skill's Interview workflow) — that resolves *how* to shape the work (design-decision dependencies). `/vet-idea` asks *whether* to do the work at all.
 - **NOT Algorithm THINK premortem** (`ALGORITHM/v1.2.0.md` PREMORTEM) — that enumerates failure modes the work must withstand *after* the decision to build is made. `/vet-idea` runs before that decision.
 
 It runs entirely on the single harness model — **no `Task`/subagent fan-out**. A bare clone of the framework has no multi-agent swarm (that is a PAI-layer capability, absent here), so this skill must self-contain all role prompts and run sequentially in one transcript. Never instruct it to call `RedTeam`, `FirstPrinciples`, `Council`, or any capability that is not a file in this repo.
@@ -121,8 +125,8 @@ Write the full council report to `memories/vet-idea-{slug}-{date}.md` (or `--out
 
 ## See also
 
-- `skills/ISA/Workflows/Interview.md` — the *HOW* gate (design-decision dependency resolution). Run this AFTER a GO verdict.
-- `skills/audit-rules/SKILL.md` — the other advisory, non-mutating, report-only skill; `/vet-idea` mirrors its shape.
+- `/ISA` Interview workflow — the *HOW* gate (design-decision dependency resolution). Run this AFTER a GO verdict.
+- `/audit-rules` — the other advisory, non-mutating, report-only skill; `/vet-idea` mirrors its shape.
 - `ALGORITHM/v1.2.0.md` — OBSERVE mentions `/vet-idea` as optional; THINK owns premortem (a different concern).
 
 ---

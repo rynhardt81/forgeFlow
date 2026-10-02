@@ -1,22 +1,23 @@
 ---
 name: audit-rules
-description: Audit CLAUDE.md and .claude/rules/*.md for stale, contradictory, or over-prompting rules. Surfaces rules untouched for 6+ months and rules that constrain rather than help on current model capability. Outputs a review report and never modifies governance files directly. Use when the user wants to prune, review, or de-bloat rules, or after a model upgrade.
+description: Audits CLAUDE.md and .claude/rules/*.md for stale, contradictory, or over-prompting rules. Surfaces rules untouched for 6+ months and rules that constrain rather than help on current model capability. Outputs a review report and never modifies governance files directly. Use when the user wants to prune, review, or de-bloat rules, or after a model upgrade.
 allowed-tools: Read, Glob, Grep, Bash, Write, TodoWrite
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Surface rules that are stale, redundant, or constrain rather than help the current model. |
-| **Inputs** | `CLAUDE.md` (project root) + every file in `.claude/rules/*.md` |
-| **Output** | `memories/rules-audit-{YYYY-MM-DD}.md` — categorized findings + recommendations |
-| **Mutates** | Nothing. Findings are advisory; user applies them manually. |
-| **Flow** | Inventory rules → score each → categorize → write report |
-
----
-
 # audit-rules Workflow
+
+Surfaces rules that are stale, redundant, or constrain rather than help the current model. Reads root `CLAUDE.md` plus every `.claude/rules/*.md`; writes `memories/rules-audit-{YYYY-MM-DD}.md` with categorized findings and recommendations. Mutates nothing — the user applies findings manually. Flow: inventory → score → categorize → write report.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| When to use / When NOT to use | Deciding whether an audit is due |
+| Invocation | Choosing scope and flags (`--stale-months`, `--include-skills`, `--output`) |
+| Steps 1–3 | Inventorying files, the five-question score, the KEEP/SHARPEN/MERGE/CUT/MOVE verdicts |
+| Step 4: Surface contradictions | The cross-file pass |
+| Step 5: Write the report | The report format |
+| Step 6: Surface and stop | Ending the run without editing any governance file |
 
 ## When to use
 
@@ -157,8 +158,8 @@ Print a one-paragraph summary to the session: how many findings of each kind, wh
 
 ## See also
 
-- `skills/refresh-project-context/SKILL.md` — refresh the *content* of CLAUDE.md; this skill audits the *quality* of its rules.
-- `skills/audit-code-map/SKILL.md` — pairs naturally: audit the rules, then regenerate the code map so the rules and codebase reality are both fresh.
+- `/refresh-project-context` — refresh the *content* of CLAUDE.md; this skill audits the *quality* of its rules.
+- `/audit-code-map` — pairs naturally: audit the rules, then regenerate the code map so the rules and codebase reality are both fresh.
 - Anthropic, "How Claude Code works in large codebases" — the source advice for the 3–6 month config refresh cadence.
 
 ---
