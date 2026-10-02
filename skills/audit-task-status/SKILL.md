@@ -2,7 +2,7 @@
 name: audit-task-status
 description: >
   Align Forge Flow task/epic statuses with the authoritative task registry, and
-  report registry health. Use this whenever the user asks to align/sync/reconcile
+  report registry health. Use whenever the user asks to align/sync/reconcile
   task or epic statuses, to check whether the registry, task files, and epic files
   agree, or says things like "are the task statuses in sync", "the epic file is
   stale", "make the epics match the registry", "reconcile task state", or "audit
@@ -16,24 +16,17 @@ description: >
 
 # Audit & align task status
 
-## Why this exists
+Makes task-file frontmatter and epic files tell the same truth as `docs/tasks/registry.json`, and reports registry-health gaps (tasks with no body file). The `forge` CLI is the only sanctioned writer of the registry; never hand-edit it.
 
-Forge Flow tracks task state in **three places that can drift apart**:
+## Index
 
-1. **`docs/tasks/registry.json`** — the authoritative source of truth. The `forge`
-   CLI is the only sanctioned writer; never hand-edit it.
-2. **Task-file frontmatter** (`docs/epics/<epic>/tasks/T###-*.md`, `status:` field) —
-   mirrors the registry. The `consistency-banner.py` hook auto-syncs this on every
-   Write/Edit and at SessionStart, so it's *usually* aligned — but verify, don't assume.
-3. **Epic files** (`docs/epics/<epic>/<epic>.md`) — the human-readable progress
-   counters and per-task status tables. **The framework never touches these** — they
-   drift the moment a task completes and nobody updates the prose. This is where the
-   real, invisible drift accumulates.
-
-The registry is correct by construction (atomic CLI mutations). The job is to make
-layers 2 and 3 tell the same truth, and to flag the one structural gap the registry
-can have (tasks with no body file). The point is trust: if the epic file says
-"7/10 completed" and the registry says "14/19", nobody can rely on the docs.
+| File or section | Read when… |
+|---|---|
+| `WHY.md` | Background — the three places task state lives and why epic files drift |
+| The authority rule (below) | Before any edit — which layer wins |
+| Workflow (below) | Every invocation — steps 1–5 |
+| `scripts/audit_status.py` | **Run** it (step 2 and step 5) — read-only detector |
+| What "aligned" means (below) | Deciding you are done |
 
 ## The authority rule
 

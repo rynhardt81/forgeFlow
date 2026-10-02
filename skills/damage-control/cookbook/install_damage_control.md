@@ -2,6 +2,11 @@
 
 This workflow guides installation of the Damage Control security hooks.
 
+## Contents
+- Prerequisites
+- Installation Steps
+- Troubleshooting
+
 ## Prerequisites
 
 1. **UV (Python runtime)** - Required for running the hooks

@@ -2,6 +2,11 @@
 
 This workflow displays the current damage control configuration.
 
+## Contents
+- Display Configuration
+- Output Format
+- Configuration File Location
+
 ## Display Configuration
 
 Read and parse `.claude/hooks/damage-control/patterns.yaml` and present:

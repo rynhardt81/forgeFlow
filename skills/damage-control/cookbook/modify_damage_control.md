@@ -2,6 +2,12 @@
 
 This workflow guides modifications to the Damage Control security configuration.
 
+## Contents
+- Modification Types
+- Path Pattern Syntax
+- Regex Pattern Syntax
+- After Modification
+
 ## Modification Types
 
 ### 1. Add Zero-Access Path

@@ -7,9 +7,16 @@ description: Shrink bloated memory files back to what actually earns its place i
 
 Memory files are paid for on every single session, forever, whether or not that session touches the subject. A fact that saves ten minutes once a month is worth a line; the same fact spread over four paragraphs is a standing tax. This skill finds the difference and fixes it.
 
-**The failure it exists to stop is not "the file got big".** It is content that was never memory-shaped landing in a memory file and then being loaded whole at every startup — a repo-state snapshot, an architecture write-up, a postmortem narrative. Those are real knowledge and must survive; they just belong somewhere nothing injects. A 6 KB key-facts.md of one-line facts is healthy. A 6 KB narrative is not, at any size.
-
 Equally: **an empty memory file is also a failure.** The project pays a different tax when a session re-derives a fact someone already learned. Reconciling is not a cutting exercise — you are deciding, entry by entry, where knowledge lives so it is there when it matters and absent when it doesn't. If you finish and the project is worse off next session, you have done the wrong thing.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| `DESTINATIONS.md` | Choosing where relocated content goes, and why |
+| `PLAN-EXAMPLE.md` | The step-4 plan |
+| `RATIONALE.md` | Why size is a tax; measured evidence against over-cutting |
+| `_shared/report-format.md` | The finished-work report |
 
 ## The two stores, and the rule against mixing them
 
@@ -40,26 +47,9 @@ Apply this to `key-facts.md` and `MEMORY.md` — the two files that cost tokens 
 - **Delete**: anything falsified by the current code, or a snapshot of state that has since moved on. A repo-state listing from four months ago is not knowledge, it is a stale claim that will mislead a future session more than silence would. When the entry recorded something real that has simply been superseded, keep one dated line saying so rather than the whole body.
 - **Merge**: near-duplicates. Two entries covering one fact means the next reader has to work out which is current.
 
-### Two destinations, and why the obvious one is not always right
+### Where relocated content goes
 
-`MEMORY-SCHEMA.md` routes by kind — bugs to `bugs.md`, decisions to `decisions.md`, conventions to `patterns.md`. Those three are read on demand, so an entry moved there costs nothing at startup and stays findable.
-
-**But the index is injected, and every entry in those three files earns a line in it.** `forge memory reindex` builds `index.md` from their entry headings, and `index.md` loads at every SessionStart alongside `key-facts.md`. So relocation is not free: it converts a large per-session cost into a small one, roughly 100 bytes of index per entry, not into zero.
-
-That is fine for entries. It is the wrong move for bulk. Measured on a 63 KB key-facts.md: routing 21 blocks by kind shrank the injected total to 11 142 B, while lifting the same two sections out whole to non-indexed files reached 8 024 B — the index growth ate a fifth of the saving, and the second approach also kept the material verbatim instead of chopping it into entries it was never written as.
-
-So choose by shape:
-
-| What you are moving | Where it goes | Why |
-|---|---|---|
-| An individual fact, decision, bug or convention | `decisions.md` / `bugs.md` / `patterns.md` | Indexed, findable, ~100 B/session for the index line |
-| A whole coherent section — an architecture baseline, a repo-state chronology, a design of record | `docs/project-memory/reference/<topic>.md`, moved **verbatim** | `memory_index.py` scans only the three entry files, so this is invisible to the index and costs literally nothing per session |
-
-Leave exactly one line in `key-facts.md` pointing at a file you moved wholesale, so a reader still knows it exists. `docs/**` is excluded from the refresh rsync, so this destination is project data that survives a framework refresh untouched.
-
-`.claude/reference/` (Tier 2) is a legitimate home for material that is genuinely "what the system IS" rather than a remembered fact, and populated `NN-*.md` files there survive refresh because the framework only ships the `NN-*.template.md` variants. But that is a documentation-governance decision with an ADR attached, so **propose it and let the user choose** — do not move anything there unprompted.
-
-**Where this skill stops:** age-based cleanup within `bugs.md` / `decisions.md` / `patterns.md` belongs to `/remember archive`, which already does it. Reconcile decides *which file* an entry belongs in; archive decides *whether it is still current*. If you finish and the destination files are themselves stale, say so and suggest `/remember archive` — don't reimplement it.
+Single entries go to `decisions.md` / `bugs.md` / `patterns.md` (~100 B/session of index each). A whole section goes **verbatim** to `docs/project-memory/reference/<topic>.md`, leaving one pointer line in `key-facts.md`. Age-based cleanup is `/remember archive`'s job. Details: `DESTINATIONS.md`.
 
 Content that is "what the system IS" rather than a remembered fact — an architecture baseline, a technical design of record — is Tier 2 material and belongs in `.claude/reference/`. That move is a documentation decision with governance attached, so **propose it and let the user decide**; reconcile does not write to `reference/` on its own.
 
@@ -85,11 +75,9 @@ The SessionStart hook caps `index.md` and `key-facts.md` at 20 000 characters ea
 
 Before classifying anything, ask whether this store has a problem. A store of one-line dated facts, under the cap, with an index that matches its files, is finished — and the correct output is to say so and stop.
 
-This matters because the pull is entirely one way. Nothing about a reconcile rewards leaving things alone, so the temptation is to find *something* to cut and call it progress. Measured: on an already-healthy 8 KB store, a reconcile pass trimmed it to 70% of its original size while a plain reading of the same store trimmed it to 88% — the extra cutting bought nothing a session would notice and spent judgment on entries that were fine. A reconcile that reports "already healthy, three entries could be tightened, none of it worth your time" is a complete and successful run.
-
 Act when you can name the defect: over the cap, narrative in an injected file, an index that disagrees with its files, entries falsified by the current code, or two entries covering one fact. Absent one of those, stop.
 
-Restraint is about not inventing work, not about declining work you found. Two entries stating the same rule is a nameable defect — the next reader has to decide which is current, and both load every session. Merge them. Likewise, replacing a falsified entry with a dated stub still leaves something loading at every startup: keep a stub when the fact was real and its supersession is itself worth knowing, and delete outright when the entry was simply wrong, since a wrong memory asserted with confidence costs more than a missing one. Measured: a pass that stubbed four false entries and declined two obvious merges saved 43 bytes, against 1 437 bytes for the same store handled with merges — the diagnosis was better and the outcome was not.
+Restraint is about not inventing work, not about declining work you found. Two entries stating the same rule is a nameable defect — the next reader has to decide which is current, and both load every session. Merge them. Likewise, replacing a falsified entry with a dated stub still leaves something loading at every startup: keep a stub when the fact was real and its supersession is itself worth knowing, and delete outright when the entry was simply wrong, since a wrong memory asserted with confidence costs more than a missing one.
 
 ### 3. Classify every entry
 
@@ -99,18 +87,7 @@ Read the whole file. For each entry decide keep / relocate / delete / merge, and
 
 Memory is committed history and the auto-memory store is not versioned at all, so a bad eviction loses knowledge with nothing to recover it from. Show the plan first:
 
-```
-docs/project-memory/key-facts.md — 63 618 B, over the 20 000 cap (tail already dropped)
-
-  KEEP      12 entries  (1 403 B)   one-line facts, current
-  RELOCATE   8 entries  (26 846 B)  -> decisions.md — "Technical Baseline" is
-                                       decisions of record, not facts
-  DELETE     1 section  (34 746 B)  -> "Current Repository State", a 2026-07-07
-                                       snapshot; 6 of its 9 claims no longer
-                                       match the tree. Replaced by one dated
-                                       superseded line.
-  RESULT    ~4 KB, fully injected, nothing truncated
-```
+Shape: `PLAN-EXAMPLE.md` (per file: size vs cap, KEEP / RELOCATE / DELETE with counts, bytes and reason, RESULT).
 
 Name what you checked for the delete line — "6 of its 9 claims no longer match the tree" is a finding; "looked stale" is a guess. On approval, apply the whole plan through to reindex without stopping for further confirmation.
 

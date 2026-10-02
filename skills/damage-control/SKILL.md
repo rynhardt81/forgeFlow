@@ -3,22 +3,26 @@ name: damage-control
 description: Install, configure, and manage Claude Code security hooks. Blocks dangerous commands, protects sensitive files, and provides defense-in-depth protection via PreToolUse hooks. Use when user mentions damage control, security hooks, protected paths, blocked commands, or install security.
 ---
 
-## Quick Scan
-
-| | |
-|---|---|
-| **Purpose** | Install and manage security hooks for defense-in-depth protection |
-| **Inputs** | Action (install/modify/test/list), optional path/command targets |
-| **Output** | Configured hooks, patterns.yaml, protected paths/commands |
-| **Flow** | Detect intent → Route to cookbook → Execute workflow |
-
----
-
 # Damage Control Skill
 
 Defense-in-depth protection system for Claude Code. Combines Claude Forge's allowlist approach with pattern-based blocking and path protection via PreToolUse hooks.
 
 > **Attribution:** Based on [claude-code-damage-control](https://github.com/disler/claude-code-damage-control) by [IndyDevDan](https://github.com/disler). Adapted and integrated with Claude Forge's security model.
+
+## Index
+
+| File or section | Read when… |
+|---|---|
+| Cookbook (below) | Every invocation — routes the request to one workflow |
+| `cookbook/install_damage_control.md` | Installing the hooks (project or global) |
+| `cookbook/modify_damage_control.md` | Adding/changing protected paths, blocked or ask patterns, allowed commands |
+| `cookbook/test_damage_control.md` | Verifying the hooks block what they should |
+| `cookbook/install_test_lock.md` | Installing the `/fix-bug` test lock |
+| `cookbook/list_damage_controls.md` | Showing the current configuration |
+| `ARCHITECTURE.md` | The defense-in-depth layers, the hook flow diagram, installed file layout, how this fits Claude Forge's security model |
+| Quick Reference (below) | Path protection levels, exit codes, runtime |
+| `patterns.yaml` | The security patterns — single source of truth |
+| `hooks/damage-control-python/` | The hook implementations that get installed (copied, not run in place) |
 
 ## Overview
 
@@ -32,62 +36,12 @@ This skill helps deploy and manage the Damage Control security system, which pro
   - `readOnlyPaths` - Read allowed, modifications blocked
   - `noDeletePaths` - All operations except delete
 
-## Security Philosophy
-
-### Defense in Depth
-
-```
-Layer 1: Command Allowlist
-         ↓ (only allowed commands pass)
-Layer 2: Pattern Blocking (bashToolPatterns)
-         ↓ (dangerous patterns blocked)
-Layer 3: Path Protection
-         ↓ (zeroAccess, readOnly, noDelete)
-Layer 4: Special Validators
-         ↓ (pkill, chmod, rm, curl, git)
-Layer 5: Claude Code Sandbox
-```
-
-### How It Works
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                   Claude Code Tool Call                              │
-└─────────────────────────────────────────────────────────────────────┘
-                                │
-          ┌─────────────────────┼─────────────────────┐
-          ▼                     ▼                     ▼
-    ┌───────────┐         ┌───────────┐         ┌───────────┐
-    │   Bash    │         │   Edit    │         │   Write   │
-    │   Tool    │         │   Tool    │         │   Tool    │
-    └─────┬─────┘         └─────┬─────┘         └─────┬─────┘
-          │                     │                     │
-          ▼                     ▼                     ▼
-┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
-│ bash-tool-      │   │ edit-tool-      │   │ write-tool-     │
-│ damage-control  │   │ damage-control  │   │ damage-control  │
-│                 │   │                 │   │                 │
-│ • Allowlist     │   │ • zeroAccess-   │   │ • zeroAccess-   │
-│ • bashTool-     │   │   Paths         │   │   Paths         │
-│   Patterns      │   │ • readOnlyPaths │   │ • readOnlyPaths │
-│ • zeroAccess-   │   │                 │   │                 │
-│   Paths         │   │                 │   │                 │
-│ • readOnlyPaths │   │                 │   │                 │
-│ • noDeletePaths │   │                 │   │                 │
-│ • Validators    │   │                 │   │                 │
-└────────┬────────┘   └────────┬────────┘   └────────┬────────┘
-         │                     │                     │
-         ▼                     ▼                     ▼
-   exit 0 = allow        exit 0 = allow        exit 0 = allow
-   exit 2 = BLOCK        exit 2 = BLOCK        exit 2 = BLOCK
-   JSON   = ASK
-```
-
 ## Skill Structure
 
 ```
 skills/damage-control/           # In Claude Forge framework root
 ├── SKILL.md                     # This file
+├── ARCHITECTURE.md              # Layers, flow diagram, installed layout
 ├── patterns.yaml                # Security patterns (single source of truth)
 ├── cookbook/
 │   ├── install_damage_control.md
@@ -105,33 +59,6 @@ skills/damage-control/           # In Claude Forge framework root
 └── test-prompts/                # Test prompts for validation
     ├── README.md
     └── sentient.md
-```
-
-## After Installation
-
-### Project Hooks (Recommended)
-```
-<project-root>/
-└── .claude/
-    ├── settings.json            # Hook configuration (shared with team)
-    └── hooks/
-        └── damage-control/
-            ├── patterns.yaml
-            ├── bash-tool-damage-control.py
-            ├── edit-tool-damage-control.py
-            └── write-tool-damage-control.py
-```
-
-### Global Hooks (All Projects)
-```
-~/.claude/
-├── settings.json                # Hook configuration
-└── hooks/
-    └── damage-control/
-        ├── patterns.yaml
-        ├── bash-tool-damage-control.py
-        ├── edit-tool-damage-control.py
-        └── write-tool-damage-control.py
 ```
 
 ---
@@ -204,45 +131,10 @@ This section defines the decision tree for handling user requests.
 
 ---
 
-## Integration with Claude Forge
-
-### Complements Existing Security
-
-This skill extends Claude Forge's existing security model:
-
-- **`security/python/security.py`** - SDK-based allowlist (async Python)
-- **`security/allowed-commands.md`** - Command allowlist documentation
-- **`security/command-validators.md`** - Validator rules documentation
-- **`rules/security.md`** - Quick reference rules
-
-Damage Control adds:
-- **PreToolUse hooks** - Real-time enforcement before tool execution
-- **Pattern-based blocking** - Catch dangerous patterns within allowed commands
-- **Path protection** - File-level access control
-
-### Claude Forge-Specific Protections
-
-The patterns.yaml includes protection for:
-- `.claude/` directory (framework configuration)
-- `docs/tasks/` and `docs/epics/` (task management)
-- Session files and progress notes
-- `registry.json` (task registry)
-
----
-
-## Related Files
-
-- [cookbook/install_damage_control.md](cookbook/install_damage_control.md) - Installation workflow
-- [cookbook/modify_damage_control.md](cookbook/modify_damage_control.md) - Modification workflow
-- [cookbook/test_damage_control.md](cookbook/test_damage_control.md) - Testing workflow
-- [cookbook/list_damage_controls.md](cookbook/list_damage_controls.md) - List configuration
-- [hooks/damage-control-python/](hooks/damage-control-python/) - Python implementation
-- [reference/08-security-model.template.md](../../reference/08-security-model.template.md) - Security architecture
-
----
-
 ## See Also
 
+- [hooks/damage-control-python/](hooks/damage-control-python/) - Python implementation
+- [reference/08-security-model.template.md](../../reference/08-security-model.template.md) - Security architecture
 - [security/README.md](../../security/README.md) - Security model overview
 - [security/allowed-commands.md](../../security/allowed-commands.md) - Allowlist
 - [security/command-validators.md](../../security/command-validators.md) - Validators

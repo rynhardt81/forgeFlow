@@ -3,19 +3,21 @@ name: audit-code-map
 description: Generate or refresh `docs/code-map.md` — a structural map of the project's classes, top-level functions, and import graph across Python, TypeScript/JavaScript, Go, and Rust. Use when the user wants a code map, structure overview, dependency graph, module inventory, "show me how everything is wired", DRY hotspot scout, or a refreshable architecture summary.
 ---
 
-## Quick Scan
+# audit-code-map
 
-| | |
+Generates `docs/code-map.md` — file inventory, per-file class/function lists, import graph — for Python (full AST), TS/JS, Go and Rust (regex), with Python 3.8+ stdlib only. With `--emit-json` it also writes `docs/code-map.json`, the structured artifact consumed by the `forge-code-map` MCP server at `mcp-servers/code-map/`.
+
+## Index
+
+| File or section | Read when… |
 |---|---|
-| **Purpose** | Generate `docs/code-map.md` — file inventory, per-file class/function lists, import graph. Optionally emit `docs/code-map.json` for MCP/programmatic consumers. |
-| **Inputs** | None required (auto-detects stack); optional: project root, output path, flags |
-| **Output** | `docs/code-map.md` (human-readable + Mermaid graph). With `--emit-json` also `docs/code-map.json` (structured artifact, consumed by the `forge-code-map` MCP server at `mcp-servers/code-map/`). |
-| **Languages** | Python (full AST), TS/JS, Go, Rust (regex) |
-| **Dependencies** | Python 3.8+ stdlib only — no external tools required |
+| Steps 1–4 (below) | Every invocation |
+| `Tools/code_map.py` | **Run** it (step 1) — the analyzer |
+| Flags (below) | Choosing options; when the SessionStart hook co-emits JSON |
+| Integration with the framework (below) | How hooks, agents and skills consume the map |
+| `PHASES.md` | Extending the analyzer (skill maintainers) |
 
 ---
-
-# audit-code-map Workflow
 
 ## Invocation
 

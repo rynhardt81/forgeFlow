@@ -2,6 +2,13 @@
 
 This workflow validates that damage control hooks are working correctly.
 
+## Contents
+- Quick Test
+- Comprehensive Test Suite
+- Interactive Testing
+- Test Results Template
+- Troubleshooting Failed Tests
+
 ## Quick Test
 
 Run a dangerous command - it should be blocked:

@@ -2,6 +2,14 @@
 
 Closes the "make the test green by editing the test" escape during `/fix-bug`.
 
+## Contents
+- What it does
+- Prerequisites
+- Install
+- Usage
+- When the test really is wrong
+- Uninstall
+
 ## What it does
 
 `/fix-bug` writes a regression test that fails, commits it, then fixes the source
