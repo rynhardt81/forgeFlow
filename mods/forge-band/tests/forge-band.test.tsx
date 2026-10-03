@@ -1,0 +1,70 @@
+import { expect, test } from 'claude-code/testing'
+
+import { actions, cacheState, CACHE_TTL_MS, parseForge } from '../hooks/band'
+
+const READY = JSON.stringify([
+  { id: 'T313', epic: 'E16' },
+  { id: 'T314', epic: 'E16' },
+])
+const CLEAN = JSON.stringify({ findings: [] })
+const ALL = new Set(['reflect', 'run-epic'])
+
+test('cache countdown: gray before a reply, green, red near expiry, cold after', async () => {
+  expect(cacheState(0, 1000).color).toBe('gray')
+  expect(cacheState(1000, 1000 + 10 * 60000).label).toBe('cache 50m left')
+  expect(cacheState(1000, 1000 + 50 * 60000).color).toBe('yellow')
+  expect(cacheState(1000, 1000 + 56 * 60000).color).toBe('red')
+  expect(cacheState(1000, 1000 + CACHE_TTL_MS).label).toBe('cache cold')
+})
+
+test('parseForge: next task is the first ready one; unreadable drift is -1', async () => {
+  expect(parseForge(READY, CLEAN)).toEqual({ next: { id: 'T313', epic: 'E16' }, ready: 2, drift: 0 })
+  expect(parseForge('[]', 'not json')).toEqual({ next: null, ready: 0, drift: -1 })
+})
+
+test('the Run button exists only when a task is ready', async () => {
+  expect(actions(null, new Set(['run-epic']))).toEqual([])
+  expect(actions(null, ALL).map(a => a.key)).toEqual(['status', 'resume', 'handoff'])
+  expect(actions(parseForge(READY, CLEAN), ALL).at(-1)).toEqual({
+    key: 'run', label: 'Run E16', command: 'run-epic', args: 'E16', confirm: true,
+  })
+  expect(actions(parseForge(READY, CLEAN), ALL, 'E16').at(-1)?.label).toBe('Confirm Run E16?')
+})
+
+test('band shows the next task; Run needs a confirming second press', async ($, on) => {
+  on('process.run', async (_$, e) => {
+    const script = e.argv[1] ?? ''
+    const run = script.endsWith("forge.py") ? { exitCode: 0, stdout: READY, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } : { exitCode: 0, stdout: CLEAN, stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
+    return { value: run }
+  })
+  const ran: string[] = []
+  on('command.run', async (_$, e) => {
+    ran.push(`${e.command} ${e.args ?? ''}`.trim())
+    return { text: '' }
+  })
+
+  on('command.register', async () => ({ value: undefined }) as never)
+  on('session.start', async (_$, e) => e as never)
+  on('command.list', async () => ({ value: [{ name: 'reflect' }, { name: 'run-epic' }] }) as never)
+  on("clock.every", async () => ({ value: undefined }) as never)
+  on("clock.now", async () => ({ value: 1000 }) as never)
+  on("clock.after", async () => ({ deny: "timer held: the confirm window stays open" }) as never)
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+
+  const text = (await $.command.run({ command: 'forge-band', args: '' } as never)).text
+  expect(text).toContain('next T313 (E16) · 2 ready')
+  expect(text).toContain('drift 0')
+
+  const band = await $.ui.mount({ plugin: 'forge-band', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false } as never })
+  expect(JSON.stringify(await band.drawn())).toContain('"borderStyle":"round"')
+  expect(await band.find({ type: 'Text', text: '◆ forge' })).toBeDefined()
+  expect(await band.find({ type: 'Text', text: 'T313' })).toBeDefined()
+  expect(await band.find({ type: 'Text', text: '✓ in sync' })).toBeDefined()
+  // the Desktop app's table must accept the same tree
+  await $.ui.mount({ plugin: 'forge-band', surface: 'desktop', component: 'AbovePrompt', props: { hasSurvey: false } as never })
+  await band.press({ key: 'run' })
+  expect(ran).not.toContain('run-epic E16') // first press only arms
+  expect(await band.find({ key: 'run', text: 'Confirm Run E16?' })).toBeDefined()
+  await band.press({ key: 'run' })
+  expect(ran).toContain('run-epic E16')
+})

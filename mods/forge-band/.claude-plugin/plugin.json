@@ -1,0 +1,6 @@
+{
+  "name": "forge-band",
+  "version": "0.1.0",
+  "description": "Forge Flow band above the prompt: prompt-cache countdown, next ready task, registry drift, and one-press /reflect and /run-epic buttons",
+  "types": "./types/index.d.ts"
+}

@@ -460,7 +460,7 @@ install_framework_fresh() {
         --exclude='.git' \
         --exclude='.claude' \
         --exclude='tests' \
-        --exclude='.claude-plugin' \
+        --exclude='/.claude-plugin' \
         --exclude='.github' \
         --exclude='scripts/install' \
         --exclude='daily' \
@@ -581,7 +581,7 @@ install_framework_refresh() {
         --exclude='.git' \
         --exclude='.claude' \
         --exclude='tests' \
-        --exclude='.claude-plugin' \
+        --exclude='/.claude-plugin' \
         --exclude='.github' \
         --exclude='scripts/install' \
         --exclude='scripts/preflight/_local_shims.sh' \
@@ -1593,7 +1593,7 @@ install_v3_framework_files() {
         --exclude='.git' \
         --exclude='.claude' \
         --exclude='tests' \
-        --exclude='.claude-plugin' \
+        --exclude='/.claude-plugin' \
         --exclude='.github' \
         --exclude='.gitignore' \
         --exclude='_archive' \

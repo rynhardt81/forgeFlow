@@ -8,8 +8,11 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 - **`claude plugin eval` pilot suite for skills** (`tests/plugin-evals/`). Anthropic's eval command loads the framework's `skills/` and `agents/` as a plugin (via an eval-only `.claude-plugin/plugin.json`, excluded from every installer copy), runs each case three times with and without it, and reports `Δ` — what a skill adds. Four cases, all free graders: `/fix-bug` runs a command before its first edit and parameterises the query in a seeded login app; `/create-pr` and `/vet-idea` trigger on natural phrasing; a plain question triggers no skill. Runs use the normal Claude Code login and count against plan usage — always pass `--max-cost-usd`, run by hand.
 
+- **`forge-band` mod** (`mods/forge-band/`, Claude Code v2.1.287+). A bordered band above the prompt: prompt-cache countdown (60 minutes from the last main-thread reply, an estimate), context size, next ready task, registry drift, and buttons for `/reflect status|resume|handoff` and `/run-epic` (Run needs a confirming second press). Read-only; buttons for skills a project lacks are hidden. Refresh copies it to `.claude/mods/`; load with `claude --plugin-dir .claude/mods/forge-band`.
+
 ### Fixed
 
+- **Installer dropped every nested `.claude-plugin/`.** The rsync exclude for the framework's eval-only manifest was unanchored, so it also stripped `plugin.json` from mods and left them unloadable. Anchored to `/.claude-plugin` in all three copies; `install.ps1` already matched from the root.
 - **`evals.py` runs tested plain Claude, not Forge Flow** (v4.8.0 regression). The temp workspace introduced in v4.8.0 held a fixture app and no framework, so a run loaded none of the `CLAUDE.md`/rules a case guards. Each run now installs the framework into the temp dir as `.claude/` with a root `CLAUDE.md` importing it. `evals.py` is now scoped to always-on doctrine (`CLAUDE.md`, `rules/`), which plugin eval cannot load; the `/fix-bug` case moved to the plugin suite. `no-claim-without-a-probe` gains a `tool_called` check, so an answer that names `settings.json` without reading it fails.
 
 ## [v4.8.0] — 2026-10-02
