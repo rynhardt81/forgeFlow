@@ -5,13 +5,15 @@ bordered band above the prompt:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────╮
-│ ◆ forge   ● 42m cache · 180k ctx   ▸ T313 · E16 · 7 ready   ✓ in sync   [Status] [Resume] [Handoff] [Run E16] × │
+│ ◆ forge v4.8.0   ● 42m cache · 180k ctx   ▸ T313 · E16 · 7 ready   ✓ in sync   [Status] [Resume] [Handoff] [Run E16] × │
 ╰──────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 - **Cache** — minutes left before the prompt cache lapses, counted 60 minutes from the
   last main-thread reply (an estimate: the mod cannot read the real TTL, which drops to
   5 minutes under usage overage). Green > 15m, yellow ≤ 15m, red ≤ 5m; one toast at 5m.
+- **Version** — installed Forge Flow version from `forge version` (hidden on pre-4.2
+  installs that have no `VERSION` file).
 - **Next task** — first entry of `forge task ls --ready --json`.
 - **Drift** — finding count from `consistency-banner.py --json` (check only, no `--fix`).
 - **Buttons** — `/reflect status|resume|handoff` and `/run-epic <epic of next task>`.

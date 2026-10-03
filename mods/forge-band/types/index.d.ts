@@ -5,6 +5,8 @@ export type Forge = {
   next: NextTask | null
   ready: number
   drift: number
+  // installed Forge Flow version, e.g. "4.8.0"; null when VERSION is missing
+  version: string | null
 }
 
 declare module 'claude-code' {

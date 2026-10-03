@@ -21,7 +21,8 @@ async function loadForge($: EngineInterface): Promise<Forge | null> {
     const ready = await $.process.run(['python3', `${root}scripts/forge/forge.py`, 'task', 'ls', '--ready', '--json'])
     if (ready.exitCode !== 0) continue
     const drift = await $.process.run(['python3', `${root}hooks/forge/consistency-banner.py`, '--json'], { stdin: '' })
-    return parseForge(ready.stdout, drift.stdout)
+    const version = await $.process.run(['python3', `${root}scripts/forge/forge.py`, 'version'])
+    return parseForge(ready.stdout, drift.stdout, version.stdout)
   }
   return null
 }
@@ -89,7 +90,10 @@ export const register: Register = on => {
     return (
       <Box borderStyle="round" borderColor="cyan" paddingX={1} flexDirection="row" flexWrap="wrap" justifyContent="space-between" columnGap={3}>
         <Box flexDirection="row" flexWrap="wrap" columnGap={3}>
-          <Text bold color="cyan">◆ forge</Text>
+          <Text>
+            <Text bold color="cyan">◆ forge</Text>
+            {forge?.version && <Text dimColor> v{forge.version}</Text>}
+          </Text>
           <Text>
             <Text color={cache.color}>● </Text>
             <Text>{cache.label.replace('cache ', '')}</Text>

@@ -26,7 +26,8 @@ export function tokens(n: number): string {
 }
 
 // `forge task ls --ready --json` prints the queue in priority order.
-export function parseForge(readyJson: string, driftJson: string): Forge {
+// `forge version` prints the VERSION file, or an "unknown (...)" placeholder on pre-4.2 installs.
+export function parseForge(readyJson: string, driftJson: string, versionOut = ''): Forge {
   const ready: Array<{ id: string; epic: string }> = JSON.parse(readyJson)
   const [first] = ready
   const next: NextTask | null = first ? { id: first.id, epic: first.epic } : null
@@ -36,7 +37,8 @@ export function parseForge(readyJson: string, driftJson: string): Forge {
   } catch {
     drift = -1 // banner unreadable: show "?" rather than a false 0
   }
-  return { next, ready: ready.length, drift }
+  const version = /^\d/.test(versionOut.trim()) ? versionOut.trim() : null
+  return { next, ready: ready.length, drift, version }
 }
 
 // `confirm`: the first press only arms the button; a second press within CONFIRM_MS runs it.
@@ -64,6 +66,7 @@ export function actions(forge: Forge | null, available: ReadonlySet<string>, arm
 export function summary(cache: Cache, contextTokens: number, forge: Forge | null): string {
   const parts = [`${cache.label} · ${tokens(contextTokens)} ctx`]
   if (forge) {
+    if (forge.version) parts.unshift(`forge v${forge.version}`)
     parts.push(forge.next ? `next ${forge.next.id} (${forge.next.epic}) · ${forge.ready} ready` : 'no ready tasks')
     parts.push(`drift ${forge.drift < 0 ? '?' : forge.drift}`)
   }

@@ -18,8 +18,8 @@ test('cache countdown: gray before a reply, green, red near expiry, cold after',
 })
 
 test('parseForge: next task is the first ready one; unreadable drift is -1', async () => {
-  expect(parseForge(READY, CLEAN)).toEqual({ next: { id: 'T313', epic: 'E16' }, ready: 2, drift: 0 })
-  expect(parseForge('[]', 'not json')).toEqual({ next: null, ready: 0, drift: -1 })
+  expect(parseForge(READY, CLEAN, '4.8.0\n')).toEqual({ next: { id: 'T313', epic: 'E16' }, ready: 2, drift: 0, version: '4.8.0' })
+  expect(parseForge('[]', 'not json', 'unknown (VERSION file not found — pre-4.2 install?)')).toEqual({ next: null, ready: 0, drift: -1, version: null })
 })
 
 test('the Run button exists only when a task is ready', async () => {
@@ -34,7 +34,8 @@ test('the Run button exists only when a task is ready', async () => {
 test('band shows the next task; Run needs a confirming second press', async ($, on) => {
   on('process.run', async (_$, e) => {
     const script = e.argv[1] ?? ''
-    const run = script.endsWith("forge.py") ? { exitCode: 0, stdout: READY, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } : { exitCode: 0, stdout: CLEAN, stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
+    const stdout = e.argv[2] === 'version' ? '4.8.0\n' : script.endsWith("forge.py") ? READY : CLEAN
+    const run = { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false }
     return { value: run }
   })
   const ran: string[] = []
@@ -54,11 +55,13 @@ test('band shows the next task; Run needs a confirming second press', async ($, 
   const text = (await $.command.run({ command: 'forge-band', args: '' } as never)).text
   expect(text).toContain('next T313 (E16) · 2 ready')
   expect(text).toContain('drift 0')
+  expect(text).toContain('forge v4.8.0')
 
   const band = await $.ui.mount({ plugin: 'forge-band', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false } as never })
   expect(JSON.stringify(await band.drawn())).toContain('"borderStyle":"round"')
   expect(await band.find({ type: 'Text', text: '◆ forge' })).toBeDefined()
   expect(await band.find({ type: 'Text', text: 'T313' })).toBeDefined()
+  expect(JSON.stringify(await band.drawn())).toContain('4.8.0')
   expect(await band.find({ type: 'Text', text: '✓ in sync' })).toBeDefined()
   // the Desktop app's table must accept the same tree
   await $.ui.mount({ plugin: 'forge-band', surface: 'desktop', component: 'AbovePrompt', props: { hasSurvey: false } as never })
