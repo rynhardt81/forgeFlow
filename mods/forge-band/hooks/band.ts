@@ -41,20 +41,33 @@ export function parseForge(readyJson: string, driftJson: string, versionOut = ''
   return { next, ready: ready.length, drift, version }
 }
 
+// `gh pr view --json number,state` exits non-zero when the branch has no PR,
+// and still returns the PR after it is merged or closed.
+export function parsePr(exitCode: number, stdout: string): number | null {
+  if (exitCode !== 0) return null
+  try {
+    const pr = JSON.parse(stdout)
+    return pr.state === 'OPEN' ? pr.number : null
+  } catch {
+    return null
+  }
+}
+
 // `confirm`: the first press only arms the button; a second press within CONFIRM_MS runs it.
 export type Action = { key: string; label: string; command: string; args: string; confirm?: true }
 
 export const CONFIRM_MS = 10_000
 
 // The four commands run most across the last 30 Forge Flow sessions, plus the specialist PR review.
-// `armed` is the epic whose Run button was pressed once and awaits confirmation.
-export function actions(forge: Forge | null, available: ReadonlySet<string>, armed: string | null = null): Action[] {
+// `armed` is the epic whose Run button was pressed once and awaits confirmation;
+// `pr` is the current branch's open PR, without which there is nothing to review.
+export function actions(forge: Forge | null, available: ReadonlySet<string>, armed: string | null = null, pr: number | null = null): Action[] {
   const list: Action[] = [
     { key: 'status', label: 'Status', command: 'reflect', args: 'status' },
     { key: 'resume', label: 'Resume', command: 'reflect', args: 'resume' },
     { key: 'handoff', label: 'Handoff', command: 'reflect', args: 'handoff' },
-    { key: 'review', label: 'Review PR', command: 'pr-review-toolkit:review-pr', args: '' },
   ]
+  if (pr !== null) list.push({ key: 'review', label: `Review PR #${pr}`, command: 'pr-review-toolkit:review-pr', args: '' })
   if (forge?.next) {
     const epic = forge.next.epic
     const label = armed === epic ? `Confirm Run ${epic}?` : `Run ${epic}`

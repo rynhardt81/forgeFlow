@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import { actions, cacheState, CONFIRM_MS, LAYOUTS, parseForge, summary, tokens, WARN_MS } from './band'
+import { actions, cacheState, CONFIRM_MS, LAYOUTS, parseForge, parsePr, summary, tokens, WARN_MS } from './band'
 import type { Forge } from '../types'
 
 const lastResponseAt = atom({ plugin: 'forge-band', key: 'lastResponseAt' } as const, 0)
@@ -10,6 +10,7 @@ const forgeState = atom({ plugin: 'forge-band', key: 'forge' } as const, null)
 const hidden = atom({ plugin: 'forge-band', key: 'hidden' } as const, false)
 const warned = atom({ plugin: 'forge-band', key: 'warned' } as const, false)
 const armed = atom({ plugin: 'forge-band', key: 'armed' } as const, null)
+const openPr = atom({ plugin: 'forge-band', key: 'openPr' } as const, null)
 
 // Slash commands this session can run; reset with the module, refilled in session.start.
 let available: ReadonlySet<string> = new Set()
@@ -27,9 +28,16 @@ async function loadForge($: EngineInterface): Promise<Forge | null> {
   return null
 }
 
+// The current branch's open PR, or null: no PR, not a git repo, or gh missing or signed out.
+async function loadPr($: EngineInterface): Promise<number | null> {
+  const run = await $.process.run(['gh', 'pr', 'view', '--json', 'number,state'])
+  return parsePr(run.exitCode, run.stdout)
+}
+
 async function refresh($: EngineInterface) {
-  const forge = await loadForge($).catch(() => null)
+  const [forge, pr] = await Promise.all([loadForge($).catch(() => null), loadPr($).catch(() => null)])
   await update($, forgeState, () => forge)
+  await update($, openPr, () => pr)
 }
 
 async function stamp($: EngineInterface) {
@@ -75,7 +83,7 @@ export const register: Register = on => {
     await refresh($)
     const forge = await read($, forgeState)
     const line = summary(cacheState(await read($, lastResponseAt), await $.clock.now()), await read($, contextTokens), forge)
-    const buttons = actions(forge, available).map(a => `/${a.command} ${a.args}`).join(', ')
+    const buttons = actions(forge, available, null, await read($, openPr)).map(a => `/${a.command} ${a.args}`).join(', ')
     return { text: `${line}\nbuttons: ${buttons}` }
   })
 
@@ -111,7 +119,7 @@ export const register: Register = on => {
             : <Text color="yellow">⚠ {forge.drift < 0 ? 'drift ?' : `${forge.drift} drift`}</Text>)}
         </Box>
         <Box flexDirection="row" columnGap={1}>
-          {actions(forge, available, await read($, armed)).map(a => (
+          {actions(forge, available, await read($, armed), await read($, openPr)).map(a => (
             <Button
               key={a.key}
               label={a.label}

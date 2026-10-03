@@ -5,7 +5,7 @@ bordered band above the prompt:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────╮
-│ ◆ forge v4.8.0   ● 42m cache · 180k ctx   ▸ T313 · E16 · 7 ready   ✓ in sync   [Status] [Resume] [Handoff] [Review PR] [Run E16] × │
+│ ◆ forge v4.8.0   ● 42m cache · 180k ctx   ▸ T313 · E16 · 7 ready   ✓ in sync   [Status] [Resume] [Handoff] [Review PR #89] [Run E16] × │
 ╰──────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -16,8 +16,8 @@ bordered band above the prompt:
   installs that have no `VERSION` file).
 - **Next task** — first entry of `forge task ls --ready --json`.
 - **Drift** — finding count from `consistency-banner.py --json` (check only, no `--fix`).
-- **Buttons** — `/reflect status|resume|handoff`, `/pr-review-toolkit:review-pr` and
-  `/run-epic <epic of next task>`.
+- **Buttons** — `/reflect status|resume|handoff`, `/pr-review-toolkit:review-pr` (only when
+  `gh pr view` finds an open PR for the current branch) and `/run-epic <epic of next task>`.
   Run needs a second press within 10s. A button whose skill is not installed is hidden.
 - `/forge-band` prints the same line as text; `/forge-band show` unhides the band.
 

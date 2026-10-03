@@ -20,6 +20,8 @@ declare module 'claude-code' {
       warned: boolean
       // epic whose Run button awaits its confirming second press
       armed: string | null
+      // number of the current branch's open PR; null when there is none
+      openPr: number | null
     }
   }
 }
