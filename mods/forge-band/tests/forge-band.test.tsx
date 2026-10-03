@@ -7,7 +7,7 @@ const READY = JSON.stringify([
   { id: 'T314', epic: 'E16' },
 ])
 const CLEAN = JSON.stringify({ findings: [] })
-const ALL = new Set(['reflect', 'run-epic', 'pr-review-toolkit:review-pr'])
+const ALL = new Set(['reflect', 'run-epic', 'create-pr'])
 
 test('cache countdown: gray before a reply, green, red near expiry, cold after', async () => {
   expect(cacheState(0, 1000).color).toBe('gray')
@@ -26,7 +26,7 @@ test('Review PR shows only for an open PR, and only with the plugin installed', 
   expect(parsePr(0, '{"number":89,"state":"OPEN"}')).toBe(89)
   expect(parsePr(0, '{"number":88,"state":"MERGED"}')).toBeNull()
   expect(parsePr(1, 'no pull requests found for branch "main"')).toBeNull()
-  expect(actions(null, ALL, null, 89).at(-1)?.label).toBe('Review PR #89')
+  expect(actions(null, ALL, null, 89).at(-1)).toEqual({ key: 'review', label: 'Review PR #89', command: 'create-pr', args: 'review 89' })
   expect(actions(null, ALL, null, null).map(a => a.key)).not.toContain('review')
   expect(actions(null, new Set(['reflect']), null, 89).map(a => a.key)).not.toContain('review')
 })
@@ -56,7 +56,7 @@ test('band shows the next task; Run needs a confirming second press', async ($, 
 
   on('command.register', async () => ({ value: undefined }) as never)
   on('session.start', async (_$, e) => e as never)
-  on('command.list', async () => ({ value: [{ name: 'reflect' }, { name: 'run-epic' }, { name: 'pr-review-toolkit:review-pr' }] }) as never)
+  on('command.list', async () => ({ value: [{ name: 'reflect' }, { name: 'run-epic' }, { name: 'create-pr' }] }) as never)
   on("clock.every", async () => ({ value: undefined }) as never)
   on("clock.now", async () => ({ value: 1000 }) as never)
   on("clock.after", async () => ({ deny: "timer held: the confirm window stays open" }) as never)
@@ -66,7 +66,7 @@ test('band shows the next task; Run needs a confirming second press', async ($, 
   expect(text).toContain('next T313 (E16) · 2 ready')
   expect(text).toContain('drift 0')
   expect(text).toContain('forge v4.8.0')
-  expect(text).toContain('/pr-review-toolkit:review-pr')
+  expect(text).toContain('/create-pr review 89')
 
   const band = await $.ui.mount({ plugin: 'forge-band', surface: 'terminal', component: 'AbovePrompt', props: { hasSurvey: false } as never })
   expect(JSON.stringify(await band.drawn())).toContain('"borderStyle":"round"')

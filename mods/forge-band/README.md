@@ -16,7 +16,7 @@ bordered band above the prompt:
   installs that have no `VERSION` file).
 - **Next task** — first entry of `forge task ls --ready --json`.
 - **Drift** — finding count from `consistency-banner.py --json` (check only, no `--fix`).
-- **Buttons** — `/reflect status|resume|handoff`, `/pr-review-toolkit:review-pr` (only when
+- **Buttons** — `/reflect status|resume|handoff`, `/create-pr review <PR#>` (only when
   `gh pr view` finds an open PR for the current branch) and `/run-epic <epic of next task>`.
   Run needs a second press within 10s. A button whose skill is not installed is hidden.
 - `/forge-band` prints the same line as text; `/forge-band show` unhides the band.

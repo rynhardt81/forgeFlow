@@ -58,7 +58,7 @@ export type Action = { key: string; label: string; command: string; args: string
 
 export const CONFIRM_MS = 10_000
 
-// The four commands run most across the last 30 Forge Flow sessions, plus the specialist PR review.
+// The four commands run most across the last 30 Forge Flow sessions, plus the open PR's review loop.
 // `armed` is the epic whose Run button was pressed once and awaits confirmation;
 // `pr` is the current branch's open PR, without which there is nothing to review.
 export function actions(forge: Forge | null, available: ReadonlySet<string>, armed: string | null = null, pr: number | null = null): Action[] {
@@ -67,7 +67,7 @@ export function actions(forge: Forge | null, available: ReadonlySet<string>, arm
     { key: 'resume', label: 'Resume', command: 'reflect', args: 'resume' },
     { key: 'handoff', label: 'Handoff', command: 'reflect', args: 'handoff' },
   ]
-  if (pr !== null) list.push({ key: 'review', label: `Review PR #${pr}`, command: 'pr-review-toolkit:review-pr', args: '' })
+  if (pr !== null) list.push({ key: 'review', label: `Review PR #${pr}`, command: 'create-pr', args: `review ${pr}` })
   if (forge?.next) {
     const epic = forge.next.epic
     const label = armed === epic ? `Confirm Run ${epic}?` : `Run ${epic}`
