@@ -46,13 +46,14 @@ export type Action = { key: string; label: string; command: string; args: string
 
 export const CONFIRM_MS = 10_000
 
-// The four commands run most across the last 30 Forge Flow sessions.
+// The four commands run most across the last 30 Forge Flow sessions, plus the specialist PR review.
 // `armed` is the epic whose Run button was pressed once and awaits confirmation.
 export function actions(forge: Forge | null, available: ReadonlySet<string>, armed: string | null = null): Action[] {
   const list: Action[] = [
     { key: 'status', label: 'Status', command: 'reflect', args: 'status' },
     { key: 'resume', label: 'Resume', command: 'reflect', args: 'resume' },
     { key: 'handoff', label: 'Handoff', command: 'reflect', args: 'handoff' },
+    { key: 'review', label: 'Review PR', command: 'pr-review-toolkit:review-pr', args: '' },
   ]
   if (forge?.next) {
     const epic = forge.next.epic

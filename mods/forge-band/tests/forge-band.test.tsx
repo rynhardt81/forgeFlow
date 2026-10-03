@@ -7,7 +7,7 @@ const READY = JSON.stringify([
   { id: 'T314', epic: 'E16' },
 ])
 const CLEAN = JSON.stringify({ findings: [] })
-const ALL = new Set(['reflect', 'run-epic'])
+const ALL = new Set(['reflect', 'run-epic', 'pr-review-toolkit:review-pr'])
 
 test('cache countdown: gray before a reply, green, red near expiry, cold after', async () => {
   expect(cacheState(0, 1000).color).toBe('gray')
@@ -24,7 +24,8 @@ test('parseForge: next task is the first ready one; unreadable drift is -1', asy
 
 test('the Run button exists only when a task is ready', async () => {
   expect(actions(null, new Set(['run-epic']))).toEqual([])
-  expect(actions(null, ALL).map(a => a.key)).toEqual(['status', 'resume', 'handoff'])
+  expect(actions(null, ALL).map(a => a.key)).toEqual(['status', 'resume', 'handoff', 'review'])
+  expect(actions(null, new Set(['reflect'])).map(a => a.key)).toEqual(['status', 'resume', 'handoff'])
   expect(actions(parseForge(READY, CLEAN), ALL).at(-1)).toEqual({
     key: 'run', label: 'Run E16', command: 'run-epic', args: 'E16', confirm: true,
   })
