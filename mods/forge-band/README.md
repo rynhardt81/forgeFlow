@@ -23,10 +23,24 @@ The mod only reads. Python settings hooks stay the floor: mods can be switched o
 
 ## Load
 
-Refresh copies this folder to `<project>/.claude/mods/forge-band/`. Load it per session:
+Refresh copies this folder to `<project>/.claude/mods/forge-band/`; in the framework repo
+it lives at `mods/forge-band/`. Claude Code does not load it on its own.
+
+**Every session** — add the folder to the `env` block of `~/.claude/settings.json`
+(a project's settings are not read for this), then restart Claude:
+
+```json
+"env": { "CLAUDE_CODE_PLUGIN_DIRS": "/absolute/path/to/forge-band" }
+```
+
+The path must be absolute (`~` allowed); separate several with `:`. One copy serves
+every project: the band finds Forge Flow under `.claude/` or at the repo root, and outside
+a Forge Flow project it shows the cache alone.
+
+**One session only** — the flag lasts until you exit:
 
 ```bash
-claude --plugin-dir .claude/mods/forge-band
+claude --plugin-dir .claude/mods/forge-band   # mods/forge-band in the framework repo
 ```
 
 ## Develop
