@@ -20,7 +20,11 @@ bordered band above the prompt:
   Run needs a second press within 10s. A button whose skill is not installed is hidden.
 - `/forge-band` prints the same line as text; `/forge-band show` unhides the band.
 
-The mod only reads. Python settings hooks stay the floor: mods can be switched off
+The band's own refresh only reads: it never writes a file or task state. Its buttons are
+different — a press runs that skill, and `/run-epic` or `/reflect handoff` can change files,
+task state and git history, which is why Run needs a confirming second press.
+
+Python settings hooks stay the floor: mods can be switched off
 (`disableAllHooks`, `--safe-mode`, an organisation's `allowManagedModsOnly`).
 
 ## Load
