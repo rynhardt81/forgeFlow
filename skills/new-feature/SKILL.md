@@ -78,6 +78,8 @@ If the user has explicitly asked for no PR (rare; usually a local-only experimen
 ## Skills I invoke
 
 - `/create-pr` — mandatory at the wrap-up of every feature flow that ships code
+- `/grilling` — Discovery, when the request leaves design decisions open (`--docs` when the project has a glossary)
+- `/prototype` — Discovery or Design, when a question can only be settled by something runnable (a state model to click through, UI variants to compare); the verdict comes back into the plan, the code stays on its `prototype/<name>` branch
 - `/refactor` — invoked from the Review phase on Medium/Large scopes when significant refactor surfaces emerge
 - `/refresh-project-context` — invoked from the Doc Update phase on Medium/Large scopes or public-API changes
 

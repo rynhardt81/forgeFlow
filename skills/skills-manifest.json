@@ -608,6 +608,40 @@
       "creates": [
         "GLOSSARY.md"
       ]
+    },
+    {
+      "name": "codebase-design",
+      "command": "/codebase-design",
+      "path": "skills/codebase-design/SKILL.md",
+      "category": "quality",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": []
+    },
+    {
+      "name": "improve-codebase-architecture",
+      "command": "/improve-codebase-architecture",
+      "path": "skills/improve-codebase-architecture/SKILL.md",
+      "category": "quality",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "architecture-review html report"
+      ]
+    },
+    {
+      "name": "prototype",
+      "command": "/prototype",
+      "path": "skills/prototype/SKILL.md",
+      "category": "design",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "throwaway prototype (prototype/<name> branch)"
+      ]
     }
   ],
   "categories": {
@@ -675,7 +709,9 @@
         "vet-idea",
         "audit-code-map",
         "audit-task-status",
-        "grilling"
+        "grilling",
+        "codebase-design",
+        "improve-codebase-architecture"
       ]
     },
     "automation": {
@@ -687,7 +723,8 @@
     "design": {
       "description": "Frontend design and UI/UX",
       "skills": [
-        "frontend-design"
+        "frontend-design",
+        "prototype"
       ]
     }
   },
@@ -750,7 +787,17 @@
       "glossary": "domain-modeling",
       "domain language": "domain-modeling",
       "ubiquitous language": "domain-modeling",
-      "record an adr": "domain-modeling"
+      "record an adr": "domain-modeling",
+      "deep module": "codebase-design",
+      "module interface design": "codebase-design",
+      "where should the seam go": "codebase-design",
+      "architecture review": "improve-codebase-architecture",
+      "deepening opportunities": "improve-codebase-architecture",
+      "what should we restructure": "improve-codebase-architecture",
+      "improve architecture": "improve-codebase-architecture",
+      "prototype": "prototype",
+      "try a few ui variants": "prototype",
+      "does this state model feel right": "prototype"
     }
   }
 }

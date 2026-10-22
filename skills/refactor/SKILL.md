@@ -45,6 +45,7 @@ Run the test suite **before touching anything**. You cannot prove "behavior unch
 - **One logical change at a time, tests between changes** — a 15-file one-shot that then fails is far harder to bisect than a break caught immediately.
 - **Out-of-scope temptations get logged** (Deferred Improvements), not acted on. Crossing the boundary requires asking: "I need to modify `[file]`, which is outside scope. Expand?"
 - Structural moves: create new locations first, move code, update every reference (imports, type refs, test fixtures, **and config files** — build configs, CI, dynamic imports, lazy loading — the references that don't fail until runtime), then remove old locations only after tests pass on the new paths.
+- **Interface or seam changes** speak `/codebase-design`'s vocabulary (module, interface, depth, seam, adapter, leverage, locality) and apply its deletion test before a module is split or merged. Candidates found rather than assigned come from `/improve-codebase-architecture`.
 - Performance: profile before optimizing; if a change shows no measurable improvement, revert it rather than stacking optimizations.
 
 ## 4. Verify behavior preserved

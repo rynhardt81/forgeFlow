@@ -36,6 +36,8 @@ One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter
 | Skill | Purpose |
 |-------|---------|
 | `/vet-idea` | GO / NO-GO / RECONSIDER council verdict BEFORE building |
+| `/improve-codebase-architecture` | Survey for deepening opportunities → visual HTML report with before/after diagrams → grill the one you pick |
+| `/codebase-design` | Deep-module vocabulary (module, interface, depth, seam, adapter, leverage, locality), deepening and design-it-twice |
 | `/grilling` | Relentless design-tree interview in rounds, recommended answer per question (`--docs` also maintains the glossary + ADRs) |
 | ISA (skill) | Ideal-state criteria + verification trail (Scaffold, CheckCompleteness, Interview) |
 | `/security-review` | Business-logic security pass (IDOR, race, state bypass) + secrets scan |
@@ -56,6 +58,7 @@ One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter
 
 | Skill | Purpose |
 |-------|---------|
+| `/prototype` | Throwaway code that answers one design question — logic demo (one HTML file) or UI variants (`?variant=` + switcher) |
 | `/frontend-design` | Design direction (defers to native plugin when present) |
 
 ## Security hardening
