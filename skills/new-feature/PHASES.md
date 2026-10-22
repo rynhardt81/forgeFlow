@@ -21,7 +21,7 @@
 
 **Actions:**
 1. Run the ISA Interview against the feature's ISA (or `brainstorming` if you chose the fallback and it's installed)
-2. Resolve design decisions in dependency order, one at a time
+2. Resolve design decisions in dependency order, a round at a time — each round asks every decision whose dependencies are settled, with a recommended answer
 3. Document understanding in the ISA `## Decisions` / `## Out of Scope` (or `docs/plans/YYYY-MM-DD-<feature>-design.md` for the fallback path)
 
 **Output:** Design decisions resolved into the ISA, scope confirmed

@@ -29,6 +29,7 @@ Created at OBSERVE, refined through pursuit, verified at VERIFY.
 | `Workflows/Scaffold.md` | Algorithm OBSERVE, E3+, or `/ISA scaffold "..."` — create or extend the relevant ISA |
 | `Workflows/CheckCompleteness.md` | Algorithm VERIFY, or `/ISA check <path>` — gate `phase: complete` |
 | `Workflows/Interview.md` | OBSERVE at E3/E4 with unresolved interdependent design decisions, or `/ISA interview <path>` — dependency-ordered design interview (optional, skippable) |
+| `_shared/model-routing.md` | Interview step 3 — dispatching a fact lookup instead of asking the user |
 | 12-section structure · ISC quality gates · Operating rules (below) | Every workflow |
 
 A plain `forge task add` carries no ISA — track + nudge, never enforce. `task lock` prints a non-blocking reminder; the consistency checker reports advisory `task-without-isa` findings. Attaching one stays your choice.

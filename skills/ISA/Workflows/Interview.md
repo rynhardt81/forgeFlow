@@ -8,6 +8,8 @@ The one non-redundant capability here is the ordering — any capable model asks
 - **NOT idea-vetting** — go/no-go is `/vet-idea`, not this.
 - **NOT a premortem** — failure-mode enumeration belongs to Algorithm THINK; the interview runs at OBSERVE and feeds the design sections.
 
+The round format, the frontier and the facts-vs-decisions split are adapted from mattpocock/skills `grilling` (MIT, see `THIRD-PARTY-NOTICES.md`); `/grilling` is the same interview without an ISA, at any tier.
+
 ## When invoked
 
 | Trigger | Action |
@@ -28,7 +30,11 @@ The one non-redundant capability here is the ordering — any capable model asks
 
 2. **Build the dependency graph and topologically sort.** For each decision, name which other decisions change its askable options (e.g. an offline-first constraint reshapes the storage options). Resolve a decision only after its dependencies. Mutual dependency (a cycle) → surface it and ask the user to break it; don't guess.
 
-3. **Walk the order, one decision at a time.** For each: state why it's live now, present the realistic options with trade-offs and the implicit assumption behind each, ask the user to choose or defer. **Write back immediately** — chosen → `## Decisions` (`YYYY-MM-DD: chose X because …; rejected Y because …`); deferred → `## Out of Scope` with the reason; new constraints/principles → their sections, then **re-check the graph** (a new constraint can create new dependencies — re-sort if so). Stop when the graph is drained: complete the graph, don't ask forever.
+3. **Walk the order in rounds.** The **frontier** is every decision whose dependencies are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round, in the `/grilling` round format: number each question, state why it's live now, give the realistic options with their trade-offs and the implicit assumption behind each, and end with your recommended answer, worded so "yes" accepts it. A question whose answer depends on another question still open in this round belongs to a _later_ round. Then wait for the user's answers.
+
+   Finding _facts_ is your job, never the user's. When a decision needs a fact from the codebase or environment, dispatch a lookup (E1 under the model-routing table: the read-only `Explore` agent or `worker-e1`) instead of asking. Don't block on it: only the decisions downstream of a running lookup wait; ask the rest of the frontier now. The _decisions_ are the user's — choose or defer.
+
+   **Write back immediately** after each round — chosen → `## Decisions` (`YYYY-MM-DD: chose X because …; rejected Y because …`); deferred → `## Out of Scope` with the reason; new constraints/principles → their sections, then **re-check the graph** (a new constraint can create new dependencies — re-sort if so) and recompute the frontier for the next round. Stop when the graph is drained: the frontier is empty, every branch visited, nothing left silently assumed. Complete the graph, don't ask forever.
 
 4. **Reconcile ISCs without renumbering.** New ISCs get fresh IDs; splits become `ISC-N.M`; drops become tombstones. ISC IDs are stable — deepening must not churn the ID space.
 
@@ -40,4 +46,5 @@ The one non-redundant capability here is the ordering — any capable model asks
 - Anti: does NOT create a new document — writes back into the existing ISA only.
 - Anti: does NOT emit a go/no-go verdict (that's `/vet-idea`) or re-litigate premortem (that's THINK).
 - Anti: does NOT resolve a decision before its dependencies — the topological order is the point.
+- Anti: does NOT ask the user for a fact it could look up.
 - Anti: does NOT renumber existing ISC IDs.
