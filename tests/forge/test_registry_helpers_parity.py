@@ -13,8 +13,8 @@ This file now asserts the POST-consolidation contract instead:
   - check_consistency.py has no local definition of any formerly-duplicated
     name (Step 3 of plan 007 — `rg` proves this at the text level; these
     tests prove it at the behavioral level via `cc.registry_ops.<name>`).
-  - The checker's own frontmatter/YAML helpers, reached via
-    `cc.registry_ops.*`, still round-trip correctly.
+  - Frontmatter and YAML quoting moved on to task_file.py (T962); their
+    tests live in test_task_file.py.
   - `load_registry`'s None-on-error contract (the one deliberately
     preserved difference) still holds.
 """
@@ -34,10 +34,6 @@ def test_check_consistency_has_no_local_duplicate_defs():
 
     duplicated_names = [
         "_expected_stats",
-        "_yaml_quote_if_needed",
-        "_yaml_unquote_scalar",
-        "_rewrite_frontmatter_status",
-        "_rewrite_frontmatter_name",
         "save_registry",
         "registry_write_lock",
     ]
@@ -128,138 +124,6 @@ def test_expected_stats_empty_registry_via_shared_impl():
         "tasks": {"total": 0, "completed": 0, "in_progress": 0,
                   "pr_pending": 0, "continuation": 0, "ready": 0, "pending": 0},
     }
-
-
-# --- Frontmatter status rewriter (reached via cc.registry_ops) ------------
-
-
-FRONTMATTER_QUOTED = (
-    '---\n'
-    'id: T1\n'
-    'name: "hello: world"\n'
-    'status: "ready"\n'
-    '---\n\n'
-    '# T1\n'
-)
-
-FRONTMATTER_UNQUOTED = (
-    '---\n'
-    'id: T1\n'
-    'name: hello\n'
-    'status: pending\n'
-    '---\n\n'
-    '# T1\n'
-)
-
-FRONTMATTER_NAME_NEEDS_QUOTING = (
-    '---\n'
-    'id: T1\n'
-    'name: plain-name\n'
-    'status: ready\n'
-    '---\n\n'
-    '# T1\n'
-)
-
-FRONTMATTER_MISSING = (
-    '# T1\n\nNo frontmatter here.\nstatus: pending\n'
-)
-
-FRONTMATTER_STRAY_STATUS_IN_BODY = (
-    '---\n'
-    'id: T1\n'
-    'status: ready\n'
-    '---\n\n'
-    '# T1\n\n'
-    'Body text that happens to say status: completed but must NOT be rewritten.\n'
-)
-
-
-def test_rewrite_frontmatter_status_quoted_value():
-    new_content, changed = cc.registry_ops._rewrite_frontmatter_status(
-        FRONTMATTER_QUOTED, "in_progress"
-    )
-    assert changed is True
-    assert "status: in_progress" in new_content
-
-
-def test_rewrite_frontmatter_status_missing_frontmatter_is_noop():
-    result = cc.registry_ops._rewrite_frontmatter_status(FRONTMATTER_MISSING, "ready")
-    assert result == (FRONTMATTER_MISSING, False)
-
-
-def test_rewrite_frontmatter_status_stray_status_in_body_not_rewritten():
-    new_content, changed = cc.registry_ops._rewrite_frontmatter_status(
-        FRONTMATTER_STRAY_STATUS_IN_BODY, "pr_pending"
-    )
-    assert changed is True
-    assert "status: completed but must NOT be rewritten" in new_content
-
-
-def test_rewrite_frontmatter_status_noop_when_no_status_field():
-    content = '---\nid: T1\nname: hello\n---\n\n# T1\n'
-    result = cc.registry_ops._rewrite_frontmatter_status(content, "ready")
-    assert result == (content, False)
-
-
-# --- Frontmatter name rewriter (reached via cc.registry_ops) --------------
-
-
-def test_rewrite_frontmatter_name_value_needing_yaml_quoting():
-    new_name = 'name with "quotes" and: a colon # and hash'
-    new_content, changed = cc.registry_ops._rewrite_frontmatter_name(
-        FRONTMATTER_NAME_NEEDS_QUOTING, new_name
-    )
-    assert changed is True
-    assert '\\"quotes\\"' in new_content
-
-
-def test_rewrite_frontmatter_name_missing_frontmatter_is_noop():
-    result = cc.registry_ops._rewrite_frontmatter_name(FRONTMATTER_MISSING, "whatever")
-    assert result == (FRONTMATTER_MISSING, False)
-
-
-def test_rewrite_frontmatter_name_noop_when_no_name_field():
-    content = '---\nid: T1\nstatus: ready\n---\n\n# T1\n'
-    result = cc.registry_ops._rewrite_frontmatter_name(content, "new name")
-    assert result == (content, False)
-
-
-def test_parse_frontmatter_name_uses_shared_unquote(monkeypatch):
-    """cc._parse_frontmatter_name must call through to
-    registry_ops._yaml_unquote_scalar rather than a local copy."""
-    calls = []
-    original = ops._yaml_unquote_scalar
-
-    def spy(raw):
-        calls.append(raw)
-        return original(raw)
-
-    monkeypatch.setattr(ops, "_yaml_unquote_scalar", spy)
-    name = cc._parse_frontmatter_name(FRONTMATTER_QUOTED)
-    assert name == "hello: world"
-    assert calls, "expected _parse_frontmatter_name to call registry_ops._yaml_unquote_scalar"
-
-
-# --- YAML quote / unquote round-trips (reached via cc.registry_ops) -------
-
-
-@pytest.mark.parametrize("value", [
-    "",
-    "plain",
-    "with space",
-    "colon: inside",
-    "hash # inside",
-    "-leading-dash",
-    '"already quoted"',
-    "trailing space ",
-    " leading space",
-    'has "double" quotes',
-    "has\\backslash",
-    "has\\backslash and \"quote\"",
-])
-def test_yaml_quote_unquote_roundtrip(value):
-    quoted = cc.registry_ops._yaml_quote_if_needed(value)
-    assert cc.registry_ops._yaml_unquote_scalar(quoted) == value
 
 
 # --- Lock timeout exception ------------------------------------------------

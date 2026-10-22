@@ -13,6 +13,7 @@ import pytest
 import yaml
 
 import registry_ops as ops
+import task_file
 from conftest import base_registry, make_repo
 from dashboard.render import markdown
 
@@ -44,13 +45,13 @@ def _frontmatter(text: str) -> dict:
 
 @pytest.mark.parametrize("name", NAMES)
 def test_quoted_scalar_parses_as_yaml_to_the_same_string(name):
-    doc = yaml.safe_load(f"name: {ops._yaml_quote_if_needed(name)}\n")
+    doc = yaml.safe_load(f"name: {task_file.quote(name)}\n")
     assert doc["name"] == name
 
 
 @pytest.mark.parametrize("name", NAMES)
 def test_forge_reader_reverses_the_encoder(name):
-    assert ops._yaml_unquote_scalar(ops._yaml_quote_if_needed(name)) == name
+    assert task_file.unquote(task_file.quote(name)) == name
 
 
 @pytest.mark.parametrize("name", ["Fix: login 500", "true", "fix #3 regression"])
@@ -70,6 +71,6 @@ def test_task_body_and_isa_frontmatter_are_yaml_safe(tmp_path, name):
 
 
 def test_dashboard_shows_the_decoded_name_not_the_escapes():
-    quoted = ops._yaml_quote_if_needed("Fix: a \"quoted\" name")
+    quoted = task_file.quote("Fix: a \"quoted\" name")
     fm, _ = markdown.parse_frontmatter(f"---\nname: {quoted}\n---\nbody\n")
     assert fm["name"] == 'Fix: a "quoted" name'

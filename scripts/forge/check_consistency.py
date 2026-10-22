@@ -31,10 +31,9 @@ Schema assumptions (Claude Forge v2.0.0):
   - task files use YAML frontmatter delimited by `---` lines, with `status: X`
   - lockTimeoutSeconds lives at registry.settings.lockTimeoutSeconds (default 3600)
 
-Shares its registry/frontmatter/lock primitives with the sibling module
-registry_ops.py (both live in scripts/forge/, so `import registry_ops`
-resolves whether this file is invoked as a script or imported by tests) —
-see registry_ops.py for the canonical implementations.
+Shares its registry/lock primitives with the sibling module registry_ops.py
+and reads task files through task_file.py (all live in scripts/forge/, so the
+imports resolve whether this file is invoked as a script or imported by tests).
 """
 
 from __future__ import annotations
@@ -51,21 +50,10 @@ from pathlib import Path
 from typing import Any
 
 import registry_ops
+import task_file
 
-# Pre-compiled regex (perf budget <2s on 500-task synthetic registries).
-# Match strictly Tnnn-... or Tnnn.md — exclude split-task suffixes (T149a, T149b)
-# so they don't get mistaken for duplicates of T149.
-_TASK_FILENAME_RE = re.compile(r"^T(\d+)(?=[-.])")
+# Epic dir names; task-file layout and frontmatter live in task_file.
 _EPIC_DIR_RE = re.compile(r"^E(\d+)")
-
-# Frontmatter parsers. Scope to the first `---` ... `---` block at the top
-# of the file so a stray `status:` later in the body doesn't get rewritten.
-# The status pattern uses [ \t]* (NOT \s*) for trailing whitespace because
-# \s includes \n — and at end of the frontmatter block, \s*$ would gobble
-# the closing newline, fusing the next line onto the status row.
-_FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*(?:\n|$)", re.DOTALL)
-_FRONTMATTER_STATUS_RE = re.compile(r"^(status[ \t]*:[ \t]*)(\S+)[ \t]*$", re.MULTILINE)
-_FRONTMATTER_NAME_RE = re.compile(r"^(name[ \t]*:[ \t]*)(.+?)[ \t]*$", re.MULTILINE)
 
 # Severities.
 SEV_BLOCKING = "blocking"
@@ -158,62 +146,17 @@ def load_registry(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def _parse_frontmatter_status(content: str) -> str:
-    """Return the status value from a task file's YAML frontmatter, lower-cased.
-
-    Empty string when the file has no frontmatter or no status field.
-    """
-    fm = _FRONTMATTER_RE.match(content)
-    if not fm:
-        return ""
-    m = _FRONTMATTER_STATUS_RE.search(fm.group(1))
-    if not m:
-        return ""
-    return m.group(2).strip().lower()
-
-
-def _parse_frontmatter_name(content: str) -> str:
-    """Return the (unquoted, unescaped) name value from frontmatter."""
-    fm = _FRONTMATTER_RE.match(content)
-    if not fm:
-        return ""
-    m = _FRONTMATTER_NAME_RE.search(fm.group(1))
-    if not m:
-        return ""
-    return registry_ops._yaml_unquote_scalar(m.group(2).strip())
-
-
 def gather_task_files(epics_dir: Path) -> list[tuple[Path, str, str, str]]:
     """Return (file_path, id_from_filename, status, name) for each task file.
 
-    Reads each file once and caches the parsed status + name, so the
-    per-check helpers don't re-walk the disk. `name` is empty string when
-    the frontmatter has no `name:` field.
+    Reads each file once and caches the parsed status (lower-cased) + name,
+    so the per-check helpers don't re-walk the disk. Unreadable files and
+    absent fields give empty strings.
     """
     out: list[tuple[Path, str, str, str]] = []
-    if not epics_dir.exists():
-        return out
-    for epic_dir in sorted(epics_dir.iterdir()):
-        if not (epic_dir.is_dir() and _EPIC_DIR_RE.match(epic_dir.name)):
-            continue
-        tasks_dir = epic_dir / "tasks"
-        if not tasks_dir.exists():
-            continue
-        for tf in sorted(tasks_dir.glob("T*.md")):
-            m = _TASK_FILENAME_RE.match(tf.name)
-            if not m:
-                continue
-            tid = f"T{m.group(1)}"
-            try:
-                content = tf.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                content = ""
-            out.append((
-                tf,
-                tid,
-                _parse_frontmatter_status(content),
-                _parse_frontmatter_name(content),
-            ))
+    for tf, tid, _ in task_file.iter_all(epics_dir.parent.parent):
+        fm = task_file.read(tf) or {"status": "", "name": ""}
+        out.append((tf, tid, fm["status"].lower(), fm["name"]))
     return out
 
 
@@ -414,17 +357,8 @@ def fix_pending_ready(
             continue
         t["status"] = "ready"
         changed = True
-        tf = task_files_index.get(t.get("id"))
-        if tf and tf.exists():
-            try:
-                body = tf.read_text(encoding="utf-8")
-                new_body, did_change = registry_ops._rewrite_frontmatter_status(body, "ready")
-                if did_change:
-                    tf.write_text(new_body, encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                # Best-effort file rewrite — registry is the source of truth,
-                # and the file-vs-registry check will surface any mismatch.
-                pass
+        # Best-effort: the file-vs-registry check surfaces any mismatch.
+        task_file.set_field(task_files_index.get(t.get("id")), "status", "ready")
     return changed
 
 
@@ -481,13 +415,7 @@ def fix_file_vs_registry_status(
         reg_status = (reg.get("status") or "").lower()
         if not reg_status or file_status == reg_status:
             continue
-        try:
-            content = tf.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        new_content, did_change = registry_ops._rewrite_frontmatter_status(content, reg_status)
-        if did_change:
-            tf.write_text(new_content, encoding="utf-8")
+        if task_file.set_field(tf, "status", reg_status):
             changed = True
     return changed
 
@@ -548,13 +476,7 @@ def fix_file_vs_registry_name(
         reg_name = reg.get("name") or ""
         if not reg_name or file_name == reg_name:
             continue
-        try:
-            content = tf.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-        new_content, did_change = registry_ops._rewrite_frontmatter_name(content, reg_name)
-        if did_change:
-            tf.write_text(new_content, encoding="utf-8")
+        if task_file.set_field(tf, "name", reg_name):
             changed = True
     return changed
 

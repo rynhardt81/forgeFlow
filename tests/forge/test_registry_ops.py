@@ -6,6 +6,7 @@ import json
 import pytest
 
 import registry_ops as ops
+import task_file
 from conftest import base_registry, make_repo
 
 
@@ -1050,7 +1051,8 @@ def test_move_task_moves_body_file_and_updates_path(tmp_path):
     new_path = repo / moved["file"]
     assert new_path.exists()
     assert "E99-" in str(new_path)
-    assert ops._discover_task_file(repo, moved) == new_path
+    # Discovery alone (no recorded `file`) must find it in the new epic dir.
+    assert task_file.find(repo, {"id": "T1", "epic": "E99"}) == new_path
 
 
 def test_move_task_rewrites_epic_frontmatter(tmp_path):

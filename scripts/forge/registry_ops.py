@@ -54,6 +54,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+import task_file
+
 
 # ---------------------------------------------------------------------------
 # Framework root resolution — for locating templates/. Follows the doctrine
@@ -170,31 +172,6 @@ def priority_rank(value) -> int:
             return int(v)
     return DEFAULT_EPIC_PRIORITY
 
-
-_FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?\n)---\s*(?:\n|$)", re.DOTALL)
-# `[ \t]*` (not `\s*`) at end so we don't consume the closing newline
-# that separates the field line from the closing `---` delimiter.
-_FRONTMATTER_STATUS_RE = re.compile(
-    r"^(status[ \t]*:[ \t]*)(\S+)[ \t]*$", re.MULTILINE
-)
-# Name field captures the rest of the line (allows spaces). Quoted values
-# get the quotes stripped on read; on write we re-quote when the value
-# contains characters YAML would interpret (`:`, `#`, leading `-`, etc.).
-_FRONTMATTER_NAME_RE = re.compile(
-    r"^(name[ \t]*:[ \t]*)(.+?)[ \t]*$", re.MULTILINE
-)
-_FRONTMATTER_EPIC_RE = re.compile(r"^(epic:\s*)(.*)$", re.MULTILINE)
-# YAML forbids C0 and C1 controls and splits plain scalars on NEL/LS/PS.
-_CONTROL_CHAR_RE = re.compile(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\ufffe\uffff]")
-# Plain scalars YAML 1.1 (PyYAML) types implicitly: numbers, dates and
-# sexagesimals all start with a digit/sign/dot; the rest are keywords.
-# Conservative on purpose -- a needlessly quoted string still round-trips.
-_YAML_TYPED_START_RE = re.compile(r"^[-+.0-9]")
-_YAML_KEYWORDS = frozenset(
-    {"y", "n", "yes", "no", "true", "false", "on", "off", "null", "~", ".inf", ".nan", "<<", "="}
-)
-_ESCAPE_RE = re.compile(r'\\(["\\ntr]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})')
-_UNESCAPE = {'"': '"', "\\": "\\", "n": "\n", "t": "\t", "r": "\r"}
 
 
 # --- Errors ----------------------------------------------------------------
@@ -384,219 +361,6 @@ def find_epic(registry: dict[str, Any], epic_id: str) -> dict[str, Any] | None:
         if e.get("id") == epic_id:
             return e
     return None
-
-
-def task_file_path(registry: dict[str, Any], task: dict[str, Any]) -> str | None:
-    """Return the registry-recorded file path (relative) for a task.
-
-    The schema field is `file`; tolerate legacy `path` for older registries.
-    """
-    return task.get("file") or task.get("path")
-
-
-# --- Task file frontmatter mirroring ---------------------------------------
-
-
-def _rewrite_frontmatter_status(content: str, new_status: str) -> tuple[str, bool]:
-    """Rewrite `status:` inside the first frontmatter block.
-
-    Returns (new_content, changed). No-op (changed=False) when the file
-    has no frontmatter or no status field — we don't invent structure
-    that wasn't there.
-    """
-    fm = _FRONTMATTER_RE.match(content)
-    if not fm:
-        return content, False
-    block = fm.group(1)
-    new_block, n = _FRONTMATTER_STATUS_RE.subn(rf"\g<1>{new_status}", block, count=1)
-    if n == 0 or new_block == block:
-        return content, False
-    return content[: fm.start(1)] + new_block + content[fm.end(1) :], True
-
-
-def _yaml_quote_if_needed(value: str) -> str:
-    """Quote a YAML scalar if it contains chars YAML would interpret.
-
-    Conservative: only quote when needed so common names round-trip
-    unquoted. Uses double-quotes and escapes embedded `"`, backslashes and
-    control characters (a raw newline in a name split the frontmatter line
-    and forge's regex reader silently kept the first half).
-    """
-    if not value:
-        return '""'
-    needs_quote = (
-        value[0] in ("-", "?", ":", ",", "[", "]", "{", "}", "#", "&", "*",
-                     "!", "|", ">", "'", "\"", "%", "@", "`")
-        or ":" in value
-        or "#" in value
-        or value.strip() != value
-        or _CONTROL_CHAR_RE.search(value) is not None
-        or _YAML_TYPED_START_RE.match(value) is not None
-        or value.lower() in _YAML_KEYWORDS
-    )
-    if not needs_quote:
-        return value
-    escaped = (
-        value.replace("\\", "\\\\")
-        .replace("\"", "\\\"")
-        .replace("\n", "\\n")
-        .replace("\t", "\\t")
-        .replace("\r", "\\r")
-    )
-    # Any other control byte (NUL, VT, FF, DEL, ...) is illegal raw inside a
-    # YAML double-quoted scalar; emit the \xNN form YAML defines for it.
-    escaped = _CONTROL_CHAR_RE.sub(
-        lambda m: f"\\x{ord(m.group()):02x}" if ord(m.group()) < 0x100 else f"\\u{ord(m.group()):04x}",
-        escaped,
-    )
-    return f"\"{escaped}\""
-
-
-def _rewrite_frontmatter_name(content: str, new_name: str) -> tuple[str, bool]:
-    """Rewrite `name:` inside the first frontmatter block.
-
-    Returns (new_content, changed). No-op when the file has no frontmatter
-    or no `name:` field. The new value is YAML-quoted only when it contains
-    characters YAML would otherwise interpret.
-    """
-    fm = _FRONTMATTER_RE.match(content)
-    if not fm:
-        return content, False
-    block = fm.group(1)
-    quoted = _yaml_quote_if_needed(new_name)
-    new_block, n = _FRONTMATTER_NAME_RE.subn(
-        lambda m: f"{m.group(1)}{quoted}", block, count=1
-    )
-    if n == 0 or new_block == block:
-        return content, False
-    return content[: fm.start(1)] + new_block + content[fm.end(1) :], True
-
-
-def _rewrite_frontmatter_epic(content: str, new_epic: str) -> tuple[str, bool]:
-    """Rewrite `epic:` inside the first frontmatter block.
-
-    Returns (new_content, changed). No-op when the file has no frontmatter or
-    no `epic:` field -- same contract as the status and name rewriters.
-    """
-    fm = _FRONTMATTER_RE.match(content)
-    if not fm:
-        return content, False
-    block = fm.group(1)
-    new_block, n = _FRONTMATTER_EPIC_RE.subn(
-        lambda m: f"{m.group(1)}{new_epic}", block, count=1
-    )
-    if n == 0 or new_block == block:
-        return content, False
-    return content[: fm.start(1)] + new_block + content[fm.end(1) :], True
-
-
-def _parse_frontmatter_field(content: str, field_re: re.Pattern[str]) -> str:
-    """Return the unquoted, unescaped value of a frontmatter field."""
-    fm = _FRONTMATTER_RE.match(content)
-    if not fm:
-        return ""
-    m = field_re.search(fm.group(1))
-    if not m:
-        return ""
-    return _yaml_unquote_scalar(m.group(2).strip())
-
-
-def _yaml_unquote_scalar(raw: str) -> str:
-    # Inverse of _yaml_quote_if_needed: strip a balanced surrounding pair
-    # of `"` or `'` and reverse the encoder's escapes in opposite order
-    # (\" before \\). Without this, names containing `"` or `\` round-trip
-    # asymmetrically and re-fire drift #8 on every consistency pass.
-    if len(raw) >= 2 and raw[0] == raw[-1]:
-        if raw[0] == '"':
-            # One left-to-right pass over the encoder's escapes. Sequential
-            # replace() calls are order-sensitive: the literal characters
-            # `\n` inside an escaped backslash (`\\n`) would be re-read as a
-            # newline by a later pass.
-            return _ESCAPE_RE.sub(
-                lambda m: _UNESCAPE.get(m.group(1)) or chr(int(m.group(1)[1:], 16)),
-                raw[1:-1],
-            )
-        if raw[0] == "'":
-            return raw[1:-1].replace("''", "'")
-    return raw
-
-
-def _discover_task_file(project_root: Path, task: dict[str, Any]) -> Path | None:
-    """Locate a task's markdown file when the registry doesn't record `file:`.
-
-    Walks docs/epics/{epic_id}-*/tasks/T{n}-*.md, matching the same naming
-    convention the consistency checker uses. Returns the first match.
-    """
-    epic_id = task.get("epic")
-    task_id = task.get("id")
-    if not (epic_id and task_id):
-        return None
-    epics_dir = project_root / "docs" / "epics"
-    if not epics_dir.exists():
-        return None
-    for epic_dir in epics_dir.glob(f"{epic_id}-*"):
-        if not epic_dir.is_dir():
-            continue
-        candidates = list((epic_dir / "tasks").glob(f"{task_id}-*.md"))
-        if candidates:
-            return candidates[0]
-    return None
-
-
-def mirror_status_to_file(project_root: Path, task: dict[str, Any], new_status: str) -> bool:
-    """Update the task file's frontmatter status to match the registry.
-
-    Returns True if a file write happened. Best-effort: missing file or
-    unwritable file is silent — the consistency checker will surface it
-    as drift #6 on the next pass.
-
-    Resolution order: registry's `file:` field, then disk discovery via
-    the docs/epics/{epic}-*/tasks/{id}-*.md glob.
-    """
-    rel = task_file_path({}, task)
-    full: Path | None = (project_root / rel) if rel else None
-    if full is None or not full.exists():
-        full = _discover_task_file(project_root, task)
-    if full is None or not full.exists():
-        return False
-    try:
-        content = full.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return False
-    new_content, changed = _rewrite_frontmatter_status(content, new_status)
-    if not changed:
-        return False
-    try:
-        full.write_text(new_content, encoding="utf-8")
-    except OSError:
-        return False
-    return True
-
-
-def mirror_name_to_file(project_root: Path, task: dict[str, Any], new_name: str) -> bool:
-    """Update the task file's frontmatter `name:` to match the registry.
-
-    Best-effort, same contract as `mirror_status_to_file`. Returns True
-    when a file write happened.
-    """
-    rel = task_file_path({}, task)
-    full: Path | None = (project_root / rel) if rel else None
-    if full is None or not full.exists():
-        full = _discover_task_file(project_root, task)
-    if full is None or not full.exists():
-        return False
-    try:
-        content = full.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return False
-    new_content, changed = _rewrite_frontmatter_name(content, new_name)
-    if not changed:
-        return False
-    try:
-        full.write_text(new_content, encoding="utf-8")
-    except OSError:
-        return False
-    return True
 
 
 # --- Stats -----------------------------------------------------------------
@@ -894,7 +658,7 @@ def create_epic_dir(project_root: Path, epic: dict[str, Any]) -> Path:
         body.write_text(
             f"---\n"
             f"id: {epic_id}\n"
-            f"name: {_yaml_quote_if_needed(epic.get('name', ''))}\n"
+            f"name: {task_file.quote(epic.get('name', ''))}\n"
             f"category: {epic.get('category', '')}\n"
             f"status: {epic.get('status', 'pending')}\n"
             f"priority: {epic.get('priority', 1)}\n"
@@ -927,7 +691,7 @@ def create_task_body_file(
 
     Returns the path written. Raises FileExistsError if the file already
     exists and `overwrite` is False — callers should check `task["file"]`
-    first or pre-resolve via `_discover_task_file` if they want idempotence.
+    first or pre-resolve via `task_file.find` if they want idempotence.
 
     `stub=True` marks the file as auto-generated by `forge task
     reconcile-files`, so a human reading it knows to fill in the scope
@@ -954,7 +718,7 @@ def create_task_body_file(
         # The frontmatter line needs a YAML-safe scalar (a colon or '#'
         # in a name broke every yaml reader; forge's own regex reader was
         # fine, which is why it went unnoticed). Headings keep the raw name.
-        "TASK_NAME_YAML": _yaml_quote_if_needed(name),
+        "TASK_NAME_YAML": task_file.quote(name),
         "STATUS": task.get("status", "ready"),
         "PRIORITY": str(task.get("priority", 1)),
         "CATEGORY": task.get("category", ""),
@@ -1010,7 +774,7 @@ def scaffold_task_isa(
     substitutions = {
         "TASK_ID": task_id,
         "TASK_NAME": name,
-        "TASK_NAME_YAML": _yaml_quote_if_needed(name),
+        "TASK_NAME_YAML": task_file.quote(name),
         "CREATED_AT": task.get("createdAt", utcnow()),
     }
     isa_path.write_text(_render_template("isa.md", substitutions), encoding="utf-8")
@@ -1061,7 +825,7 @@ def reconcile_task_files(
     errors: list[dict[str, str]] = []
 
     for task in registry.get("tasks", []):
-        existing = _discover_task_file(project_root, task)
+        existing = task_file.find(project_root, task)
         if existing is not None:
             continue
         # Honor explicit file: field if it points somewhere real
@@ -1119,7 +883,7 @@ def lock_task(
         }
         recompute_stats(registry)
         save_registry(registry_path, registry)
-        mirror_status_to_file(project_root, task, "in_progress")
+        task_file.set_field(task_file.find(project_root, task), "status", "in_progress")
     return task
 
 
@@ -1155,7 +919,7 @@ def unlock_task(
             task["status"] = to_status
         recompute_stats(registry)
         save_registry(registry_path, registry)
-        mirror_status_to_file(project_root, task, task["status"])
+        task_file.set_field(task_file.find(project_root, task), "status", task["status"])
     return task
 
 
@@ -1190,7 +954,7 @@ def complete_task(
 
         recompute_stats(registry)
         save_registry(registry_path, registry)
-        mirror_status_to_file(project_root, task, "completed")
+        task_file.set_field(task_file.find(project_root, task), "status", "completed")
     return task, unblocked
 
 
@@ -1225,7 +989,7 @@ def pr_task(
 
         recompute_stats(registry)
         save_registry(registry_path, registry)
-        mirror_status_to_file(project_root, task, "pr_pending")
+        task_file.set_field(task_file.find(project_root, task), "status", "pr_pending")
     return task, unblocked
 
 
@@ -1372,7 +1136,7 @@ def rename_task(
         task = find_task(registry, task_id)
         task["name"] = new_name
         save_registry(registry_path, registry)
-        mirror_name_to_file(project_root, task, new_name)
+        task_file.set_field(task_file.find(project_root, task), "name", new_name)
     return task
 
 
@@ -1391,7 +1155,7 @@ def move_task(
          recorded `file` path;
       4. the body file's `epic:` frontmatter.
 
-    `_discover_task_file` globs by epic dir and the consistency checker mirrors
+    `task_file.find` globs by epic dir and the consistency checker mirrors
     frontmatter against the registry, so skipping (3) or (4) produces drift.
 
     Refuses a locked task (unlock it first) and an unknown target epic. Moving
@@ -1417,10 +1181,7 @@ def move_task(
 
         # Resolve the body file BEFORE mutating `epic` -- discovery globs by
         # epic dir, so afterwards it would look in the wrong place.
-        rel = task_file_path(registry, task)
-        src: Path | None = (project_root / rel) if rel else None
-        if src is None or not src.exists():
-            src = _discover_task_file(project_root, task)
+        src = task_file.find(project_root, task)
 
         task["epic"] = new_epic_id
         source = find_epic(registry, old_epic_id)
@@ -1429,14 +1190,13 @@ def move_task(
         if task_id not in target.setdefault("tasks", []):
             target["tasks"].append(task_id)
 
-        if src is not None and src.exists():
+        if src is not None:
             dest_dir = _resolve_epic_dir(
                 project_root, new_epic_id, create_if_missing=True
             ) / "tasks"
             dest_dir.mkdir(parents=True, exist_ok=True)
             dest = dest_dir / src.name
-            content = src.read_text(encoding="utf-8")
-            new_content, _ = _rewrite_frontmatter_epic(content, new_epic_id)
+            new_content, _ = task_file.rewrite(src.read_text(encoding="utf-8"), "epic", new_epic_id)
             dest.write_text(new_content, encoding="utf-8")
             if dest.resolve() != src.resolve():
                 src.unlink()
@@ -1550,7 +1310,7 @@ def set_task_deps(
 
         recompute_stats(registry)
         save_registry(registry_path, registry)
-        mirror_status_to_file(project_root, task, task["status"])
+        task_file.set_field(task_file.find(project_root, task), "status", task["status"])
     return task
 
 
@@ -1620,56 +1380,6 @@ def set_preflight(
     return task
 
 
-def _mirror_scope_to_frontmatter(
-    project_root: Path, task: dict[str, Any], scope: dict[str, Any]
-) -> None:
-    """Best-effort frontmatter sync for scope; never fails the registry write.
-
-    The registry is the source of truth and has already been saved by the time
-    this runs — a missing or unparseable body file must not undo that.
-    """
-    # Same resolver as mirror_name_to_file: the registry `file:` field is
-    # unreliable (fixtures and older entries omit it), so fall back to disk
-    # discovery rather than silently skipping the mirror.
-    rel = task_file_path({}, task)
-    body: Path | None = (project_root / rel) if rel else None
-    if body is None or not body.exists():
-        body = _discover_task_file(project_root, task)
-    if body is None or not body.exists():
-        return
-    try:
-        text = body.read_text(encoding="utf-8")
-        if not text.startswith("---"):
-            return
-        end = text.index("\n---", 3)
-        head, rest = text[:end], text[end:]
-        block = [
-            "scope:",
-            f"  directories: [{', '.join(scope['directories'])}]",
-            f"  files: [{', '.join(scope['files'])}]",
-        ]
-        out, skipping, found = [], False, False
-        for line in head.splitlines():
-            if line.startswith("scope:"):
-                skipping, found = True, True
-                out.extend(block)
-                continue
-            if skipping:
-                # Consume the old block's indented children only.
-                if line.startswith(("  ", "\t")):
-                    continue
-                skipping = False
-            out.append(line)
-        if not found:
-            # No scope block yet (older task files, fixtures). Append rather
-            # than skip — frontmatter that omits scope is what let registry and
-            # file disagree silently in the first place.
-            out.extend(block)
-        body.write_text("\n".join(out) + rest)
-    except (OSError, ValueError):
-        return
-
-
 def set_scope(
     registry_path: Path,
     project_root: Path,
@@ -1717,7 +1427,8 @@ def set_scope(
             scope.get("directories"), scope.get("files")
         )
         save_registry(registry_path, registry)
-        _mirror_scope_to_frontmatter(project_root, task, scope)
+        # Best-effort: the registry is already saved; a bad body file must not undo it.
+        task_file.set_scope(task_file.find(project_root, task), scope)
     return task
 
 
@@ -1791,50 +1502,30 @@ def reconcile_orphan_files(
         registry = load_registry(registry_path)
         existing_ids = {t.get("id") for t in registry.get("tasks", [])}
 
-        epics_dir = project_root / "docs" / "epics"
-        if not epics_dir.exists():
-            return []
-
         seeded: list[str] = []
-        epic_re = re.compile(r"^E(\d+)")
-        task_filename_re = re.compile(r"^T(\d+)(?=[-.])")
-
-        for epic_dir in sorted(epics_dir.iterdir()):
-            if not (epic_dir.is_dir() and epic_re.match(epic_dir.name)):
+        for tf, tid, epic_id in task_file.iter_all(project_root):
+            if tid in existing_ids:
                 continue
-            epic_id = "E" + epic_re.match(epic_dir.name).group(1)
-            tasks_dir = epic_dir / "tasks"
-            if not tasks_dir.exists():
+            fm = task_file.read(tf)
+            if fm is None:
                 continue
-            for tf in sorted(tasks_dir.glob("T*.md")):
-                m = task_filename_re.match(tf.name)
-                if not m:
-                    continue
-                tid = f"T{m.group(1)}"
-                if tid in existing_ids:
-                    continue
-                try:
-                    content = tf.read_text(encoding="utf-8")
-                except (OSError, UnicodeDecodeError):
-                    continue
-                fm_name = _parse_frontmatter_field(content, _FRONTMATTER_NAME_RE)
-                fm_status = _parse_frontmatter_field(content, _FRONTMATTER_STATUS_RE)
-                entry: dict[str, Any] = {
-                    "id": tid,
-                    "epic": epic_id,
-                    "name": fm_name or f"{tid} (reconciled)",
-                    "category": "",
-                    "priority": 1,
-                    "status": (fm_status or "pending").lower(),
-                    "dependencies": [],
-                    "scope": {"directories": [], "files": []},
-                    "lock": None,
-                    "createdAt": utcnow(),
-                    "file": str(tf.relative_to(project_root)),
-                }
-                registry.setdefault("tasks", []).append(entry)
-                existing_ids.add(tid)
-                seeded.append(tid)
+            fm_name, fm_status = fm["name"], fm["status"]
+            entry: dict[str, Any] = {
+                "id": tid,
+                "epic": epic_id,
+                "name": fm_name or f"{tid} (reconciled)",
+                "category": "",
+                "priority": 1,
+                "status": (fm_status or "pending").lower(),
+                "dependencies": [],
+                "scope": {"directories": [], "files": []},
+                "lock": None,
+                "createdAt": utcnow(),
+                "file": str(tf.relative_to(project_root)),
+            }
+            registry.setdefault("tasks", []).append(entry)
+            existing_ids.add(tid)
+            seeded.append(tid)
 
         if seeded:
             recompute_stats(registry)
@@ -1867,7 +1558,7 @@ def transition_task(
         task["status"] = new_status
         recompute_stats(registry)
         save_registry(registry_path, registry)
-        mirror_status_to_file(project_root, task, new_status)
+        task_file.set_field(task_file.find(project_root, task), "status", new_status)
     return task
 
 
@@ -1887,7 +1578,7 @@ def _flip_unblocked_pending(
     for tid in unblocked:
         t = find_task(registry, tid)
         t["status"] = "ready"
-        mirror_status_to_file(project_root, t, "ready")
+        task_file.set_field(task_file.find(project_root, t), "status", "ready")
     return unblocked
 
 

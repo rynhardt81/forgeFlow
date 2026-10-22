@@ -425,26 +425,24 @@ def test_drift8_no_finding_when_names_match(tmp_path):
 
 
 def test_yaml_unquote_scalar_reverses_encoder():
-    # check_consistency.py no longer has its own _yaml_quote_if_needed /
-    # _yaml_unquote_scalar (plan 007 consolidated them into registry_ops,
-    # which _parse_frontmatter_name calls directly) — exercise the shared
-    # implementation via cc.registry_ops.
+    # The checker reads names through task_file (T962), so exercise the
+    # quoting it actually uses.
     #
     # Encoder writes \" then \\ (in that order on encode); decoder must
     # reverse \" before \\ to land back on the original.
-    quoted = cc.registry_ops._yaml_quote_if_needed('Refactor: split "routes" handler')
+    quoted = cc.task_file.quote('Refactor: split "routes" handler')
     assert quoted == '"Refactor: split \\"routes\\" handler"'
-    assert cc.registry_ops._yaml_unquote_scalar(quoted) == 'Refactor: split "routes" handler'
+    assert cc.task_file.unquote(quoted) == 'Refactor: split "routes" handler'
 
     # Backslash-then-quote — the trickiest reversal order case.
-    quoted = cc.registry_ops._yaml_quote_if_needed('weird \\" name')
-    assert cc.registry_ops._yaml_unquote_scalar(quoted) == 'weird \\" name'
+    quoted = cc.task_file.quote('weird \\" name')
+    assert cc.task_file.unquote(quoted) == 'weird \\" name'
 
     # Plain unquoted scalars pass through untouched.
-    assert cc.registry_ops._yaml_unquote_scalar('Plain Title') == 'Plain Title'
+    assert cc.task_file.unquote('Plain Title') == 'Plain Title'
 
     # Single-quoted form (only produced by hand-edits) — '' → '
-    assert cc.registry_ops._yaml_unquote_scalar("'it''s fine'") == "it's fine"
+    assert cc.task_file.unquote("'it''s fine'") == "it's fine"
 
 
 def test_drift8_stable_under_repeated_fix_for_quoted_names(tmp_path):
