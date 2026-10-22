@@ -1,6 +1,6 @@
 ---
 name: ISA
-description: Articulates the ideal state of a task or project as testable criteria. Invoked at Algorithm OBSERVE for non-trivial work; produces an ISA.md the rest of the run reads from and writes back to. Use when scaffolding or extending an ISA at E3+ OBSERVE, gating `phase: complete` at VERIFY, resolving interdependent design decisions before freezing criteria, or on `/ISA scaffold`, `/ISA check`, `/ISA interview`.
+description: 'Articulates the ideal state of a task or project as testable criteria. Invoked at Algorithm OBSERVE for non-trivial work; produces an ISA.md the rest of the run reads from and writes back to. Use when scaffolding or extending an ISA at E3+ OBSERVE, gating `phase: complete` at VERIFY, resolving interdependent design decisions before freezing criteria, or on `/ISA scaffold`, `/ISA check`, `/ISA interview`.'
 model: inherit
 type: skill
 ---

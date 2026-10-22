@@ -1,6 +1,6 @@
 ---
 name: prototype
-description: Builds a throwaway prototype that answers one design question — a single shareable HTML file that drives a state model through hard cases (logic), or several radically different UI variants on one route switched by ?variant= (UI). Use when the user wants to sanity-check whether a state model or logic feels right, explore what a UI should look like, or a /grilling question can only be settled by something runnable. NOT FOR production code: the validated decision folds into the real code; the prototype lives on a prototype/<name> branch.
+description: 'Builds a throwaway prototype that answers one design question — a single shareable HTML file that drives a state model through hard cases (logic), or several radically different UI variants on one route switched by ?variant= (UI). Use when the user wants to sanity-check whether a state model or logic feels right, explore what a UI should look like, or a /grilling question can only be settled by something runnable. NOT FOR production code: the validated decision folds into the real code; the prototype lives on a prototype/<name> branch.'
 metadata:
   credits:
     skill: prototype

@@ -1,6 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: Scans a codebase for deepening opportunities — shallow modules whose interface is nearly as complex as their implementation — and presents them as a visual HTML report with before/after diagrams, then grills through whichever one the user picks. Advisory: it changes no code; a chosen candidate leaves through /intent or /refactor. Use when the user wants an architecture review, asks what to restructure, wants the codebase easier for agents to navigate or test, or has a spare moment for codebase health. NOT FOR executing a refactor already chosen (/refactor).
+description: 'Scans a codebase for deepening opportunities — shallow modules whose interface is nearly as complex as their implementation — and presents them as a visual HTML report with before/after diagrams, then grills through whichever one the user picks. Advisory: it changes no code; a chosen candidate leaves through /intent or /refactor. Use when the user wants an architecture review, asks what to restructure, wants the codebase easier for agents to navigate or test, or has a spare moment for codebase health. NOT FOR executing a refactor already chosen (/refactor).'
 disable-model-invocation: true
 metadata:
   credits:
