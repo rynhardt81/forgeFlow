@@ -23,6 +23,7 @@ description: Session continuity for Forge task work — resume an interrupted se
 | `flows/config.md` | `/reflect config` / `config <key> <value>` |
 | `flows/manual-reflection.md` | `/reflect` (no args) |
 | `_shared/continuity-preservation.md` | Binding before writing any continuity — the handoff brief, a resume Continuation Context (pause, blocker, cannot-complete), or the session file's Handoff Notes at session end |
+| `_shared/task-triage.md` | `/reflect` (no args) — filing a mechanical learning as a check task |
 | Session Start Protocol · Key Rules · Storage Locations (below) | Every command |
 
 ## Session Start Protocol
