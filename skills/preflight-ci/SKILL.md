@@ -111,7 +111,6 @@ The hook is installed by default during `install.sh --mode refresh-v3`. It reads
 ## Key rules
 
 - **No pushes.** This skill never invokes `git push`, `gh run rerun`, `gh pr create`, or `gh pr edit`. It runs CI locally and reports. The user decides what to push.
-- **Running this on a branch you did not author executes that branch's shell.** Read the workflow diff first — `git diff origin/main -- .github/workflows/`.
 - **Workflow files are source of truth.** No hand-maintained mirror config; drift between `.github/workflows/` and `.forge/preflight/` is detected.
 - **Shared classifier with `/diagnose-ci`.** Failure routing lives in `skills/_shared/ci-failure-classifier.md`. Both skills `@see` it; neither embeds its own copy.
 - **Generated scripts are committed.** `.forge/preflight/*.sh` lives in the repo so the parity layer is diff-reviewable.

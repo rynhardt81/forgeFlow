@@ -136,7 +136,7 @@ Order `safe-to-merge` PRs by file overlap, risk and size (REVIEW.md). **Never au
 - Never create a final PR with failing checks (offer draft instead).
 - Consult the review bot locally BEFORE pushing (Step 3.8): max 3 rounds, never unattended.
 - Review fixes go to the SAME PR; re-mention the bot to retrigger review.
-- Always include the Claude Code attribution. Never auto-merge.
+- Always include the Claude Code attribution.
 
 ---
 

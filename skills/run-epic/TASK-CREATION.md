@@ -59,10 +59,9 @@ The "(from T###)" suffix makes the lineage explicit and survives `forge task ls`
 - **Prereq** tasks invert the dependency — the *current* task gets `--deps T<new>` added retroactively. The current task transitions from `in_progress` back to `pending` and the new prereq task becomes `ready`.
 - **DRY refactor** tasks do NOT block the current PR. The current task ships, the refactor task lands in a later iteration.
 
-## Limits (also in the guardrails — see the Index in SKILL.md)
+## Limits
 
-- **5 per iteration max.** More than 5 means the iteration was wrongly scoped — halt with `escalation: scope-explosion`.
-- **30 per run max.** More than 30 means the epic's scope is fundamentally larger than originally planned — halt and let the human re-plan.
+Auto-filing is rate-limited per iteration and per run; the caps and the halt they trigger live in the guardrails (routed from SKILL.md's Index).
 
 ## Logging
 

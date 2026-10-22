@@ -23,15 +23,7 @@ Generates `docs/code-map.md` — file inventory, per-file class/function lists, 
 
 User runs:
 
-```
-/audit-code-map                        # Generate or refresh docs/code-map.md
-/audit-code-map --no-mermaid           # Skip the import-graph section
-/audit-code-map --include-tests        # Include test files (excluded by default)
-/audit-code-map --root path/to/sub     # Map a sub-tree only
-/audit-code-map --output some/path.md  # Write to a different location
-/audit-code-map --emit-json            # Also write docs/code-map.json (consumed by the code-map MCP server)
-/audit-code-map --json-output PATH     # Custom JSON path (implies --emit-json)
-```
+`/audit-code-map [flags]` — generate or refresh `docs/code-map.md`. Flags: the table below; `Tools/code_map.py --help` is the source of truth.
 
 ---
 

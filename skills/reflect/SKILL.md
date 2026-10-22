@@ -72,7 +72,6 @@ The SessionStart hook (`hooks/session/session-context.py`) auto-creates a minima
 │   │   ├── active/session-{id}.md
 │   │   ├── completed/session-{id}.md
 │   │   └── latest.md           # Most recent completed
-│   └── .session-skills         # Skills used (temp)
 └── skills/[skill-name]/SKILL.local.md  # Learnings (survives refresh)
 
 docs/

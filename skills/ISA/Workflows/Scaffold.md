@@ -50,7 +50,7 @@ Populate from the prompt + project context where signal exists; mark the rest `_
 
 ### 6. Apply the splitting test to every ISC
 
-"And"/"with" joins two verifiable things → split. Independent failure → split. Scope words ("all", "every") → enumerate. Domain boundary crossed → one per boundary. No nameable probe → rewrite or split. Splits become `ISC-N.M` — never renumber existing IDs; drops become tombstones.
+Gate every ISC with SKILL.md's *ISC quality gates* (granularity, atomic, independent failure, scope words, domain boundary); no nameable probe → rewrite or split. Splits become `ISC-N.M` — never renumber existing IDs; drops become tombstones.
 
 ### 7. Verify the output
 

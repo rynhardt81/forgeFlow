@@ -31,35 +31,7 @@ This skill helps deploy and manage the Damage Control security system, which pro
 - **Allowlist Enforcement**: Only explicitly permitted commands can run (deny by default)
 - **Pattern Blocking**: Regex patterns block dangerous commands even if base command is allowed
 - **Ask Patterns**: Triggers confirmation dialog for risky-but-valid operations (`ask: true`)
-- **Path Protection Levels**:
-  - `zeroAccessPaths` - No access at all (secrets/credentials)
-  - `readOnlyPaths` - Read allowed, modifications blocked
-  - `noDeletePaths` - All operations except delete
-
-## Skill Structure
-
-```
-skills/damage-control/           # In Claude Forge framework root
-├── SKILL.md                     # This file
-├── ARCHITECTURE.md              # Layers, flow diagram, installed layout
-├── patterns.yaml                # Security patterns (single source of truth)
-├── cookbook/
-│   ├── install_damage_control.md
-│   ├── modify_damage_control.md
-│   ├── test_damage_control.md
-│   ├── install_test_lock.md
-│   └── list_damage_controls.md
-├── hooks/
-│   └── damage-control-python/   # Python/UV implementation
-│       ├── bash-tool-damage-control.py
-│       ├── test-lock-damage-control.py
-│       ├── edit-tool-damage-control.py
-│       ├── write-tool-damage-control.py
-│       └── settings-template.json
-└── test-prompts/                # Test prompts for validation
-    ├── README.md
-    └── sentient.md
-```
+- **Path Protection Levels**: zero-access, read-only, no-delete (table: Quick Reference)
 
 ---
 

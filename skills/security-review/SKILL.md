@@ -13,7 +13,7 @@ Reviews a feature or change for security flaws before it ships — including the
 | File or section | Read when… |
 |---|---|
 | What it orchestrates | Knowing which existing pieces (`@security-boss`, secrets validator) own which pass |
-| When to use / When NOT to use | Deciding whether the change has a surface worth reviewing |
+| When to use (incl. when not to) | Deciding whether the change has a surface worth reviewing |
 | Invocation | Choosing scope (diff, task, `--files`, `--output`) |
 | Steps 1–3 | Scoping the surface, running OWASP + secrets, the business-logic walkthrough |
 | Step 4: Report and file findings | Writing the report and filing findings as tasks or intents |
@@ -35,7 +35,7 @@ What neither covers — and what this skill adds — is **business-logic flaws**
 - **At `/new-feature` security review** and in the `/create-pr` Step 3.7 pre-flight for any security-relevant change.
 - When a reviewer says "the auth looks fine" but the *flow* could be abused.
 
-**Do NOT use it** as a SAST engine or dependency-CVE scanner — those are the consumer project's CI/runtime job, not this portable framework's. This skill is review *judgment*, not tooling.
+**Do NOT use it** as a SAST engine or dependency-CVE scanner — those are the consumer project's CI/runtime job (Semgrep, CodeQL, `npm audit`), not this portable framework's. This skill is review *judgment*, not tooling. Skip it too for pure secrets scanning with no logic surface (the `security_secrets.py` validator already fires on writes), and for a change with no money/access/state surface — a normal `@security-boss` review suffices.
 
 ## Invocation
 
@@ -73,12 +73,6 @@ For each surface, record: the invariant, the abuse it could allow, and whether t
 ## Step 4: Report and file findings
 
 Write the findings to `memories/security-review-{date}.md` (or `--output`). For each real finding: severity, the surface, the abuse, and the fix direction. **File genuine findings as tasks** via the `@security-boss` convention (`forge task add` with severity in `--category`) — so they enter the work queue rather than evaporate. Security findings are a **hard floor** under `skills/_shared/task-triage.md` — blocker-or-next, never deferred to the backlog epic by default. A finding wider than a bounded patch — an architectural gap or the same flaw repeated across a surface — is written as `/intent "<problem>"` with this report as evidence, then promoted once accepted; the task queue holds fixes, not redesigns. Print a one-paragraph summary and stop. **Advisory only** — never blocks a ship; the findings are the deliverable.
-
-## When NOT to use
-
-- As SAST / dependency-CVE tooling — that's consumer CI (Trail of Bits skills, Semgrep, CodeQL, `npm audit` live there, not here).
-- For pure secrets scanning with no logic surface — the `security_secrets.py` validator already fires on writes.
-- On a change with no money/access/state surface — the business-logic pass has nothing to bite on; a normal `@security-boss` review suffices.
 
 ## Anti-criteria for this skill
 

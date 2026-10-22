@@ -56,7 +56,7 @@ gh run view <run-id> --log-failed
 
 Capture the output. This is the single source of truth for classification — do not re-run jobs.
 
-**Output: proposed fix plan** is written **before any modification** of project files. The skill never edits, commits, or pushes during diagnosis.
+**Output: proposed fix plan** is written **before any modification** of project files.
 
 ## Step 3: Classify the failure
 
@@ -126,7 +126,6 @@ The skill does **not** apply, commit, or push the fix. The user reads the plan a
 ## Key Rules
 
 - **Diagnosis only.** No `git commit`, `git push`, or `gh pr edit` runs from this skill. The validator (`diagnose_ci_format.py`) enforces this on the Stop hook.
-- **Plan output before any modification.** Step 5 fires before any tool call that could change project state.
 - **Graceful degradation.** When `pr-review-toolkit` is absent, fall back to log summary; do not error.
 - **No re-run of CI.** This skill exists to *avoid* spending more Actions minutes — it never invokes `gh run rerun`.
 - **One source of truth.** `gh run view --log-failed` is the only log source; do not stitch from multiple endpoints.

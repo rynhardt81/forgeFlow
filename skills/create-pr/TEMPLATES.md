@@ -224,7 +224,7 @@ If Step 3.7 found nothing actionable (all `NO-ACTION`), omit the section entirel
 
 **Merge Danger:** Every Medium/Large PR states its door and blast radius; Small PRs carry the one-line version.
 
-**Related issues:** Extract from branch name and commit messages.
+**Related issues:** as in *Title and issue links* above.
 
 **Notes for reviewers:** Include if:
 - Breaking changes exist

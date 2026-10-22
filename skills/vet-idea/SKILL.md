@@ -12,7 +12,7 @@ Decides *whether* an idea is worth building, before any time, money, or effort i
 
 | File or section | Read when… |
 |---|---|
-| When to use / When NOT to use | Deciding whether this skill applies at all |
+| When to use (incl. when not to) | Deciding whether this skill applies at all |
 | Invocation | Choosing flags (`--isa`, `--roles 7`, `--output`) |
 | Steps 1–3 | Framing the idea and running the five roles + peer review |
 | Step 4: Chairman synthesis | Writing the verdict block and its meanings |
@@ -35,7 +35,7 @@ It runs entirely on the single harness model — **no `Task`/subagent fan-out**.
 - **A costly or hard-to-reverse decision** — architecture bets, a dependency you can't easily drop, a direction that commits weeks.
 - **When you catch yourself rationalizing** — the idea feels exciting but you haven't said out loud what would make it a bad call.
 
-**Do NOT use it** for routine execution where the decision to build is already settled — bug fixes, refactors, a feature already approved. Vetting settled work is friction.
+**Do NOT use it** for routine execution where the decision to build is already settled — bug fixes, refactors, a feature already approved — or for trivial, reversible (E1) work. Vetting settled work is friction.
 
 ## Invocation
 
@@ -107,13 +107,6 @@ Keep the verdict **categorical**. A single coarse confidence band (low/medium/hi
 Write the full council report to `memories/vet-idea-{slug}-{date}.md` (or `--output`). Print a one-paragraph summary to the session: the verdict, the primary objection, and the recommended next step. Then stop.
 
 **When run inside an Algorithm flow:** record the verdict in the ISA `## Decisions` section, and seed the chairman's named risks as candidate `Anti:` ISCs. A **NO-GO halts the run** — reuse the same human-stop discipline as "plan means stop" (`ALGORITHM/v1.2.0.md`): present the verdict and do not proceed to build without the user overriding.
-
-## When NOT to use
-
-- The decision to build is already made (approved feature, scheduled refactor, bug fix). Vetting settled work is friction.
-- Trivial / reversible work (E1). The fast path exists for a reason.
-- As a design interview — use the ISA `Interview` workflow for *how* to shape the work.
-- As a premortem — use Algorithm THINK for failure modes once you've decided to build.
 
 ## Anti-criteria for this skill
 

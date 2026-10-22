@@ -85,7 +85,7 @@ Print the halt summary (format in [GUARDRAILS.md](GUARDRAILS.md)): completed, PR
 
 - **Single-epic by design.** Two epics → run it twice. Cross-epic dependencies resolve via `pending → ready` transitions, not by the skill.
 - **`--resume` is opt-in for a reason.** Auto-resuming `in_progress` tasks has clobbered uncommitted work in the past.
-- **Classification is judgment, asked once.** Classify each task as bug/feature/refactor from its name + body. When genuinely ambiguous, pause and ask once; cache the answer for similar tasks in the run. This is a **sanctioned stop** — it is named in AUTONOMY.md's stop list, so the autonomy block does not override it. Ambiguity here means ambiguous after reading the body and scope, not unasked-for caution.
+- **The classification ask (LOOP.md → Classify) is a sanctioned stop** — named in AUTONOMY.md's stop list, so the autonomy block does not override it. Ambiguity means ambiguous after reading the body and scope, not unasked-for caution.
 - **`/create-pr` may itself surface follow-up work** (DRY hotspots, review findings) — those land in the same epic under the same auto-file rules.
 - **Code-map staleness is the silent killer.** A map older than the newest commit routes fixes to outdated locations. Do not relax the Step 0 gate.
 

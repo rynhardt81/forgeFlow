@@ -112,13 +112,6 @@ Present a compact summary (template: DOCS.md) ending **Next:** `/reflect resume 
 ## Key Rules
 
 - **One task system.** The forge registry is the only tracker — no feature database, no parallel lists, no per-task TodoWrite mandates.
-- **Two confirmations only:** after Discovery/PRD, and before task seeding.
-- **Registry skeleton → epics → tasks, in that order.** The empty skeleton is the one sanctioned hand-write; every epic and task goes through the forge CLI.
-- **Seed what the PRD implies** — no numeric floors, no padding.
-- **Honest TODOs:** `TODO(user): ...` where the user must decide; never fabricate Tier 2 content.
-- **PRD keeps its four validator sections** (Vision, Goals, User Stories, Success Criteria).
-- **Tier 2 wins:** once populated, reference docs 01-09 are source-of-truth; later conflicts get reconciled via ADR.
-- **`--current` mode confirms before writing.**
 
 ## See Also
 
