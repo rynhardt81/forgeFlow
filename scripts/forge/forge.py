@@ -28,6 +28,7 @@ from the consistency checker's auto-fix paths.
 from __future__ import annotations
 
 import argparse
+import functools
 import json
 import os
 import re
@@ -40,6 +41,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import registry_ops as ops  # noqa: E402
+
+
+def _cli_errors(transition_exit: int = 1):
+    """Map the errors every command reports the same way to an exit code.
+
+    A refused state change exits `transition_exit` (2 for the task lifecycle
+    commands, which skills branch on); every other expected error exits 1.
+    Anything else still raises.
+    """
+    def wrap(cmd):
+        @functools.wraps(cmd)
+        def run(*args, **kwargs) -> int:
+            try:
+                return cmd(*args, **kwargs)
+            except ops.RegistryLockTimeout as e:
+                print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
+                return 1
+            except ops.IllegalTransition as e:
+                print(f"error: {e}", file=sys.stderr)
+                return transition_exit
+            except (ops.RegistryOpError, ValueError, FileNotFoundError) as e:
+                print(f"error: {e}", file=sys.stderr)
+                return 1
+        return run
+    return wrap
 
 
 def get_project_root(override: Path | None = None) -> Path:
@@ -81,28 +107,22 @@ def _split_csv(value: str | None) -> list[str]:
 # --- Subcommand handlers ---------------------------------------------------
 
 
+@_cli_errors()
 def cmd_add(args, project_root: Path) -> int:
-    try:
-        task = ops.add_task(
-            _registry_path(project_root),
-            task_id=args.id,
-            epic_id=args.epic,
-            name=args.name,
-            dependencies=_split_csv(args.deps),
-            scope_directories=_split_csv(args.scope_dirs),
-            scope_files=_split_csv(args.scope_files),
-            file_path=args.file,
-            priority=args.priority,
-            category=args.category or "",
-            preflight=args.preflight,
-            allow_missing_epic=args.allow_missing_epic,
-        )
-    except (ops.TaskAlreadyExists, ops.EpicNotFound) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.add_task(
+        _registry_path(project_root),
+        task_id=args.id,
+        epic_id=args.epic,
+        name=args.name,
+        dependencies=_split_csv(args.deps),
+        scope_directories=_split_csv(args.scope_dirs),
+        scope_files=_split_csv(args.scope_files),
+        file_path=args.file,
+        priority=args.priority,
+        category=args.category or "",
+        preflight=args.preflight,
+        allow_missing_epic=args.allow_missing_epic,
+    )
 
     body_file: Path | None = None
     isa_file: Path | None = None
@@ -167,6 +187,7 @@ def cmd_add(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_epic_add(args, project_root: Path) -> int:
     """Create an epic: registry entry + on-disk dir/body file.
 
@@ -174,23 +195,16 @@ def cmd_epic_add(args, project_root: Path) -> int:
     sanctioned path to create an epic, yet `task add` requires its epic to
     exist. Mirrors `task add`'s compose shape (atomic op + on-disk artifact).
     """
-    try:
-        epic = ops.add_epic(
-            _registry_path(project_root),
-            epic_id=args.id,
-            name=args.name,
-            description=args.description or "",
-            dependencies=_split_csv(args.deps),
-            priority=args.priority,
-            category=args.category or "",
-            status=args.status,
-        )
-    except ops.EpicAlreadyExists as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    epic = ops.add_epic(
+        _registry_path(project_root),
+        epic_id=args.id,
+        name=args.name,
+        description=args.description or "",
+        dependencies=_split_csv(args.deps),
+        priority=args.priority,
+        category=args.category or "",
+        status=args.status,
+    )
 
     epic_dir: Path | None = None
     if not args.no_file:
@@ -216,27 +230,18 @@ def cmd_epic_add(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_epic_complete(args, project_root: Path) -> int:
     """Transition an epic's registry status to completed (T622).
 
     Guarded: refuses unless every task under the epic is terminal.
     Registry-only; the epic file header is reconciled by /audit-task-status.
     """
-    try:
-        epic, non_terminal = ops.complete_epic(
-            _registry_path(project_root),
-            project_root,
-            args.id,
-        )
-    except ops.EpicNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.IllegalTransition as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    epic, non_terminal = ops.complete_epic(
+        _registry_path(project_root),
+        project_root,
+        args.id,
+    )
 
     if args.json:
         print(json.dumps(dict(epic), indent=2))
@@ -253,16 +258,10 @@ def cmd_epic_complete(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_epic_set_priority(args, project_root: Path) -> int:
     """Set an epic's priority — the primary sort key for `task ls`."""
-    try:
-        epic = ops.set_epic_priority(_registry_path(project_root), args.id, args.priority)
-    except (ops.EpicNotFound, ValueError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    epic = ops.set_epic_priority(_registry_path(project_root), args.id, args.priority)
     if args.json:
         print(json.dumps(dict(epic), indent=2))
     else:
@@ -270,17 +269,11 @@ def cmd_epic_set_priority(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_task_set_deps(args, project_root: Path) -> int:
     """Replace a task's dependency list, reconciling ready/pending."""
     deps = [d.strip() for d in (args.deps or "").split(",") if d.strip()]
-    try:
-        task = ops.set_task_deps(_registry_path(project_root), project_root, args.id, deps)
-    except (ops.TaskNotFound, ops.RegistryOpError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.set_task_deps(_registry_path(project_root), project_root, args.id, deps)
     if args.json:
         print(json.dumps(dict(task), indent=2))
     else:
@@ -289,22 +282,16 @@ def cmd_task_set_deps(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_task_move(args, project_root: Path) -> int:
     """Reassign a task to a different epic (registry + body file + frontmatter).
 
     Chiefly for moving derived work into or out of a backlog epic -- a task's
     epic is otherwise fixed at `task add` time.
     """
-    try:
-        task = ops.move_task(
-            _registry_path(project_root), project_root, args.id, args.epic
-        )
-    except (ops.TaskNotFound, ops.EpicNotFound, ops.RegistryOpError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.move_task(
+        _registry_path(project_root), project_root, args.id, args.epic
+    )
 
     if args.json:
         print(json.dumps(dict(task), indent=2))
@@ -313,6 +300,7 @@ def cmd_task_move(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_epic_status(args, project_root: Path) -> int:
     """Move an epic between pending / in_progress / backlog.
 
@@ -320,16 +308,9 @@ def cmd_epic_status(args, project_root: Path) -> int:
     promoting the epic back returns them all in one command. `completed`
     is not settable here -- `epic complete` owns it and its guard.
     """
-    try:
-        epic = ops.set_epic_status(
-            _registry_path(project_root), project_root, args.id, args.status
-        )
-    except (ops.EpicNotFound, ops.IllegalTransition, ValueError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    epic = ops.set_epic_status(
+        _registry_path(project_root), project_root, args.id, args.status
+    )
 
     if args.json:
         print(json.dumps(dict(epic), indent=2))
@@ -383,21 +364,12 @@ def cmd_reconcile_files(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors(transition_exit=2)
 def cmd_lock(args, project_root: Path) -> int:
-    try:
-        task = ops.lock_task(
-            _registry_path(project_root), project_root, args.id,
-            session_id=args.session,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.IllegalTransition as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.lock_task(
+        _registry_path(project_root), project_root, args.id,
+        session_id=args.session,
+    )
     if args.json:
         print(json.dumps(task, indent=2))
     else:
@@ -418,21 +390,12 @@ def cmd_lock(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors(transition_exit=2)
 def cmd_unlock(args, project_root: Path) -> int:
-    try:
-        task = ops.unlock_task(
-            _registry_path(project_root), project_root, args.id,
-            to_status=args.to_status,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.IllegalTransition as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.unlock_task(
+        _registry_path(project_root), project_root, args.id,
+        to_status=args.to_status,
+    )
     if args.json:
         print(json.dumps(task, indent=2))
     else:
@@ -440,20 +403,11 @@ def cmd_unlock(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors(transition_exit=2)
 def cmd_complete(args, project_root: Path) -> int:
-    try:
-        task, unblocked = ops.complete_task(
-            _registry_path(project_root), project_root, args.id,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.IllegalTransition as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task, unblocked = ops.complete_task(
+        _registry_path(project_root), project_root, args.id,
+    )
     if args.json:
         print(json.dumps({"task": task, "unblocked": unblocked}, indent=2))
     else:
@@ -463,20 +417,11 @@ def cmd_complete(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors(transition_exit=2)
 def cmd_pr(args, project_root: Path) -> int:
-    try:
-        task, unblocked = ops.pr_task(
-            _registry_path(project_root), project_root, args.id,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.IllegalTransition as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task, unblocked = ops.pr_task(
+        _registry_path(project_root), project_root, args.id,
+    )
     if args.json:
         print(json.dumps({"task": task, "unblocked": unblocked}, indent=2))
     else:
@@ -486,20 +431,11 @@ def cmd_pr(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors(transition_exit=2)
 def cmd_status(args, project_root: Path) -> int:
-    try:
-        task = ops.transition_task(
-            _registry_path(project_root), project_root, args.id, args.new_status,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.IllegalTransition as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.transition_task(
+        _registry_path(project_root), project_root, args.id, args.new_status,
+    )
     if args.json:
         print(json.dumps(task, indent=2))
     else:
@@ -607,20 +543,11 @@ def cmd_ls(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_rename(args, project_root: Path) -> int:
-    try:
-        task = ops.rename_task(
-            _registry_path(project_root), project_root, args.id, args.name,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.rename_task(
+        _registry_path(project_root), project_root, args.id, args.name,
+    )
     if args.json:
         print(json.dumps(task, indent=2))
     else:
@@ -628,24 +555,15 @@ def cmd_rename(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_set_scope(args, project_root: Path) -> int:
-    try:
-        task = ops.set_scope(
-            _registry_path(project_root),
-            project_root,
-            args.id,
-            directories=args.scope_dirs,
-            files=args.scope_files,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.set_scope(
+        _registry_path(project_root),
+        project_root,
+        args.id,
+        directories=args.scope_dirs,
+        files=args.scope_files,
+    )
     if args.json:
         print(json.dumps(task, indent=2))
     else:
@@ -658,20 +576,11 @@ def cmd_set_scope(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_set_preflight(args, project_root: Path) -> int:
-    try:
-        task = ops.set_preflight(
-            _registry_path(project_root), project_root, args.id, args.mode,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.set_preflight(
+        _registry_path(project_root), project_root, args.id, args.mode,
+    )
     if args.json:
         print(json.dumps(task, indent=2))
     else:
@@ -680,21 +589,12 @@ def cmd_set_preflight(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_set_file(args, project_root: Path) -> int:
-    try:
-        task = ops.set_task_file(
-            _registry_path(project_root), project_root, args.id, args.file,
-            require_exists=args.require_exists,
-        )
-    except ops.TaskNotFound as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except (ValueError, FileNotFoundError) as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    task = ops.set_task_file(
+        _registry_path(project_root), project_root, args.id, args.file,
+        require_exists=args.require_exists,
+    )
     if args.json:
         print(json.dumps(task, indent=2))
     else:
@@ -702,17 +602,11 @@ def cmd_set_file(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_reconcile(args, project_root: Path) -> int:
-    try:
-        seeded = ops.reconcile_orphan_files(
-            _registry_path(project_root), project_root,
-        )
-    except FileNotFoundError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
-    except ops.RegistryLockTimeout as e:
-        print(f"error: registry is locked by another process; retry ({e})", file=sys.stderr)
-        return 1
+    seeded = ops.reconcile_orphan_files(
+        _registry_path(project_root), project_root,
+    )
     if args.json:
         print(json.dumps({"seeded": seeded}, indent=2))
     else:
@@ -938,6 +832,7 @@ def cmd_preflight_disable_hook(args, project_root: Path) -> int:
     return 0 if result.status != "skipped-foreign-hook" else 2
 
 
+@_cli_errors()
 def cmd_specialist_add(args, project_root: Path) -> int:
     name = args.name
     if not _VALID_SPECIALIST_NAME.match(name):
@@ -959,12 +854,8 @@ def cmd_specialist_add(args, project_root: Path) -> int:
         print(f"error: export path already exists at {export_path}", file=sys.stderr)
         return 1
 
-    try:
-        agent_template = _find_template("specialist-agent.md", project_root).read_text()
-        expert_template = _find_template("EXPERT.md", project_root).read_text()
-    except FileNotFoundError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
+    agent_template = _find_template("specialist-agent.md", project_root).read_text()
+    expert_template = _find_template("EXPERT.md", project_root).read_text()
 
     project_name = project_root.name
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1059,15 +950,12 @@ def cmd_version(args, project_root: Path) -> int:
     return 0
 
 
+@_cli_errors()
 def cmd_memory_reindex(args, project_root: Path) -> int:
     """Regenerate docs/project-memory/index.md from the entry files."""
     import memory_index
 
-    try:
-        counts = memory_index.reindex(project_root)
-    except FileNotFoundError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 1
+    counts = memory_index.reindex(project_root)
     total = sum(counts.values())
     detail = ", ".join(f"{k}s={v}" for k, v in counts.items())
     print(f"index.md rebuilt: {total} entries ({detail})")
