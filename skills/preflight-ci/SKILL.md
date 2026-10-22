@@ -41,7 +41,6 @@ Refused destructive steps are a text filter, not a sandbox, and `CI`/`GITHUB_ACT
 | `/preflight-ci` | Run the gating matrix against the current working tree |
 | `/preflight-ci --regenerate` | Re-derive scripts from workflows (run after a workflow change) |
 | `/preflight-ci --only typecheck` | Run a single named job |
-| `/preflight-ci --with-act` | (Opt-in, future) execute via `act` instead of scripted parity |
 | `/preflight-ci --quick` | Terse output mode used by the pre-push hook |
 | `/preflight-ci --keep-going` | Run all jobs even after the first failure |
 

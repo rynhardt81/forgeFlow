@@ -42,16 +42,18 @@ Returned as a list of human labels.
 
 ## Phase 3 — Render
 
-Five rendered sections, in order, joined by blank lines:
+`render()` in `Tools/code_map.py` is the source of truth for the section list; it currently emits, in order, joined by blank lines:
 
 1. `render_stack_summary(infos, stack)` — "Detected manifests" line + per-language LOC/file table sorted by LOC.
 2. `render_largest_files(infos, top=20)` — Top-N table.
-3. `render_module_symbols(infos, max_per_file)` — Per-file class + function listings.
-4. `render_import_graph(infos, root)` — Mermaid `flowchart LR` (only when `--no-mermaid` is NOT set).
+3. `render_dry_hotspots(compute_dry_hotspots(infos))` — cross-file duplicate code blocks.
+4. `render_context_file_candidates(...)` — files worth a per-directory context file.
+5. `render_module_symbols(infos, max_per_file)` — Per-file class + function listings.
+6. `render_import_graph(infos, root)` — Mermaid `flowchart LR` (only when `--no-mermaid` is NOT set).
    - Collapses file paths to first-segment directory nodes.
    - Resolves import strings against `own_modules = {first-segment of every analyzed file}` — keeps own-repo edges, drops external packages.
    - Caps at top-100 edges by frequency; labels each edge with the count.
-5. Final newline.
+7. Final newline.
 
 ## Phase 4 — Write
 

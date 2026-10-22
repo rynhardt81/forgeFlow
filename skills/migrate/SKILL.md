@@ -72,7 +72,7 @@ Then start Claude Code in the project and run `/migrate`.
 
 ## Rollback
 
-- **Full install:** `./claude_restore.sh` — or manually: `rm -rf .claude && mv .claude_old .claude`.
+- **Full install:** `./.claude_restore.sh` (Windows: `.\.claude_restore.ps1`) — or manually: `rm -rf .claude && mv .claude_old .claude`.
 - **Refresh:** restore from the snapshot at `.claude/backups/<timestamp>/`.
 - `/migrate`'s own merge steps only add or ask — preserved and merged content is never deleted from the backup until the user approves cleanup.
 

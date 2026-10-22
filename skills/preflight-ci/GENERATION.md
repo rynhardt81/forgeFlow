@@ -51,7 +51,7 @@ export FOO="bar"            # one per env: entry from workflow/job
 ...
 ```
 
-`uses:` steps are emitted as comments (`# Skipped step: actions/checkout@v4 (uses: ..., no local mirror)`) — scripted parity does not emulate composite actions. The opt-in `--with-act` tier runs `act` against the same job filter when full fidelity is needed.
+`uses:` steps are emitted as comments (`# Skipped step: actions/checkout@v4 (uses: ..., no local mirror)`) — scripted parity does not emulate composite actions.
 
 A `drift.lock` file is written alongside the scripts with SHA-256 of each workflow file. These files **are committed** to the project for diff-reviewability — when workflows change, the diff is visible.
 
@@ -150,7 +150,7 @@ it is never `|| true`, which would turn a real gate into a no-op.
 
 ## Gotchas
 
-- **`uses:` steps don't mirror locally.** Anything beyond `actions/checkout` (which is a no-op locally) is emitted as a skipped-step comment. If your CI relies on `uses:` for the actual work, scripted parity will under-cover; consider `--with-act` (when available).
+- **`uses:` steps don't mirror locally.** Anything beyond `actions/checkout` (which is a no-op locally) is emitted as a skipped-step comment. If your CI relies on `uses:` for the actual work, scripted parity will under-cover; CI remains the gate of record for those steps.
 - **YAML coerces `run: true`/`run: false` to booleans.** The parser normalizes these to lowercase strings when generating scripts; if your workflow does this intentionally as a no-op, the local mirror runs the same no-op.
 - **macOS vs Ubuntu runner.** `bash`, `coreutils`, locale, and `sed` differ. False greens are possible; treat preflight as "very likely green on CI", not "guaranteed green".
 - **First run requires `--regenerate` implicitly.** If `.forge/preflight/drift.lock` is absent, the skill writes scripts + lockfile then executes — no second invocation needed.

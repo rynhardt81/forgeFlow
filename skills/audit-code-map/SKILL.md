@@ -120,7 +120,7 @@ The map isn't a static artifact you generate and forget — it's wired into the 
 | **SessionStart hook** (`hooks/session/session-context.py`) | Calls `code_map.py --ensure-fresh` on every session start. Regenerates `docs/code-map.md` if it's missing or older than the youngest source file, then injects a ~150-token summary block (file count, LOC, language mix, modules, top-10 largest files) into session context. |
 | **Stale-on-load regen** (built into `--ensure-fresh`) | Compares map mtime to the youngest source file. If the map is behind, regenerates it before injecting. The map can never silently lie about the codebase. |
 | **Framework agents** (`@architect`, `@project-manager`, `@quality-engineer`, `@security-boss`, `@devops`) | Every framework agent's `## Project conventions I respect` block includes "read `docs/code-map.md` before X". The map is part of their working context the moment they're invoked. |
-| **Code-touching skills** (`/new-feature`, `/refactor`, `/fix-bug`) | Each skill has a "Step 0: Map the surface" that reads `docs/code-map.md` before classification or planning. Prevents proposals that duplicate existing capability. |
+| **Planning skills** (`/new-feature`, `/run-epic`) | Each has a "Step 0: Map the surface" that reads `docs/code-map.md` before classification or planning. Prevents proposals that duplicate existing capability. |
 | **`forge-code-map` MCP server** (`mcp-servers/code-map/`) | Optional. Reads `docs/code-map.json` and exposes 5 tools (`find_definition`, `find_references`, `dependents_of`, `list_symbols_in_file`, `language_stats`). Opt in by running `/audit-code-map --emit-json` once and registering the server in `.claude/settings.json` — see `mcp-servers/code-map/README.md`. |
 
 The result: agents and skills know what already exists before suggesting changes. No more "build feature X" recommendations when X mostly already lives at `src/lib/x.py`. No more "extract method Y" suggestions when Y already exists in a sibling module.
@@ -144,7 +144,6 @@ When a deeper read is needed, the model uses `Read docs/code-map.md` to pull the
 
 - Polyglot regex parsers can miss exotic syntax (computed class names, dynamically-named functions, decorators-as-classes). The Python AST path is exact.
 - The import graph collapses to first-path-segment nodes (`src/api/users.ts → src/api`); file-to-file edges would explode and become unreadable.
-- DRY hotspot detection (cross-file duplicate code blocks) is not yet implemented in v1 — listed as a future extension. For now, large-file LOC is the proxy.
 - C, C++, Java, Ruby, PHP, Swift, Kotlin, etc. — not yet supported. Files in these languages are silently skipped.
 
 ## Prerequisites

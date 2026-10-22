@@ -46,7 +46,7 @@ It runs entirely on the single harness model — **no `Task`/subagent fan-out**.
 /vet-idea "<idea>" --output PATH    # custom report path (default: memories/vet-idea-{slug}-{date}.md)
 ```
 
-**Manual-invoke only.** This skill never auto-fires. The Algorithm may *mention* it as available at OBSERVE for an idea of uncertain worth, but firing it is always the user's call — auto-running it on every task would tax the E1 fast path and turn routine work into debate.
+**User-driven, never automatic.** It runs when the user asks whether something is worth building (its description matches that phrasing) or types `/vet-idea`. The Algorithm may *mention* it as available at OBSERVE for an idea of uncertain worth, but never runs it on its own initiative — auto-running it on every task would tax the E1 fast path and turn routine work into debate.
 
 ---
 

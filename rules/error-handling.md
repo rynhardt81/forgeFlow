@@ -7,7 +7,7 @@ paths:
 
 > **Loaded when Claude reads a file matching `paths:` above** — with the Read tool only, not at session start and not through Bash `cat`/`sed`. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
 >
-> The always-present error-handling floor. Detection of swallowed errors is review-time and plugin-optional (`pr-review-toolkit:silent-failure-hunter` when installed); this rule is the standing floor that fires even on a bare clone with no plugins. Canonical home for error-handling discipline — `rules/coding-style.md` defers here.
+> The always-present error-handling floor. Detection of swallowed errors is review-time and plugin-optional (`pr-review-toolkit:silent-failure-hunter` when installed); this rule is the standing floor that fires even on a bare clone with no plugins. Canonical home for error-handling discipline.
 
 ## Core rules
 
@@ -34,7 +34,6 @@ The Algorithm's VERIFY phase already forbids claiming success without evidence (
 
 ## See also
 
-- `rules/coding-style.md` — defers here for the error-handling floor
 - `rules/testing.md` — error-path and edge-case coverage expectations
 - `skills/fix-bug/SKILL.md` — reproduce → root-cause → fix → verify; surfaces swallowed errors during diagnosis
 - `ALGORITHM/v1.2.0.md` — VERIFY phase forbidden-language doctrine ("no errors" without the log)
