@@ -158,6 +158,24 @@ detect_rsync_progress() {
     fi
 }
 
+# reference_template_excludes <target .claude dir>
+# Sets REF_TEMPLATE_EXCLUDES to one rsync --exclude per reference template whose
+# populated counterpart already exists in the target (reference/NN-name.md for
+# reference/NN-name.template.md). A consumer that filled in its Tier 2 docs and
+# deleted the templates must not get them back on every refresh; a fresh
+# install (no populated docs) still receives all of them.
+reference_template_excludes() {
+    REF_TEMPLATE_EXCLUDES=()
+    local tmpl base
+    for tmpl in "$FRAMEWORK_DIR"/reference/*.template.md; do
+        [ -e "$tmpl" ] || continue
+        base="$(basename "$tmpl" .template.md)"
+        if [ -f "$1/reference/$base.md" ]; then
+            REF_TEMPLATE_EXCLUDES+=("--exclude=reference/$base.template.md")
+        fi
+    done
+}
+
 # rsync_visual ...args (same args as plain rsync, minus -a which we add)
 # Tier 1 (rsync 3.1+): live --info=progress2 progress bar.
 # Tier 2 (legacy / openrsync): silent rsync wrapped in a spinner.
@@ -577,6 +595,7 @@ install_framework_refresh() {
     else
         warn "Skipping snapshot (--no-backup) — refresh is not reversible in place"
     fi
+    reference_template_excludes "$PROJECT_DIR/.claude"
     rsync_visual \
         --exclude='.git' \
         --exclude='.claude' \
@@ -605,6 +624,7 @@ install_framework_refresh() {
         --exclude='.forge' \
         --exclude='.superpowers' \
         --exclude='.vscode' \
+        ${REF_TEMPLATE_EXCLUDES[@]+"${REF_TEMPLATE_EXCLUDES[@]}"} \
         "$FRAMEWORK_DIR/" "$PROJECT_DIR/.claude/"
     seed_preflight_shim_if_missing "$PROJECT_DIR/.claude"
     seed_agents_md_if_missing "$PROJECT_DIR"
@@ -1589,6 +1609,7 @@ install_v3_framework_files() {
     #   - mcp-servers/<anything-else>/** is left alone (user-owned)
     # Add new framework-shipped servers as additional --include lines, NOT by
     # widening the exclude.
+    reference_template_excludes "$PROJECT_DIR/.claude"
     rsync_visual \
         --exclude='.git' \
         --exclude='.claude' \
@@ -1629,6 +1650,7 @@ install_v3_framework_files() {
         --include='mcp-servers/' \
         --include='mcp-servers/code-map/***' \
         --exclude='mcp-servers/*' \
+        ${REF_TEMPLATE_EXCLUDES[@]+"${REF_TEMPLATE_EXCLUDES[@]}"} \
         "$FRAMEWORK_DIR/" "$PROJECT_DIR/.claude/"
 
     # Doctrine: .claude/ is framework_root (CODE only — skills, agents, hooks,

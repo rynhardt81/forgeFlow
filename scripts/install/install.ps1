@@ -402,6 +402,17 @@ function Install-FrameworkRefresh {
     }
     New-Item -Path $target -ItemType Directory -Force | Out-Null
 
+    # Reference templates the consumer replaced with a populated NN-name.md and
+    # removed: don't bring them back (mirror of install.sh's
+    # reference_template_excludes). Recorded before the copy, removed after it.
+    $skipTemplates = @()
+    Get-ChildItem -Path (Join-Path $FrameworkDir "reference") -Filter "*.template.md" -ErrorAction SilentlyContinue | ForEach-Object {
+        $base = $_.Name -replace '\.template\.md$', ''
+        $populated = Join-Path $target (Join-Path "reference" "$base.md")
+        $existing = Join-Path $target (Join-Path "reference" $_.Name)
+        if ((Test-Path $populated) -and -not (Test-Path $existing)) { $skipTemplates += $_.Name }
+    }
+
     # Preserve: active sessions, progress notes, settings.json, backups, daily/
     $preserve = @(
         "memories\sessions\active",
@@ -452,6 +463,9 @@ function Install-FrameworkRefresh {
         } else {
             Copy-Item -Path $_.FullName -Destination $destItem -Recurse -Force
         }
+    }
+    foreach ($tmpl in $skipTemplates) {
+        Remove-Item -Path (Join-Path $target (Join-Path "reference" $tmpl)) -Force -ErrorAction SilentlyContinue
     }
     # Clean up stray dirs from prior installs
     Remove-Item -Path (Join-Path $target "daily") -Recurse -Force -ErrorAction SilentlyContinue

@@ -137,6 +137,11 @@ for f in "$FRAMEWORK_DIR"/reference/*.md; do
         if ! diff -q "$f" "$target" >/dev/null 2>&1; then
             warn "$fname exists but differs from framework source"
         fi
+    elif [ "${fname%.template.md}" != "$fname" ] && \
+         [ -f "$CLAUDE_DIR/reference/${fname%.template.md}.md" ]; then
+        # A populated NN-name.md replaces its NN-name.template.md; the consumer
+        # removing the template is expected, not drift (install.sh skips it too).
+        :
     else
         fail "$fname missing"
         ref_missing=$((ref_missing + 1))
