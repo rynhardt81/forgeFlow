@@ -1,6 +1,6 @@
 ---
 name: create-pr
-description: Creates pull requests with smart defaults. Infers target branch from branch name, adapts description detail to PR size, runs appropriate checks based on PR type (draft vs final), appends the configured review bot's mention (git config forge.reviewBot) when one is set, and offers a post-create review/merge-order loop for triaging review feedback across multiple open PRs. Use when shipping a branch as a PR, triaging review feedback on open PRs (`review`), or sequencing several ready PRs (`merge-order`).
+description: Creates pull requests behind pre-push gates — branch-inferred target, size-matched description, draft vs final checks, specialist + two-axis (standards / spec) review, the configured review bot's mention (git config forge.reviewBot) — then triages review feedback. Use when shipping a branch as a PR, triaging review feedback on open PRs (`review`), sequencing several ready PRs (`merge-order`), or reviewing a branch against its spec and standards without opening a PR (`review-since <ref>`).
 hooks:
   Stop:
     - hooks:
@@ -18,6 +18,7 @@ Opens a PR behind pre-push gates, then triages review feedback. Flow: Analyze �
 |-----------------|------------|
 | `TEMPLATES.md` | Step 4 — PR body templates, size thresholds, Pre-flight notes |
 | `GATES.md` | Review-bot setup; Step 3.7 plugin check + specialist table; Step 3.8 mechanics and rationale |
+| `TWO-AXIS.md` | Step 3.7 and `review-since` — Standards + Spec axes, smell baseline, dispatches, bucketing |
 | `REVIEW.md` | Steps 6–7 — fetch commands, Codex endpoints, security re-review, merge-order procedure |
 | `_shared/ci-failure-classifier.md` | Step 3.6 exits 3 — routing failures |
 | `_shared/task-triage.md` | Deferring a finding as a follow-up task |
@@ -44,7 +45,7 @@ Branch names (`git check-ref-format` permits `;`, `$(…)`, `&&`), commit topics
 
 ## Invocation
 
-`/create-pr` (final PR, full checks) · `--draft` (draft PR) · `--preflight` (adds Step 3.6) · `review [PR#]` (triage review feedback, Step 6) · `merge-order` (merge sequence, Step 7). `review` and `merge-order` do NOT create PRs.
+`/create-pr` (final PR, full checks) · `--draft` (draft PR) · `--preflight` (adds Step 3.6) · `review [PR#]` (triage review feedback, Step 6) · `merge-order` (merge sequence, Step 7) · `review-since <ref>` (two-axis review of the branch, TWO-AXIS.md). `review`, `merge-order` and `review-since` do NOT create PRs.
 
 ## Step 1: Analyze
 
@@ -54,7 +55,7 @@ Branch, commits since base, diff stats; PR type (`--draft`, or `wip`/`draft`/`po
 
 Infer target from branch name and **confirm with the user** before proceeding: `hotfix/*` → latest `release/*` if one exists, else `main`; everything else → `main`.
 
-Title `<type>: <description>`, type from the branch prefix (`hotfix/*` → `fix`; else infer from commits). Link issue refs from the branch name (`feature/123-…` → `#123`) and `fixes|closes|resolves #N` commits. Branch not on remote (`git ls-remote --heads origin "<branch>"`, quoted) → push with `-u`.
+Title `<type>: <description>` and issue links: TEMPLATES.md. Branch not on remote (`git ls-remote --heads origin "<branch>"`, quoted) → push with `-u`.
 
 ## Step 3: Run Checks
 
@@ -85,7 +86,7 @@ python3 .claude/scripts/preflight/preflight.py --project-root . --regenerate
 
 **CI remains the gate of record.** Check `pr-review-toolkit` is installed (GATES.md). Absent → cross-check first (a skip verdict earns *more* scrutiny): if `pr-review-toolkit:code-reviewer` is available, run it. Else emit `Specialist review skipped (pr-review-toolkit not installed)` and continue — **do not block**.
 
-Select specialists from the diff (table: GATES.md; `code-reviewer` always), fan out in one message. An `Intent:` line in the task body adds a compliance question — a diff that misses the intent's outcome or constraints is `MUST-FIX`. Buckets: `MUST-FIX` / `NICE-TO-HAVE` / `NO-ACTION`.
+Select specialists from the diff (table: GATES.md; `code-reviewer` always) and add the **Standards** and **Spec** axes (TWO-AXIS.md), all in one message. A missing or wrong requirement (task, intent, ISA) is `MUST-FIX`; a code smell never blocks alone. Buckets: `MUST-FIX` / `NICE-TO-HAVE` / `NO-ACTION`.
 
 **Push gate:** unresolved MUST-FIX blocks PR creation. Fix (re-run checks + 3.7), defer (`forge task add` after applying `_shared/task-triage.md` — default `--epic E99`; schema/auth/money/security never deferred), or `--proceed-anyway` (reason in Pre-flight notes). NICE-TO-HAVE → Pre-flight notes, no gate.
 
@@ -122,8 +123,8 @@ Size-matched template from TEMPLATES.md; see Output rules.
 2. **Triage:** **MUST-FIX** (bug, security, broken test, regression) / **NICE-TO-HAVE** (style, small refactor) / **NO-ACTION**.
 3. **Each MUST-FIX:** `gh pr checkout <N>` → fix → Step 3 checks → **re-run Step 3.7 on the fix diff** (skip only for a pure revert/typo) → commit `fix(review): address review feedback on <topic> (PR #<N>)` → push. **Same PR — never close-and-recreate.** Comment via `gh pr comment <N> --body-file <file>` (`Addressed in <sha>:` per finding, then the bot line); **never `--body "…"`**. Security finding → `security-boss` re-review first (REVIEW.md).
 4. **NICE-TO-HAVE:** apply if cheap, else defer and note it in a PR comment.
-5. **Status report (always emit, one line per PR, no prose):** `PR #<N> <title> — review:<status> ci:<status> | MUST:<n> NICE:<n> NO:<n> | <verdict>`. Verdicts: `safe-to-merge` / `re-review-pending` / `blocked`.
-6. **Wait condition:** bot silent after ~2 min → suggest a `/loop` or scheduled wakeup (REVIEW.md). No bot → no waiting.
+5. **Status report:** always emit, one line per PR, no prose; verdict `safe-to-merge` / `re-review-pending` / `blocked` (format: REVIEW.md).
+6. **Wait condition:** bot silent → suggest a `/loop` or wakeup (REVIEW.md). No bot → no waiting.
 
 ## Step 7: Multi-PR Merge Order (`/create-pr merge-order`)
 

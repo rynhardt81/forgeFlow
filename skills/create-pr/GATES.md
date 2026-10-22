@@ -5,7 +5,7 @@ Commands, rationale and details behind the review-bot config and the Step 3.7 / 
 ## Contents
 
 - Review bot configuration
-- Step 3.7: Specialist review — plugin presence check, agent selection, intent compliance, fan-out
+- Step 3.7: Specialist review — plugin presence check, agent selection, intent compliance (now the Spec axis), fan-out
 - Step 3.8: Local review-bot gate — rationale, prompt-argument quirk, AGENTS.md, resolve-then-invoke, quoting, background execution, triage, round cap, what it does not change, feedback signal
 
 ---
@@ -46,7 +46,7 @@ Matches the plugin by its name-portion regardless of `@marketplace` suffix — t
 | Comments/docstrings touched | `comment-analyzer` |
 | Final pass after MUST-FIX cleared (on request) | `code-simplifier` |
 
-**Intent compliance:** if the task body for this branch carries an `Intent: intent/<slug>.md` line, read the file and hand `code-reviewer` a third question alongside bugs and style: does the diff deliver the intent's **Proposed outcome** and respect its **Constraints**? A diff that is correct but does not do what was asked is `MUST-FIX`. No intent line → no compliance pass; do not invent one.
+**Intent compliance** is the Spec axis's job (SKILL.md Step 3.7): the intent's **Proposed outcome** and **Constraints** are part of the spec it reviews against, alongside the task body and ISA. A diff that is correct but does not do what was asked is `MUST-FIX`. `code-reviewer` keeps bugs and style.
 
 **Fan-out:** single message, multiple Task tool uses — one per matched agent. Each gets the diff + changed-file list and returns findings as `MUST-FIX` (bug, security, broken test, regression) / `NICE-TO-HAVE` (style, naming, small refactor) / `NO-ACTION`. Aggregate into a compact per-agent count table + MUST-FIX detail lines.
 

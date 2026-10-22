@@ -2,11 +2,16 @@
 
 ## Contents
 
+- Title and issue links
 - Size Detection
 - Small / Medium / Large PR Template
 - Draft Prefix
 - Pre-flight notes
 - Content Generation Rules
+
+## Title and issue links
+
+Title `<type>: <description>`, type from the branch prefix (`hotfix/*` → `fix`; else infer from commits). Link issue refs from the branch name (`feature/123-…` → `#123`) and `fixes|closes|resolves #N` commits.
 
 ## Size Detection
 

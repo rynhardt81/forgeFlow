@@ -103,7 +103,8 @@
         "--proceed-anyway",
         "review",
         "review <PR#>",
-        "merge-order"
+        "merge-order",
+        "review-since <ref>"
       ],
       "prerequisites": [
         "session-active",
