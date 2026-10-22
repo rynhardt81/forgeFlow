@@ -53,6 +53,7 @@ Each skill's own one-line purpose is already in the session's skill listing, so 
 |---------------|-----|
 | A change someone else must accept, or that will wait before pickup, or whose scope is unknown | `/intent "<problem>"` → owner sets `accepted` → `/intent promote` |
 | Big or uncertain enough that *whether* is the question | `/vet-idea` before acceptance |
+| A plan or design that needs sharpening before anyone builds it | `/grilling` (`--docs` when a project is present) |
 | Ready tasks in an epic | `/run-epic E0X` (routes each task to fix-bug / new-feature / refactor) |
 | Small, clear change with the engineer at the terminal | `/new-feature`, `/fix-bug`, or `/refactor` directly — an intent here is ceremony |
 | Bug with a reproduction, found in development | `/fix-bug` |

@@ -36,6 +36,7 @@ One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter
 | Skill | Purpose |
 |-------|---------|
 | `/vet-idea` | GO / NO-GO / RECONSIDER council verdict BEFORE building |
+| `/grilling` | Relentless design-tree interview in rounds, recommended answer per question (`--docs` also maintains the glossary + ADRs) |
 | ISA (skill) | Ideal-state criteria + verification trail (Scaffold, CheckCompleteness, Interview) |
 | `/security-review` | Business-logic security pass (IDOR, race, state bypass) + secrets scan |
 | `/audit-rules` | Advisory audit of CLAUDE.md + rules for staleness/contradiction |

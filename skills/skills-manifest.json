@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.2.0",
-  "lastUpdated": "2026-10-02",
+  "lastUpdated": "2026-10-22",
   "description": "Registry of all Claude Forge skills with metadata for discovery and routing. Optional 'paths' field (glob patterns) scopes a skill to relevant directories so loaders/UIs can surface it only when working there — see Anthropic's large-codebase post on path-scoped skills. Skill descriptions live only in each SKILL.md's frontmatter (the text that triggers the skill); this file holds routing metadata.",
   "skills": [
     {
@@ -584,6 +584,18 @@
       "creates": [
         "vet-idea-report"
       ]
+    },
+    {
+      "name": "grilling",
+      "command": "/grilling",
+      "path": "skills/grilling/SKILL.md",
+      "category": "quality",
+      "agents": [],
+      "flags": [
+        "--docs"
+      ],
+      "prerequisites": [],
+      "creates": []
     }
   ],
   "categories": {
@@ -649,7 +661,8 @@
         "audit-rules",
         "vet-idea",
         "audit-code-map",
-        "audit-task-status"
+        "audit-task-status",
+        "grilling"
       ]
     },
     "automation": {
@@ -716,7 +729,11 @@
       "incident": "triage-incident",
       "production is down": "triage-incident",
       "crash spike": "triage-incident",
-      "sentry alert": "triage-incident"
+      "sentry alert": "triage-incident",
+      "grill me": "grilling",
+      "grill with docs": "grilling",
+      "stress-test my plan": "grilling",
+      "grilling": "grilling"
     }
   }
 }
