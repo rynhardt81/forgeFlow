@@ -8,7 +8,8 @@ consumer with project-specific guidance for it goes back to editing the
 framework file — which refresh then eats. That is the exact failure this
 convention exists to stop.
 
-See `rules/framework-vs-project-root.md` for the doctrine and precedence rule.
+See `rules/framework-vs-project-root.md` for the rule and `reference/framework-roots.md`
+for the full doctrine and precedence detail.
 """
 
 from __future__ import annotations
