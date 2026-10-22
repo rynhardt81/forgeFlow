@@ -643,6 +643,18 @@
       "creates": [
         "throwaway prototype (prototype/<name> branch)"
       ]
+    },
+    {
+      "name": "wizard",
+      "command": "/wizard",
+      "path": "skills/wizard/SKILL.md",
+      "category": "automation",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "interactive setup wizard script"
+      ]
     }
   ],
   "categories": {
@@ -718,7 +730,8 @@
     "automation": {
       "description": "Automated development workflows",
       "skills": [
-        "run-epic"
+        "run-epic",
+        "wizard"
       ]
     },
     "design": {
@@ -798,7 +811,10 @@
       "improve architecture": "improve-codebase-architecture",
       "prototype": "prototype",
       "try a few ui variants": "prototype",
-      "does this state model feel right": "prototype"
+      "does this state model feel right": "prototype",
+      "setup wizard": "wizard",
+      "walk me through setting up": "wizard",
+      "provision credentials": "wizard"
     }
   }
 }

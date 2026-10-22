@@ -61,6 +61,12 @@ One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter
 | `/prototype` | Throwaway code that answers one design question — logic demo (one HTML file) or UI variants (`?variant=` + switcher) |
 | `/frontend-design` | Design direction (defers to native plugin when present) |
 
+## Human-only steps
+
+| Skill | Purpose |
+|-------|---------|
+| `/wizard` | Generate a bash walkthrough for steps only a human can do (dashboards, DNS, secrets, cutovers) |
+
 ## Security hardening
 
 | Skill | Purpose |
