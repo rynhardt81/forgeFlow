@@ -344,6 +344,25 @@ def registry_write_lock(registry_path: Path, *, timeout: float = 5.0) -> Iterato
         os.close(fd)
 
 
+@contextmanager
+def registry_transaction(registry_path: Path, *, recompute: bool = True) -> Iterator[dict[str, Any]]:
+    """Lock, load and yield the registry; on a clean exit recompute stats and save.
+
+    Everything happens under `registry_write_lock`. An exception inside the
+    block skips the save, so a refused mutation leaves the registry untouched.
+    Task-file mirroring belongs inside the block: it then runs under the same
+    lock, just before the save. A crash between the two leaves the file ahead
+    of the registry, which the consistency checker repairs (registry wins).
+    `recompute=False` keeps stats as they are, for ops that don't touch status.
+    """
+    with registry_write_lock(registry_path):
+        registry = load_registry(registry_path)
+        yield registry
+        if recompute:
+            recompute_stats(registry)
+        save_registry(registry_path, registry)
+
+
 # --- Task lookup -----------------------------------------------------------
 
 
@@ -495,8 +514,7 @@ def add_task(
     imports that create the epic afterward). Create the epic first with
     `add_epic()` / `forge epic add`.
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         try:
             find_task(registry, task_id)
             raise TaskAlreadyExists(f"Task {task_id} already in registry")
@@ -545,8 +563,6 @@ def add_task(
         if epic is not None:  # None only when allow_missing_epic=True
             epic.setdefault("tasks", []).append(task_id)
 
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
     return task
 
 
@@ -585,8 +601,7 @@ def add_epic(
             else DEFAULT_EPIC_PRIORITY
         )
 
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         if find_epic(registry, epic_id) is not None:
             raise EpicAlreadyExists(f"Epic {epic_id} already in registry")
 
@@ -602,8 +617,6 @@ def add_epic(
             "createdAt": utcnow(),
         }
         registry.setdefault("epics", []).append(epic)
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
     return epic
 
 
@@ -862,8 +875,7 @@ def lock_task(
     An in_progress task that still holds a lock is refused: another session
     owns it. Anything else raises IllegalTransition.
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         task = find_task(registry, task_id)
         current = task.get("status", "pending")
         resumable = current == "in_progress" and not task.get("lock")
@@ -881,8 +893,6 @@ def lock_task(
             "session": session_id,
             "lockedAt": now or utcnow(),
         }
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
         task_file.set_field(task_file.find(project_root, task), "status", "in_progress")
     return task
 
@@ -901,8 +911,7 @@ def unlock_task(
     or `to_status="in_progress"` to clear lock without changing status
     (rare; the checker's stale-lock fix clears locks in reconcile() instead).
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         task = find_task(registry, task_id)
         current = task.get("status", "pending")
         if current != "in_progress":
@@ -917,8 +926,6 @@ def unlock_task(
         task["lock"] = None
         if task["status"] != to_status:
             task["status"] = to_status
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
         task_file.set_field(task_file.find(project_root, task), "status", task["status"])
     return task
 
@@ -936,8 +943,7 @@ def complete_task(
     clears any lock, then scans dependents and flips eligible ones from
     pending to ready.
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         task = find_task(registry, task_id)
         current = task.get("status", "pending")
         if current not in {"in_progress", "pr_pending"}:
@@ -952,8 +958,6 @@ def complete_task(
 
         unblocked = _flip_unblocked_pending(registry, project_root)
 
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
         task_file.set_field(task_file.find(project_root, task), "status", "completed")
     return task, unblocked
 
@@ -971,8 +975,7 @@ def pr_task(
     (the work has moved out of any specific session into review). Scans
     dependents and unblocks them since pr_pending counts as done-for-deps.
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         task = find_task(registry, task_id)
         current = task.get("status", "pending")
         if current != "in_progress":
@@ -987,8 +990,6 @@ def pr_task(
 
         unblocked = _flip_unblocked_pending(registry, project_root)
 
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
         task_file.set_field(task_file.find(project_root, task), "status", "pr_pending")
     return task, unblocked
 
@@ -1016,8 +1017,7 @@ def set_epic_status(
             f"set_epic_status: invalid status {new_status!r}; "
             f"expected one of {sorted(EPIC_SETTABLE_STATUSES)}"
         )
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         epic = find_epic(registry, epic_id)
         if epic is None:
             raise EpicNotFound(f"Epic {epic_id} is not in the registry")
@@ -1026,8 +1026,6 @@ def set_epic_status(
                 f"Epic {epic_id} is completed; completed is terminal."
             )
         epic["status"] = new_status
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
     return epic
 
 
@@ -1046,13 +1044,11 @@ def set_epic_priority(
         raise ValueError(
             f"set_epic_priority: priority must be an int >= 1, got {priority!r}"
         )
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path, recompute=False) as registry:
         epic = find_epic(registry, epic_id)
         if epic is None:
             raise EpicNotFound(f"Epic {epic_id} is not in the registry")
         epic["priority"] = priority
-        save_registry(registry_path, registry)
     return epic
 
 
@@ -1131,11 +1127,9 @@ def rename_task(
     if not new_name or not new_name.strip():
         raise ValueError("rename_task: new_name must be a non-empty string")
     new_name = new_name.strip()
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path, recompute=False) as registry:
         task = find_task(registry, task_id)
         task["name"] = new_name
-        save_registry(registry_path, registry)
         task_file.set_field(task_file.find(project_root, task), "name", new_name)
     return task
 
@@ -1267,8 +1261,7 @@ def set_task_deps(
     Refuses: a locked task, a terminal task, an unknown dependency id, and any
     edge that would close a cycle.
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         task = find_task(registry, task_id)
 
         if task.get("lock"):
@@ -1308,8 +1301,6 @@ def set_task_deps(
         elif task.get("status") == "pending" and not unmet:
             task["status"] = "ready"
 
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
         task_file.set_field(task_file.find(project_root, task), "status", task["status"])
     return task
 
@@ -1327,11 +1318,9 @@ def set_task_isa(
     registry without a disk walk; `task_has_isa` still falls back to disk
     for ISAs attached out-of-band.
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path, recompute=False) as registry:
         task = find_task(registry, task_id)
         task["isa"] = isa_rel_path
-        save_registry(registry_path, registry)
     return task
 
 
@@ -1364,8 +1353,7 @@ def set_preflight(
         raise ValueError(
             f"set_preflight: invalid mode {mode!r} (expected auto|required|skip)"
         )
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path, recompute=False) as registry:
         task = find_task(registry, task_id)
         if mode == "required":
             task["preflight_required"] = True
@@ -1376,7 +1364,6 @@ def set_preflight(
             task["preflight_required"] = detect_preflight_required(
                 scope.get("directories"), scope.get("files")
             )
-        save_registry(registry_path, registry)
     return task
 
 
@@ -1411,8 +1398,7 @@ def set_scope(
     def _split(raw: str | None) -> list[str] | None:
         return None if raw is None else [p.strip() for p in raw.split(",") if p.strip()]
 
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path, recompute=False) as registry:
         task = find_task(registry, task_id)
         scope = dict(task.get("scope") or {})
         new_dirs, new_files = _split(directories), _split(files)
@@ -1426,8 +1412,7 @@ def set_scope(
         task["preflight_required"] = detect_preflight_required(
             scope.get("directories"), scope.get("files")
         )
-        save_registry(registry_path, registry)
-        # Best-effort: the registry is already saved; a bad body file must not undo it.
+        # Best-effort: a bad body file never raises, so it cannot block the save.
         task_file.set_scope(task_file.find(project_root, task), scope)
     return task
 
@@ -1470,13 +1455,11 @@ def set_task_file(
             f"set_task_file: target file does not exist: {project_root / rel}"
         )
 
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path, recompute=False) as registry:
         task = find_task(registry, task_id)
         task["file"] = rel
         if "path" in task:
             del task["path"]
-        save_registry(registry_path, registry)
     return task
 
 
@@ -1545,8 +1528,7 @@ def transition_task(
     Does NOT scan dependents; that's a higher-level concern handled by
     complete_task and pr_task.
     """
-    with registry_write_lock(registry_path):
-        registry = load_registry(registry_path)
+    with registry_transaction(registry_path) as registry:
         task = find_task(registry, task_id)
         current = task.get("status", "pending")
         legal = LEGAL_TRANSITIONS.get(current, frozenset())
@@ -1556,8 +1538,6 @@ def transition_task(
                 f"Legal next states from {current}: {sorted(legal) or 'none (terminal)'}"
             )
         task["status"] = new_status
-        recompute_stats(registry)
-        save_registry(registry_path, registry)
         task_file.set_field(task_file.find(project_root, task), "status", new_status)
     return task
 
