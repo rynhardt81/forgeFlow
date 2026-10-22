@@ -1,0 +1,12 @@
+{
+  "name": "forge-flow",
+  "owner": { "name": "Forge Flow" },
+  "description": "Mods shipped with the Forge Flow framework, vendored under .claude/mods/",
+  "plugins": [
+    {
+      "name": "forge-band",
+      "source": "./forge-band",
+      "description": "Forge Flow band above the prompt"
+    }
+  ]
+}
