@@ -1,10 +1,14 @@
 # PR Description Templates
 
+> The Summary / Evidence / Merge Danger shape is adapted from mattpocock/skills `pr` (MIT), itself credited to HumanLayer's `show-me` skill (MIT) — see `THIRD-PARTY-NOTICES.md`.
+
 ## Contents
 
 - Title and issue links
 - Size Detection
 - Small / Medium / Large PR Template
+- Summary visuals
+- Evidence and Merge Danger
 - Draft Prefix
 - Pre-flight notes
 - Content Generation Rules
@@ -34,6 +38,8 @@ If files and lines suggest different sizes, use the larger size.
 ```markdown
 [One sentence describing the change — title line covers the rest.]
 
+**Door:** [one-way | two-way] · **Blast radius:** [one word]
+
 [review-bot line — only if forge.reviewBot is set]
 
 ---
@@ -46,10 +52,17 @@ If files and lines suggest different sizes, use the larger size.
 
 ```markdown
 ## Summary
-[What changed and why, for a reviewer who has not read the diff. No restating the diff.]
+[The smallest visual that makes the key point clear (see Summary visuals), plus one line on why. No restating the diff.]
 
 ## Changes
 - [One bullet per reviewable change, each a single short line — a reviewer scans this list before opening the diff]
+
+## Evidence
+- **Before:** [screenshot / output / failing test run]
+  **After:** [screenshot / output / passing test run]
+
+## Merge Danger
+**Door:** [one-way | two-way] · **Blast Radius:** [one word]
 
 [Optional — include ONLY if non-empty: ## Related Issues with closes #N lines]
 
@@ -65,14 +78,24 @@ If files and lines suggest different sizes, use the larger size.
 
 ```markdown
 ## Summary
-[Purpose and scope, for a reviewer deciding where to look first. No prose padding.]
+[The smallest visual (or two) that shows purpose and scope, for a reviewer deciding where to look first — see Summary visuals. No prose padding.]
 
 ## Changes
 - [One bullet per reviewable change, each a single short line. Group under `### Category` headers when a category holds several bullets.]
 
-## Test Plan
-- [ ] [Concrete verification step]
-- [ ] [Concrete verification step]
+## Evidence
+- **Before:** [screenshot / output / failing test run]
+  **After:** [screenshot / output / passing test run]
+- [Repeat per significant change. Anything not yet verified is a `- [ ]` step a reviewer can run.]
+
+## Merge Danger
+**Door:** [one-way | two-way]
+
+[optional: why — destructive actions, data or schema changes, hard-to-reverse decisions]
+
+**Blast Radius:** [one-word description]
+
+[optional: potential ramifications of merge]
 
 [Optional — include ONLY if non-empty: ## Related Issues]
 [Optional — include ONLY if breaking change, migration required, or specific risk area: ## Notes for Reviewers — only what a reviewer must know before approving]
@@ -82,6 +105,77 @@ If files and lines suggest different sizes, use the larger size.
 ---
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
+
+---
+
+## Summary visuals
+
+Pick the smallest view that makes the key point clear. Skip preambles and keep prose brief; name things in the project's glossary terms (`GLOSSARY.md`).
+
+- Logic or an algorithm → pseudocode:
+
+```text
+on(save)
+  if content is unchanged
+    return cached result
+  write new content
+  return fresh result
+```
+
+- Runtime control flow → a call tree:
+
+```text
+submitForm
+  createSession
+    persistPrompt
+    launchAgent
+  navigateToSession
+```
+
+- UI structure → a component tree, including state and module boundaries that matter:
+
+```text
+<SessionPage> (apps/example/src/routes/session.tsx)
+  useSessionEvents()
+  <SessionToolbar>
+    <RunSkillButton> (packages/ui)
+```
+
+- File responsibility or a broad refactor → a shallow file tree:
+
+```text
+src/
+├── commands/       # parses user actions
+├── sessions/       # owns session state
+└── transport/      # sends API requests
+```
+
+- Component interaction, control flow, or data flow → Mermaid (a `sequenceDiagram` or `flowchart`).
+
+- What changes, when the surrounding shape already exists → a `diff`, shaped to the topic (component tree, file layout, call tree, or state/control flow):
+
+```diff
+ submitForm
+   createSession
+     persistPrompt
++    expandSkillMention
+     launchAgent
+-  navigateToSession
++  navigateToSession
++    subscribeToEvents
+```
+
+- The whole block, when most of it is new, when omitted context would hide ownership or order, or when the reader needs a copyable target shape.
+
+Place each visual next to the short text it supports. Keep only the calls, files, props, states, and boundaries needed to make the point. You may use one of these, you may use several; it is unlikely you will use all of them. Don't overwhelm the reader.
+
+---
+
+## Evidence and Merge Danger
+
+**Evidence** is concrete proof the change works: a before and an after. Screenshots are S-tier — when the environment is set up for it and the change is visual. Execution-based evidence is A-tier: test results, console output. Show the exact test that now fails-then-passes, using pseudocode where the full test is noise.
+
+**Merge Danger** says whether the PR is a one-way or two-way door. You can walk back through two-way doors, but not one-way doors. A PR that is cheap to roll back is lower risk. Changes that involve destructive actions or hard-to-reverse decisions — schema migrations, data deletion, published releases, external sends — are one-way doors. The **blast radius** is the potential impact or scope of the change: consider all possibilities — layout shift, breakages for consumers, mobile responsiveness, CI, other projects that vendor this one.
 
 ---
 
@@ -104,9 +198,11 @@ When `/create-pr` Step 3.7 surfaces NICE-TO-HAVE findings (or a `--proceed-anywa
 ```markdown
 ## Pre-flight notes
 
-Specialist review (pr-review-toolkit):
+Specialist review (pr-review-toolkit) and the two axes:
 - [code-reviewer] `path/to/file.ts:42` — naming inconsistency, deferred (low risk)
 - [pr-test-analyzer] `tests/auth.test.ts:18` — edge case missing, follow-up T### opened
+- [standards] `src/pricing.ts:88` — possible Feature Envy (judgement call), deferred
+- [spec] scope creep: retry wrapper not asked for by T###, kept (two-way door)
 
 <!-- include this block ONLY if --proceed-anyway was used -->
 **Override:** MUST-FIX bypassed via `--proceed-anyway`. Reason: <user-supplied reason>.
@@ -124,7 +220,9 @@ If Step 3.7 found nothing actionable (all `NO-ACTION`), omit the section entirel
 - Feature/component affected
 - Type of change (add, modify, remove)
 
-**Test plan:** For each significant change, describe how to verify it works.
+**Evidence:** For each significant change, the before/after that proves it works; anything unverified becomes a checklist step.
+
+**Merge Danger:** Every Medium/Large PR states its door and blast radius; Small PRs carry the one-line version.
 
 **Related issues:** Extract from branch name and commit messages.
 
