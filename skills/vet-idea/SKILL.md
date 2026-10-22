@@ -27,7 +27,7 @@ This is the **WHETHER** gate. It is deliberately distinct from two things it is 
 - **NOT the ISA Interview** (the `/ISA` skill's Interview workflow) — that resolves *how* to shape the work (design-decision dependencies). `/vet-idea` asks *whether* to do the work at all.
 - **NOT Algorithm THINK premortem** (`ALGORITHM/v1.2.0.md` PREMORTEM) — that enumerates failure modes the work must withstand *after* the decision to build is made. `/vet-idea` runs before that decision.
 
-It runs entirely on the single harness model — **no `Task`/subagent fan-out**. A bare clone of the framework has no multi-agent swarm (that is a PAI-layer capability, absent here), so this skill must self-contain all role prompts and run sequentially in one transcript. Never instruct it to call `RedTeam`, `FirstPrinciples`, `Council`, or any capability that is not a file in this repo.
+It runs entirely on the single harness model — **no `Task`/subagent fan-out**. A bare clone of the framework has no multi-agent swarm (that is a PAI-layer capability, absent here), so this skill self-contains all role prompts and runs sequentially in one transcript; everything it calls is a file in this repo.
 
 ## When to use
 
@@ -110,7 +110,7 @@ Write the full council report to `memories/vet-idea-{slug}-{date}.md` (or `--out
 
 ## Anti-criteria for this skill
 
-- **Anti:** Does NOT call `RedTeam`, `FirstPrinciples`, `Council`, or any non-repo capability — it self-contains all role prompts and runs single-model so it works on a bare clone.
+- **Anti:** Does NOT call any capability outside this repo — it self-contains all role prompts and runs single-model so it works on a bare clone.
 - **Anti:** Does NOT auto-fire — manual-invoke only; the Algorithm may mention it but never runs it unprompted.
 - **Anti:** Does NOT mutate task state, the registry, or governance files — advisory only, like `/audit-rules`.
 - **Anti:** Does NOT emit a design plan or a premortem — it emits a WHETHER verdict and stops.

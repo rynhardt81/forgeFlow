@@ -38,7 +38,7 @@ paths:
 
 - **DO** cut releases from a green local gate (`/preflight-ci`) when CI is unavailable — the gate of record is whichever actually ran.
 - **DO** write the changelog entry from the user's perspective (what changed for them), not the diff's.
+- **DO** release significant changes only when the post-release health-signal window fits inside your remaining working time.
 - **DO** verify the release artifact itself once live (install from the store track / hit the deployed URL) — "the pipeline succeeded" is not "users have it".
 - **DON'T** ship schema changes and their dependent app changes as one atomic all-or-nothing release — expand/contract across releases (`rules/migrations.md`).
-- **DON'T** release significant changes at the end of your working window with no time to watch the health signal.
 - **DON'T** bump version numbers by hand when the `/release` skill derives them — one source of truth.

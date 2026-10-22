@@ -105,12 +105,12 @@ in Tier-2, not here.
 | **Global invariants & anti-patterns** | Verifiable hard rules: "never bypass `getOrCreateX`", "all auth errors route through Y", "parameterize all SQL". | 0–5 lines |
 | **See also** | Pointer line(s): `- Full intent & architecture: .claude/reference/01-system-overview.md` and `- CHEATSHEET.md` for command/agent tables. | 1–2 lines |
 
-### 2.3 DO NOT
+### 2.3 Boundaries
 
-- Do NOT create `## PROJECT OVERVIEW` or any heading outside the skeleton.
-- Do NOT duplicate full intent prose that belongs in `reference/01-system-overview.md` — summarize + point.
-- Do NOT add verbose examples, full routing tables, detailed workflows, or code snippets (those go in CHEATSHEET.md).
-- Do NOT overwrite a section the user has already filled with real content unless they ask — only replace remaining `<!-- ... -->` placeholders by default.
+- Write only under the six skeleton headers above.
+- Summarize intent in a line and point to `reference/01-system-overview.md` for the full prose.
+- Examples, routing tables, workflows and code snippets go in CHEATSHEET.md.
+- Replace only the remaining `<!-- ... -->` placeholders; a section the user already filled with real content stays as written unless they ask.
 
 ### 2.4 Link to references (the See also line)
 
@@ -136,15 +136,13 @@ Move any detailed content to CHEATSHEET.md:
 
 If not `--quick`:
 
-```
-Self-perform (this skill is the documentation audit). Focus:
+Audit, in this skill (no delegation), whether each source agrees with the code as it is now:
 
-1. Framework files in `.claude/reference/` (NOT docs/)
-2. Task registry at `docs/tasks/registry.json`
+1. The populated docs in `.claude/reference/` (architecture and development docs live there, not in `docs/`)
+2. The task registry (`forge task ls` — statuses match what the code shows is done)
 3. Project memory at `docs/project-memory/`
 
-Note: Architecture and development docs are in `.claude/reference/`, not `docs/`.
-```
+Done when every reference doc either agrees with the code or its mismatch is listed in the Phase 5 summary with the file and the line that is wrong.
 
 ---
 

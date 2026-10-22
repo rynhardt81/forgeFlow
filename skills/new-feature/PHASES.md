@@ -155,11 +155,9 @@ Use the Task tool:
 - `@quality-engineer` — primary reviewer; significant refactor concerns go to the `/refactor` skill
 
 **Actions:**
-1. Invoke `@quality-engineer` to review all changes made
-2. Check for security issues, edge cases, code quality
-3. If significant refactor opportunities surface, invoke the `/refactor` skill (risk-scaled refactor process)
-4. Address any findings
-5. Document review outcome
+1. Invoke `@quality-engineer` to review all changes made — security issues, edge cases, code quality
+2. If significant refactor opportunities surface, invoke the `/refactor` skill (risk-scaled refactor process)
+3. Done when every MUST-FIX finding is fixed or filed as a task (`_shared/task-triage.md` rules), and the outcome — findings, what was fixed, what was filed — is recorded in the ISA `## Verification` section (or the task body below E3)
 
 **Wiring (review):**
 

@@ -66,7 +66,7 @@ Then start Claude Code in the project and run `/migrate`.
 - **Unknown files** — show a preview; user picks keep (in `.claude/custom/`) / discard / show full content.
 - **Merge conflicts** — same file, materially different content on both sides; show both versions; user picks mine / framework / combined / manual edit.
 
-**3. Brownfield analysis** (skipped with `--skip-analysis`). For gaps only — existing docs are respected, never regenerated: no PRD → run `/new-project --current` requirements discovery from the codebase; no ADRs → architecture analysis; no task registry → build one from the PRD or codebase. If project state is unclear (what's done vs planned), ask rather than infer.
+**3. Brownfield analysis** (skipped with `--skip-analysis`). For gaps only — existing docs are respected, never regenerated: no PRD → run `/new-project --current` requirements discovery from the codebase; no ADRs → draft one `reference/06` entry, status Proposed, for each architectural choice the codebase already embodies that passes 06's three-condition test, for the user to accept; no task registry → build one from the PRD or codebase. If project state is unclear (what's done vs planned), ask rather than infer.
 
 **4. Verify + cleanup.** Confirm the framework is operational (CLAUDE.md readable, skills present, `forge task ls` runs), write `migration-report.md` (what was preserved / merged / replaced, post-migration checklist), then **⛔ decision point:** keep `.claude_old/` for now (recommended for the first week), delete it, or archive to a tarball.
 

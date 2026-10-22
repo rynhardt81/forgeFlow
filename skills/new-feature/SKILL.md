@@ -10,6 +10,7 @@ description: Orchestrates full feature development workflow from discovery throu
 | File or section | Read when… |
 |---|---|
 | `PHASES.md` | Step 2 — before each phase: its instructions and the concrete `Task(subagent_type=…)` blocks at each invocation point (Discovery, Design, Planning, Implementation, Verification, Review, Doc Update, Commit) |
+| `_shared/task-triage.md` | Review phase — filing a finding instead of fixing it |
 | Step 0 · Step 1 · Step 3 · Step 4 · Key Rules (below) | Every run — surface map, scope, checkpoints, PR hand-off |
 | `_shared/domain-docs.md` | Discovery — read the glossary + ADRs in the area; name things in the glossary's terms, flag ADR conflicts |
 
