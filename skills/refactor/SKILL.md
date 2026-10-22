@@ -14,6 +14,7 @@ Refactoring changes structure, never behavior. If the work requires new behavior
 | File or section | Read when… |
 |---|---|
 | 1. Classify by risk | Always first — Low/Medium/High decides the process and the scope doc |
+| `_shared/domain-docs.md` | Before naming new modules — use the glossary's terms; flag ADR conflicts |
 | 2. Establish the baseline | Before touching code — green suite, coverage, benchmarks |
 | 3. Refactor | Making changes; out-of-scope temptations; structural moves |
 | 4. Verify behavior preserved | After changes; Python structural splits **run** `Tools/check_undefined_names.py` |

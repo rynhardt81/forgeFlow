@@ -22,6 +22,7 @@ This document defines the **governance rules** for all documentation in this rep
 |------|-----------|------|
 | **Tier 1 — Governance** | `00-documentation-governance.md` (this document) | Rules for how docs work; highest authority |
 | **Tier 2 — Master Source-of-Truth** | `01-system-overview.md`, `02-architecture-and-tech-stack.md`, `03-security-auth-and-access.md`, `04-development-standards-and-structure.md`, `05-operational-and-lifecycle.md`, `06-architecture-decisions.md`, `07-non-functional-requirements.md`, `08-security-model.md`, `09-autonomous-development.md` | Define the authoritative truth of the system |
+| **Tier 2 — Domain Glossary** | `GLOSSARY.md` at the project root (or a root `GLOSSARY-MAP.md` pointing at one `GLOSSARY.md` per context) | The project's agreed domain language; see §3.1 |
 | **Tier 3 — Processed Supporting** | `docs/processed/` | Evidence and background; read-only; must be explicitly referenced by master documents |
 | **Tier 4 — Execution & Raw** | `CLAUDE.md`, `.claude/*`, inline comments, notes, drafts | Guide execution; do **not** define truth |
 
@@ -38,6 +39,12 @@ All master documents (01–09) must:
 * Remain concise and stable
 
 Master documents are living documents, but changes must be intentional, traceable, and consistent with declared scope.
+
+### 3.1 The domain glossary
+
+`GLOSSARY.md` holds the project's domain terms: one tight definition each, with the synonyms to avoid. It is exempt from the scope/non-goals declaration above, and it holds **no implementation details**: it is not a spec, a scratch pad, or a store for decisions (those go to `06`). It is created lazily by `/domain-modeling` when the first term is resolved, and every skill reads it before naming domain concepts (`skills/_shared/domain-docs.md`).
+
+It lives at the **project root**, not in `reference/`, so tools outside Forge that follow the same convention read the same file. (Decided 2026-10-22 with owner sign-off; the alternative was `reference/10-glossary.md`.)
 
 ---
 

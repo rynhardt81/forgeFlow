@@ -596,6 +596,18 @@
       ],
       "prerequisites": [],
       "creates": []
+    },
+    {
+      "name": "domain-modeling",
+      "command": "/domain-modeling",
+      "path": "skills/domain-modeling/SKILL.md",
+      "category": "knowledge",
+      "agents": [],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "GLOSSARY.md"
+      ]
     }
   ],
   "categories": {
@@ -641,7 +653,8 @@
     "knowledge": {
       "description": "Knowledge capture and retrieval",
       "skills": [
-        "remember"
+        "remember",
+        "domain-modeling"
       ]
     },
     "utility": {
@@ -733,7 +746,11 @@
       "grill me": "grilling",
       "grill with docs": "grilling",
       "stress-test my plan": "grilling",
-      "grilling": "grilling"
+      "grilling": "grilling",
+      "glossary": "domain-modeling",
+      "domain language": "domain-modeling",
+      "ubiquitous language": "domain-modeling",
+      "record an adr": "domain-modeling"
     }
   }
 }

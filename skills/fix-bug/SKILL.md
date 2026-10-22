@@ -18,6 +18,7 @@ If the superpowers plugin is installed, its systematic-debugging skill governs t
 
 | File or section | Read when… |
 |---|---|
+| `_shared/domain-docs.md` | Before investigating — read the glossary + ADRs in the area; name things in the glossary's terms |
 | 1. Memory check | Before investigating — prior art in project-memory bugs |
 | 2. Reproduce FIRST | Always — Gate A, the reproduction table, first confirmation stop |
 | 3. Root cause before fix | Before writing any fix |

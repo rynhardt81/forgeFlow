@@ -48,6 +48,7 @@ One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter
 | Skill | Purpose |
 |-------|---------|
 | `/remember` | Manual knowledge capture → `docs/project-memory/` |
+| `/domain-modeling` | Sharpen the domain language: challenge terms, write `GLOSSARY.md` inline, offer ADRs only when they earn one |
 | `/reconcile-memory` | Trim bloated memory files to what earns its per-session cost |
 | `/refresh-project-context` | Sync CLAUDE.md + project docs with reality |
 

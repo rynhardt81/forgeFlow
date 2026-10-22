@@ -21,6 +21,7 @@ Opens a PR behind pre-push gates, then triages review feedback. Flow: Analyze �
 | `REVIEW.md` | Steps 6–7 — fetch commands, Codex endpoints, security re-review, merge-order procedure |
 | `_shared/ci-failure-classifier.md` | Step 3.6 exits 3 — routing failures |
 | `_shared/task-triage.md` | Deferring a finding as a follow-up task |
+| `_shared/domain-docs.md` | PR wording: glossary terms |
 
 ## Review bot configuration
 
