@@ -44,8 +44,15 @@ Preconditions: file exists, `Status: accepted`. Anything else — stop and say w
      --description "From intent/<slug>.md"
    ```
 
-3. **Draft tasks** — the smallest sequence that reaches Proposed outcome. Each task names files or directories it will touch (`--scope-dirs` / `--scope-files`) and gets `--isa` when it is E3 or above. Open questions in the intent that block a task become `--deps` on a spike task that answers them, not silent assumptions.
-4. **Show the epic and task list; confirm before filing.** One confirmation, then file every task through the CLI. Never hand-edit `docs/tasks/registry.json`.
+3. **Draft tasks as tracer bullets** — the smallest sequence that reaches Proposed outcome. Look first for prefactoring that makes the work easier ("make the change easy, then make the easy change"); it goes first. Then slice:
+   - Each task cuts a narrow but COMPLETE path through every layer (schema, API, UI, tests): vertical, NOT a horizontal slice of one layer.
+   - A completed task is demoable or verifiable on its own.
+   - Each task is sized to fit in a single fresh context window.
+   - Each task declares its **blocking edges** — the tasks that must complete before it can start (`--deps`). A task with no blockers can start immediately.
+   - The exception is a **wide refactor** (one mechanical change that breaks many call sites at once): sequence it expand → migrate batches → contract, as `/refactor` defines.
+
+   Each task also names the files or directories it will touch (`--scope-dirs` / `--scope-files`) and gets `--isa` when it is E3 or above. Open questions in the intent that block a task become `--deps` on a spike task that answers them, not silent assumptions.
+4. **Quiz the breakdown; confirm before filing.** Present it as a numbered list — per task: **Title**, **Blocked by**, **What it delivers** (the end-to-end behaviour it makes work) — and ask: does the granularity feel right (too coarse / too fine)? Are the blocking edges correct — does each task only depend on tasks that genuinely gate it? Should any be merged or split? Iterate until approved; that approval is the one confirmation. Then file every task through the CLI in dependency order (blockers first, so `--deps` can name real ids). Never hand-edit `docs/tasks/registry.json`.
    After filing, append one line to each task body's `## Notes` section: `Intent: intent/<slug>.md`. That line is how the intent travels — `/run-epic` reads it into the task's done-criterion and `/create-pr` checks the diff against it. The task body is the carrier because every downstream skill already reads it.
 5. **Mark the intent** `Status: promoted → T###, T### (E0X)` — the task ids are the link, the epic in parentheses is where to find them — and commit both changes together as `intent: promote <slug> → T###`. The intent stays in `intent/` — it is what `/create-pr`'s reviewer and the task ISA are checked against. Tasks filed later for the same intent get appended to that line.
 
@@ -59,6 +66,8 @@ Preconditions: file exists, `Status: accepted`. Anything else — stop and say w
 | Do it | `/run-epic E0X` (drains the epic; each task carries its own intent link) |
 
 Derived work discovered while promoting follows `skills/_shared/task-triage.md` — an intent is not a licence to file everything it reminds you of.
+
+<!-- Tracer-bullet slicing and the breakdown quiz adapted from mattpocock/skills to-tickets (MIT) — see THIRD-PARTY-NOTICES.md -->
 
 ---
 
