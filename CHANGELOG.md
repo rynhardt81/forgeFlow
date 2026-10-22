@@ -10,6 +10,10 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 
 - **`forge-band` mod** (`mods/forge-band/`, Claude Code v2.1.287+). A bordered band above the prompt: prompt-cache countdown (60 minutes from the last main-thread reply, an estimate), context size, next ready task, registry drift, and buttons for `/reflect status|resume|handoff` and `/run-epic` (Run needs a confirming second press). The band's refresh only reads; a button press runs its skill, which may write (`/run-epic`, `/reflect handoff`). Buttons for skills a project lacks are hidden. Refresh copies it to `.claude/mods/`; load with `claude --plugin-dir .claude/mods/forge-band`.
 
+### Changed
+
+- **Two always-on rules cut to their binding core** (every session of every consumer pays for them). `rules/framework-vs-project-root.md` 7.1 → 1.9 KB and `rules/dependencies.md` 5.4 → 2.0 KB; both stay unscoped hard floors. The worked detail moved verbatim to `reference/framework-roots.md` (marker history, resolver code, sidecar rationale) and `reference/dependencies-setup.md` (uv/bun/npm/cargo enforcement, the CLAUDE.md agent snippet), which nothing auto-loads.
+
 ### Fixed
 
 - **Installer dropped every nested `.claude-plugin/`.** The rsync exclude for the framework's eval-only manifest was unanchored, so it also stripped `plugin.json` from mods and left them unloadable. Anchored to `/.claude-plugin` in all three copies; `install.ps1` already matched from the root.
