@@ -13,7 +13,7 @@ Refactoring changes structure, never behavior. If the work requires new behavior
 
 | File or section | Read when… |
 |---|---|
-| 1. Classify by risk | Always first — Low/Medium/High decides the process and the scope doc |
+| 1. Classify by risk | Always first — Low/Medium/High decides the process and the scope doc; wide refactors use expand–contract |
 | `_shared/domain-docs.md` | Before naming new modules — use the glossary's terms; flag ADR conflicts |
 | 2. Establish the baseline | Before touching code — green suite, coverage, benchmarks |
 | 3. Refactor | Making changes; out-of-scope temptations; structural moves |
@@ -31,6 +31,16 @@ Refactoring changes structure, never behavior. If the work requires new behavior
 Risk scales with **rename scope** (how many files see the symbol) and **behavior surface** (how much runtime behavior could shift if you get it wrong). When uncertain, classify up. Present classification + intended process to the user before starting.
 
 For Medium/High, write the boundary down (a short scope doc at `docs/refactors/<date>-<slug>.md` or inline in the conversation): files in scope, explicitly out-of-scope items with reasons, success criteria. Refactoring has a gravity problem — adjacent improvements pull scope outward; the written boundary is the reference point that catches drift.
+
+### Wide refactors: expand–contract
+
+A **wide refactor** is one mechanical change (rename a column, retype a shared symbol) whose **blast radius** fans across the whole codebase, so a single edit breaks thousands of call sites at once and no one step can land green. Classify it High and sequence it as **expand–contract**:
+
+1. **Expand:** add the new form beside the old so nothing breaks.
+2. **Migrate** the call sites over in batches sized by blast radius (per package, per directory), each batch its own task blocked by the expand, keeping CI green batch to batch because the old form still exists.
+3. **Contract:** delete the old form once no caller remains, in a task blocked by every migrate batch.
+
+In forge terms: one `forge task add` per step, the batches `--deps <expand>`, the contract `--deps <every batch>`. When even the batches can't stay green alone, keep the sequence but let them share an integration branch that all block a final integrate-and-verify task; green is promised only there. A database column or table rename is a schema change: `rules/migrations.md` governs it and already requires this shape.
 
 ## 2. Establish the baseline
 
@@ -74,6 +84,8 @@ Present the deferred-improvements list at the end — the user decides what beco
 - **Scope boundaries** — without one, a refactor expands until it's a rewrite; log the temptation, defer it, keep moving.
 - **Incremental with test runs** — catch the break at the change that caused it.
 - **No new functionality** — mixing refactor and feature makes both harder to review and revert.
+
+<!-- Expand–contract sequencing adapted from mattpocock/skills to-tickets (MIT) — see THIRD-PARTY-NOTICES.md -->
 
 ---
 
