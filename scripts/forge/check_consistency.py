@@ -45,7 +45,6 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -79,6 +78,7 @@ DEFAULT_LOCK_TIMEOUT = 3600
 # rules/agent-verification.md exists to prevent. See that constant's docstring
 # for why pr_pending counts as satisfied.
 DONE_FOR_DEPS = registry_ops.DONE_FOR_DEPS
+parse_rfc3339 = registry_ops.parse_rfc3339
 
 
 @dataclass
@@ -116,21 +116,6 @@ def get_project_root(override: Path | None = None) -> Path:
         return Path(out.stdout.strip())
     except (subprocess.CalledProcessError, FileNotFoundError):
         return Path.cwd()
-
-
-def parse_rfc3339(value: str) -> datetime | None:
-    """Parse RFC3339 timestamps. Returns a tz-aware datetime (UTC if naive)."""
-    if not value:
-        return None
-    try:
-        if value.endswith("Z"):
-            value = value[:-1] + "+00:00"
-        dt = datetime.fromisoformat(value)
-    except ValueError:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt
 
 
 def load_registry(path: Path) -> dict[str, Any] | None:
@@ -296,70 +281,22 @@ def check_stats_drift(registry: dict[str, Any]) -> list[Finding]:
     return findings
 
 
-def fix_stats_drift(registry: dict[str, Any]) -> bool:
-    """Recompute stats. Returns True if any change was applied."""
-    expected = registry_ops._expected_stats(registry)
-    changed = False
-    stats = registry.setdefault("stats", {})
-    if stats.get("epics") != expected["epics"]:
-        stats["epics"] = expected["epics"]
-        changed = True
-    if stats.get("tasks") != expected["tasks"]:
-        stats["tasks"] = expected["tasks"]
-        changed = True
-    return changed
-
-
 def check_pending_ready(registry: dict[str, Any]) -> list[Finding]:
     """Drift #5: pending task with all deps done -> should be ready."""
-    done_ids = {
-        t["id"] for t in registry.get("tasks", [])
-        if t.get("status") in DONE_FOR_DEPS
-    }
-    findings = []
-    for t in registry.get("tasks", []):
-        if t.get("status") != "pending":
-            continue
-        deps = t.get("dependencies") or []
-        if not deps:
-            continue
-        if all(d in done_ids for d in deps):
-            findings.append(Finding(
-                cls=CLS_PENDING_READY,
-                severity=SEV_AUTO,
-                message=(
-                    f"auto-fixable: {t.get('id')} status=pending but all "
-                    f"dependencies {deps} are done; flip to ready."
-                ),
-                auto_fixable=True,
-                target=t.get("id"),
-            ))
-    return findings
-
-
-def fix_pending_ready(
-    registry: dict[str, Any],
-    task_files_index: dict[str, Path],
-) -> bool:
-    """Flip pending->ready in registry and patch the task file's frontmatter."""
-    done_ids = {
-        t["id"] for t in registry.get("tasks", [])
-        if t.get("status") in DONE_FOR_DEPS
-    }
-    changed = False
-    for t in registry.get("tasks", []):
-        if t.get("status") != "pending":
-            continue
-        deps = t.get("dependencies") or []
-        if not deps:
-            continue
-        if not all(d in done_ids for d in deps):
-            continue
-        t["status"] = "ready"
-        changed = True
-        # Best-effort: the file-vs-registry check surfaces any mismatch.
-        task_file.set_field(task_files_index.get(t.get("id")), "status", "ready")
-    return changed
+    by_id = {t.get("id"): t for t in registry.get("tasks", [])}
+    return [
+        Finding(
+            cls=CLS_PENDING_READY,
+            severity=SEV_AUTO,
+            message=(
+                f"auto-fixable: {tid} status=pending but all "
+                f"dependencies {by_id[tid].get('dependencies')} are done; flip to ready."
+            ),
+            auto_fixable=True,
+            target=tid,
+        )
+        for tid in registry_ops.scan_unblocked_tasks(registry)
+    ]
 
 
 def check_file_vs_registry_status(
@@ -397,27 +334,6 @@ def check_file_vs_registry_status(
                 extra={"file": str(tf), "file_status": file_status, "registry_status": reg_status},
             ))
     return findings
-
-
-def fix_file_vs_registry_status(
-    registry: dict[str, Any],
-    task_files: list[tuple[Path, str, str, str]],
-) -> bool:
-    """Rewrite each drifted task file's frontmatter status to match registry."""
-    by_id = {t.get("id"): t for t in registry.get("tasks", [])}
-    changed = False
-    for tf, tid, file_status, _ in task_files:
-        if not file_status:
-            continue
-        reg = by_id.get(tid)
-        if not reg:
-            continue
-        reg_status = (reg.get("status") or "").lower()
-        if not reg_status or file_status == reg_status:
-            continue
-        if task_file.set_field(tf, "status", reg_status):
-            changed = True
-    return changed
 
 
 def check_file_vs_registry_name(
@@ -460,35 +376,6 @@ def check_file_vs_registry_name(
     return findings
 
 
-def fix_file_vs_registry_name(
-    registry: dict[str, Any],
-    task_files: list[tuple[Path, str, str, str]],
-) -> bool:
-    """Rewrite each drifted task file's frontmatter name to match registry."""
-    by_id = {t.get("id"): t for t in registry.get("tasks", [])}
-    changed = False
-    for tf, tid, _, file_name in task_files:
-        if not file_name:
-            continue
-        reg = by_id.get(tid)
-        if not reg:
-            continue
-        reg_name = reg.get("name") or ""
-        if not reg_name or file_name == reg_name:
-            continue
-        if task_file.set_field(tf, "name", reg_name):
-            changed = True
-    return changed
-
-
-def _lock_locked_at(task: dict[str, Any]) -> str | None:
-    """Extract lockedAt timestamp from the canonical `lock` object."""
-    lock = task.get("lock")
-    if isinstance(lock, dict):
-        return lock.get("lockedAt") or lock.get("locked_at")
-    return None
-
-
 def check_stale_lock(
     registry: dict[str, Any],
     lock_timeout: int,
@@ -502,49 +389,19 @@ def check_stale_lock(
     session, not a long-lived PR.
     """
     findings = []
-    now = datetime.now(timezone.utc)
-    for t in registry.get("tasks", []):
-        if t.get("status") != "in_progress":
-            continue
-        locked_at = _lock_locked_at(t)
-        if not locked_at:
-            continue
-        lt = parse_rfc3339(locked_at)
-        if lt is None:
-            continue
-        age = (now - lt).total_seconds()
-        if age > lock_timeout:
-            findings.append(Finding(
-                cls=CLS_STALE_LOCK,
-                severity=SEV_AUTO,
-                message=(
-                    f"auto-fixable: {t.get('id')} lock is {int(age)}s old "
-                    f"(>{lock_timeout}s timeout); clearing lock "
-                    f"(status remains in_progress; resume with: forge task lock {t.get('id')} --session <id>)."
-                ),
-                auto_fixable=True,
-                target=t.get("id"),
-            ))
+    for t, age in registry_ops.stale_locks(registry, lock_timeout):
+        findings.append(Finding(
+            cls=CLS_STALE_LOCK,
+            severity=SEV_AUTO,
+            message=(
+                f"auto-fixable: {t.get('id')} lock is {int(age)}s old "
+                f"(>{lock_timeout}s timeout); clearing lock "
+                f"(status remains in_progress; resume with: forge task lock {t.get('id')} --session <id>)."
+            ),
+            auto_fixable=True,
+            target=t.get("id"),
+        ))
     return findings
-
-
-def fix_stale_lock(registry: dict[str, Any], lock_timeout: int) -> bool:
-    """Clear stale `lock` objects on in_progress tasks. Status preserved."""
-    changed = False
-    now = datetime.now(timezone.utc)
-    for t in registry.get("tasks", []):
-        if t.get("status") != "in_progress":
-            continue
-        locked_at = _lock_locked_at(t)
-        if not locked_at:
-            continue
-        lt = parse_rfc3339(locked_at)
-        if lt is None:
-            continue
-        if (now - lt).total_seconds() > lock_timeout:
-            t["lock"] = None
-            changed = True
-    return changed
 
 
 def check_task_without_isa(
@@ -661,41 +518,6 @@ def run_all_checks(
     return findings, task_files, epic_ids
 
 
-def apply_fixes(
-    registry: dict[str, Any],
-    task_files: list[tuple[Path, str, str, str]],
-    lock_timeout: int,
-) -> tuple[bool, bool]:
-    """Apply auto-fixes. Returns (registry_changed, files_changed).
-
-    Fix order is load-bearing:
-      1. stale_lock — clears lock on in_progress tasks (no status change,
-         no impact on other checks; do it first to not muddy later logic).
-      2. pending_ready — flips pending->ready; updates done set indirectly,
-         and writes task-file frontmatter to "ready".
-      3. file_vs_registry_status — runs AFTER pending_ready so the new
-         "ready" state is the canonical one; rewrites any remaining drifted
-         files to match registry.
-      4. file_vs_registry_name — independent of status; runs alongside #3.
-      5. stats_drift — runs LAST so all status changes from #2 are reflected.
-    """
-    file_index = {tid: tf for tf, tid, _, _ in task_files}
-    registry_changed = False
-    files_changed = False
-    if fix_stale_lock(registry, lock_timeout):
-        registry_changed = True
-    if fix_pending_ready(registry, file_index):
-        registry_changed = True
-        files_changed = True
-    if fix_file_vs_registry_status(registry, task_files):
-        files_changed = True
-    if fix_file_vs_registry_name(registry, task_files):
-        files_changed = True
-    if fix_stats_drift(registry):
-        registry_changed = True
-    return registry_changed, files_changed
-
-
 def get_lock_timeout(registry: dict[str, Any]) -> int:
     """Read lockTimeoutSeconds from registry.settings, default 3600."""
     settings = registry.get("settings") or {}
@@ -779,8 +601,8 @@ def main(argv: list[str] | None = None) -> int:
                     findings, task_files, _ = run_all_checks(
                         registry, epics_dir, lock_timeout
                     )
-                    registry_changed, files_changed = apply_fixes(
-                        registry, task_files, lock_timeout
+                    registry_changed, files_changed = registry_ops.reconcile(
+                        registry, project_root, lock_timeout=lock_timeout
                     )
                     if registry_changed:
                         registry_ops.save_registry(registry_path, registry)

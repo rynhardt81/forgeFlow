@@ -899,7 +899,7 @@ def unlock_task(
     Defaults the new status to `continuation` (preserves partial work).
     Pass `to_status="ready"` for a clean abandon (no progress was made),
     or `to_status="in_progress"` to clear lock without changing status
-    (rare; used by the consistency checker's drift #7 stale-lock fix).
+    (rare; the checker's stale-lock fix clears locks in reconcile() instead).
     """
     with registry_write_lock(registry_path):
         registry = load_registry(registry_path)
@@ -1580,6 +1580,84 @@ def _flip_unblocked_pending(
         t["status"] = "ready"
         task_file.set_field(task_file.find(project_root, t), "status", "ready")
     return unblocked
+
+
+def parse_rfc3339(value: str) -> datetime | None:
+    """Parse RFC3339 timestamps. Returns a tz-aware datetime (UTC if naive)."""
+    if not value:
+        return None
+    try:
+        if value.endswith("Z"):
+            value = value[:-1] + "+00:00"
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def stale_locks(registry: dict[str, Any], lock_timeout: int) -> list[tuple[dict[str, Any], float]]:
+    """(task, lock age in seconds) for each in_progress task locked longer than lock_timeout."""
+    now = datetime.now(timezone.utc)
+    out = []
+    for t in registry.get("tasks", []):
+        if t.get("status") != "in_progress":
+            continue
+        lock = t.get("lock")
+        locked_at = parse_rfc3339(
+            (lock.get("lockedAt") or lock.get("locked_at")) if isinstance(lock, dict) else None
+        )
+        if locked_at is None:
+            continue
+        age = (now - locked_at).total_seconds()
+        if age > lock_timeout:
+            out.append((t, age))
+    return out
+
+
+def reconcile(
+    registry: dict[str, Any],
+    project_root: Path,
+    *,
+    lock_timeout: int,
+) -> tuple[bool, bool]:
+    """Repair auto-fixable drift in place, registry winning. Returns
+    (registry_changed, files_changed); the caller saves the registry.
+
+    The order is part of the contract and lives only here:
+      1. stale locks cleared (status stays in_progress -- a stuck session);
+      2. pending tasks whose deps are done flip to ready (files mirrored);
+      3. task files' status and name rewritten to match, AFTER 2 so a flipped
+         task's new state is the one mirrored. A file that lacks the field is
+         left alone; statuses compare case-insensitively;
+      4. stats recomputed LAST so every change above is counted. Only the
+         epics/tasks keys are replaced; other stats keys survive.
+    """
+    registry_changed = files_changed = False
+    for task, _ in stale_locks(registry, lock_timeout):
+        task["lock"] = None
+        registry_changed = True
+    if _flip_unblocked_pending(registry, project_root):
+        registry_changed = files_changed = True
+    by_id = {t.get("id"): t for t in registry.get("tasks", [])}
+    for path, tid, _ in task_file.iter_all(project_root):
+        reg, fm = by_id.get(tid), task_file.read(path)
+        if reg is None or fm is None:
+            continue
+        status = (reg.get("status") or "").lower()
+        if fm["status"] and status and fm["status"].lower() != status:
+            files_changed |= task_file.set_field(path, "status", status)
+        name = reg.get("name") or ""
+        if fm["name"] and name and fm["name"] != name:
+            files_changed |= task_file.set_field(path, "name", name)
+    expected = _expected_stats(registry)
+    stats = registry.setdefault("stats", {})
+    for key in ("epics", "tasks"):
+        if stats.get(key) != expected[key]:
+            stats[key] = expected[key]
+            registry_changed = True
+    return registry_changed, files_changed
 
 
 # --- Read-only queries -----------------------------------------------------
