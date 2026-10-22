@@ -129,9 +129,6 @@ States: `pending → ready → in_progress → pr_pending → completed`. Never 
 
 ## See also
 
-- `.claude/ALGORITHM/v1.2.0.md` — full Algorithm doctrine (LATEST)
-- `.claude/skills/ISA/SKILL.md` — ISA workflows
-- `.claude/skills/_shared/report-format.md` — finished-work report contract + feedback levels
-- `.claude/skills/_shared/continuity-preservation.md` — compaction/handoff preservation contract
-- `MEMORY-SCHEMA.md` — project-memory spec
-- `MIGRATION-GUIDE.md` — version upgrade walkthrough
+- `.claude/skills/_shared/continuity-preservation.md` — before writing a handoff, resume context or session handoff notes
+- `MEMORY-SCHEMA.md` — before adding or restructuring a `docs/project-memory/` file
+- `MIGRATION-GUIDE.md` — when upgrading a project across framework major versions

@@ -1,17 +1,12 @@
 ---
 name: audit-task-status
 description: >
-  Align Forge Flow task/epic statuses with the authoritative task registry, and
-  report registry health. Use whenever the user asks to align/sync/reconcile
-  task or epic statuses, to check whether the registry, task files, and epic files
-  agree, or says things like "are the task statuses in sync", "the epic file is
-  stale", "make the epics match the registry", "reconcile task state", or "audit
-  task/registry consistency". The registry (docs/tasks/registry.json) is the single
-  source of truth; this skill detects and fixes drift in the two layers that mirror
-  it — task-file frontmatter (machine-maintained) and epic files (human-authored
-  prose the framework never touches). Also surfaces registry tasks with no body
-  file on disk. Reach for it after a batch of merges/completions, before a release,
-  or any time someone doubts the task numbers are trustworthy.
+  Reconciles Forge Flow task and epic files with the task registry
+  (docs/tasks/registry.json, the single source of truth): fixes status drift in
+  task-file frontmatter and epic files, and surfaces registry tasks with no body
+  file on disk. Use when task or epic statuses look out of sync with the registry
+  ("the epic file is stale", "are the statuses in sync"), after a batch of
+  merges or completions, or as a pre-release consistency check.
 ---
 
 # Audit & align task status
@@ -22,7 +17,7 @@ Makes task-file frontmatter and epic files tell the same truth as `docs/tasks/re
 
 | File or section | Read when… |
 |---|---|
-| `WHY.md` | Background — the three places task state lives and why epic files drift |
+| `WHY.md` | Explaining to the user why epic files drifted, or deciding which of the three layers to trust |
 | The authority rule (below) | Before any edit — which layer wins |
 | Workflow (below) | Every invocation — steps 1–5 |
 | `scripts/audit_status.py` | **Run** it (step 2 and step 5) — read-only detector |

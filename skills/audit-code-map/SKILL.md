@@ -14,7 +14,7 @@ Generates `docs/code-map.md` — file inventory, per-file class/function lists, 
 | Steps 1–4 (below) | Every invocation |
 | `Tools/code_map.py` | **Run** it (step 1) — the analyzer |
 | Flags (below) | Choosing options; when the SessionStart hook co-emits JSON |
-| Integration with the framework (below) | How hooks, agents and skills consume the map |
+| Integration with the framework (below) | Checking which hook, agent or skill reads the map before changing its format |
 | `PHASES.md` | Extending the analyzer (skill maintainers) |
 
 ---

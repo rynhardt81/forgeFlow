@@ -5,13 +5,6 @@ description: Session continuity for Forge task work — resume an interrupted se
 
 # Reflect Skill
 
-## Purpose
-
-1. **Session Continuity:** Resume work seamlessly with context
-2. **Task Management:** Track epics, tasks, and dependencies via the forge registry
-3. **Parallel Session Coordination:** Prevent conflicts between concurrent sessions
-4. **Skill Improvement:** Extract learnings to make skills better over time
-
 ## Index
 
 | File or section | Read when… |
@@ -51,7 +44,6 @@ The SessionStart hook (`hooks/session/session-context.py`) auto-creates a minima
 ## Key Rules
 
 - **Session file always exists:** the SessionStart hook bootstraps it; `/reflect` only enriches — never creates a duplicate when one is active.
-- **Minimal context loading:** only load what the specific task/epic needs.
 - **Lock via forge:** `forge task lock` before starting, `forge task complete`/`pr`/`unlock` on exit — the CLI is the only sanctioned registry writer.
 - **Continuation context:** when stopping mid-task, populate the task file's Continuation Context (stopped-at + next action).
 - **Append only:** never overwrite `progress-notes.md` — always append.

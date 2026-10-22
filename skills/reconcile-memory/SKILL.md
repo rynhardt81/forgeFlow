@@ -13,9 +13,9 @@ Equally: **an empty memory file is also a failure.** The project pays a differen
 
 | File or section | Read when… |
 |---|---|
-| `DESTINATIONS.md` | Choosing where relocated content goes, and why |
-| `PLAN-EXAMPLE.md` | The step-4 plan |
-| `RATIONALE.md` | Why size is a tax; measured evidence against over-cutting |
+| `DESTINATIONS.md` | Choosing where relocated content goes |
+| `PLAN-EXAMPLE.md` | Step 4, before presenting the plan |
+| `RATIONALE.md` | Cutting past step 2's verdict; why size matters |
 | `_shared/report-format.md` | The finished-work report |
 
 ## The two stores, and the rule against mixing them

@@ -29,12 +29,7 @@ practices apply regardless of language.
 How to enforce each one in uv, bun, npm and cargo (config keys, CI commands,
 templates): `reference/dependencies-setup.md`.
 
-## Project-specific extensions
-
-
-
 ## See also
 
-- `rules/security.md` — broader security gating
-- `templates/pyproject.toml.template` — drop-in uv starter with safe defaults
-- `.claude/reference/03-security-auth-and-access.md` — per-project secrets handling
+- `templates/pyproject.toml.template` — starting a new uv project (safe defaults pre-set)
+- `.claude/reference/03-security-auth-and-access.md` — a dependency that handles credentials or secrets

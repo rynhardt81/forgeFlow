@@ -85,8 +85,7 @@ If the user has explicitly asked for no PR (rare; usually a local-only experimen
 
 ## Key Rules
 
-- Always invoke skills via Skill tool, not by memory
-- Always check for project-level agents before falling back to built-in
+- Check `.claude/agents/specialists/` for a project agent before dispatching a built-in one
 - Never skip verification phase
 - Never use raw `gh pr create` — always route the PR through `/create-pr`
 

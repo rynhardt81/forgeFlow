@@ -1,6 +1,6 @@
 ---
 name: damage-control
-description: Install, configure, and manage Claude Code security hooks. Blocks dangerous commands, protects sensitive files, and provides defense-in-depth protection via PreToolUse hooks. Use when user mentions damage control, security hooks, protected paths, blocked commands, or install security.
+description: Install, configure, and manage Claude Code security hooks. Blocks dangerous commands, protects sensitive files, and provides defense-in-depth protection via PreToolUse hooks. Use when installing, modifying, testing or listing Claude Code security hooks (damage control, protected paths, blocked commands), or installing the /fix-bug test lock.
 ---
 
 # Damage Control Skill
@@ -19,7 +19,7 @@ Defense-in-depth protection system for Claude Code. Combines Claude Forge's allo
 | `cookbook/test_damage_control.md` | Verifying the hooks block what they should |
 | `cookbook/install_test_lock.md` | Installing the `/fix-bug` test lock |
 | `cookbook/list_damage_controls.md` | Showing the current configuration |
-| `ARCHITECTURE.md` | The defense-in-depth layers, the hook flow diagram, installed file layout, how this fits Claude Forge's security model |
+| `ARCHITECTURE.md` | Explaining how a hook decides to block, debugging an unexpected block/allow, or locating installed hook files |
 | Quick Reference (below) | Path protection levels, exit codes, runtime |
 | `patterns.yaml` | The security patterns — single source of truth |
 | `hooks/damage-control-python/` | The hook implementations that get installed (copied, not run in place) |

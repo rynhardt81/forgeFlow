@@ -38,8 +38,6 @@ Generate the minimal build setup for the confirmed target, then **verify by runn
 - Pin base image versions (never use `latest`)
 - Generate `.dockerignore` with every Dockerfile
 - Offer multi-arch only when beneficial (K8s, cloud)
-- Preserve existing configurations when updating
-- Document all environment variables
 
 ---
 

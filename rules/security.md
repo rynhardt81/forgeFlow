@@ -17,6 +17,5 @@ The `validation/validate-edit.py` PreToolUse hook warns on edits to `.env*`, `.g
 
 ## See also
 
-- `rules/dependencies.md` — supply-chain hygiene rules
-- `.claude/reference/03-security-auth-and-access.md` — project auth model + secrets handling
-- `.claude/reference/08-security-model.md` — threat model + security architecture
+- `.claude/reference/03-security-auth-and-access.md` — touching auth, sessions or secrets handling
+- `.claude/reference/08-security-model.md` — a change that crosses a trust boundary in the threat model

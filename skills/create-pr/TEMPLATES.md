@@ -167,7 +167,7 @@ src/
 
 - The whole block, when most of it is new, when omitted context would hide ownership or order, or when the reader needs a copyable target shape.
 
-Place each visual next to the short text it supports. Keep only the calls, files, props, states, and boundaries needed to make the point. You may use one of these, you may use several; it is unlikely you will use all of them. Don't overwhelm the reader.
+Place each visual next to the short text it supports. Keep only the calls, files, props, states, and boundaries needed to make the point. You may use one of these, you may use several; it is unlikely you will use all of them.
 
 ---
 
@@ -213,8 +213,6 @@ If Step 3.7 found nothing actionable (all `NO-ACTION`), omit the section entirel
 ---
 
 ## Content Generation Rules
-
-**Summary:** Analyze commit messages and diff to describe the overall change.
 
 **Changes list:** Group by:
 - Feature/component affected

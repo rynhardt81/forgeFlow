@@ -21,7 +21,7 @@ Flow: Setup → Discovery → PRD → **CONFIRM #1** → ADRs → reference docs
 |-----------------|------------|
 | `DOCS.md` | Phases 2–5, 8 — discovery checklist, PRD/ADR Task-tool prompts, reference-doc source map, summary template |
 | `SEEDING.md` | Phase 6 — proposed-tasks table, registry skeleton JSON, `epic add` / `task add` examples, category codes |
-| `EXAMPLE.md` | Worked greenfield run; recovery (stalled PRD, cancel, half-seeded registry); gotchas |
+| `EXAMPLE.md` | First greenfield run, or a run stalled (PRD stuck, cancelled, half-seeded registry) |
 | See Also (bottom) | Templates and neighbouring skills this one hands off to |
 
 ## Modes
