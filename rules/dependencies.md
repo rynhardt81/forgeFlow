@@ -1,6 +1,6 @@
 # Dependency Hygiene Rules
 
-> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
+> **Loaded at every session start.** Binding.
 >
 > Applies to every project that consumes Forge Flow.
 
@@ -31,7 +31,7 @@ templates): `reference/dependencies-setup.md`.
 
 ## Project-specific extensions
 
-`rules/dependencies.local.md` — survives refresh, wins on conflict.
+
 
 ## See also
 

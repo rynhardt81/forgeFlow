@@ -1,6 +1,6 @@
 # Security Guidelines
 
-> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget".
+> **Loaded at every session start.** Binding.
 
 ## When to invoke @security-boss
 
@@ -14,14 +14,6 @@
 ## Path warnings (advisory, never blocks)
 
 The `validation/validate-edit.py` PreToolUse hook warns on edits to `.env*`, `.git/`, lockfiles, `node_modules/`, and similar. Defaults to advisory — confirm intent and proceed.
-
-## Supply chain
-
-Dependency hygiene (pin exact, publish cool-down, lockfile-strict CI, agent must ask before adding) is its own active directive — see `rules/dependencies.md`. Applies to every project that consumes Forge Flow.
-
-## Project-specific extensions
-
-`rules/security.local.md` — survives refresh, wins on conflict.
 
 ## See also
 

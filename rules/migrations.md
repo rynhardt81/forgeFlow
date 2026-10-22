@@ -1,6 +1,6 @@
 # Database Migration Rules
 
-> **Loaded at every session start** — all of `.claude/rules/*.md` is. Binding. Keep it short: opt-in depth belongs in a skill or `reference/`. See CONTRIBUTING.md "The rules budget". A bad production migration is the single worst unrecoverable failure available to a small team — these rules exist to make that failure structurally hard.
+> **Loaded at every session start.** Binding. A bad production migration is the single worst unrecoverable failure available to a small team — these rules exist to make that failure structurally hard.
 
 ## Gate E (from ALGORITHM): fires when migration files, DDL, or model/schema definitions are in scope
 
