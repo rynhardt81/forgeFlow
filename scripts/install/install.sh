@@ -924,6 +924,13 @@ for tier, retired in (framework.get("_retired_permissions") or {}).items():
         while r in target:
             target.remove(r)
             print(f"  retired permission rule: {r}", file=sys.stderr)
+
+# Plugins. The framework's marketplace entries are re-set every refresh; an
+# enabledPlugins key is written only when absent, so a consumer's false sticks.
+for name, entry in (framework.get("extraKnownMarketplaces") or {}).items():
+    project.setdefault("extraKnownMarketplaces", {})[name] = entry
+for plugin, on in (framework.get("enabledPlugins") or {}).items():
+    project.setdefault("enabledPlugins", {}).setdefault(plugin, on)
 Path(sys.argv[2]).write_text(json.dumps(project, indent=2) + "\n")
 MERGE_EOF
         ok "Merged hooks & permissions into .claude/settings.json"

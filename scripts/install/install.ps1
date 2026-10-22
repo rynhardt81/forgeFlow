@@ -607,6 +607,11 @@ pr_perms = project.setdefault("permissions", {}).setdefault("allow", [])
 for p in fw_perms:
     if p not in pr_perms:
         pr_perms.append(p)
+# Plugins: mirror of install.sh -- marketplace re-set, enabledPlugins only when absent.
+for name, entry in (framework.get("extraKnownMarketplaces") or {}).items():
+    project.setdefault("extraKnownMarketplaces", {})[name] = entry
+for plugin, on in (framework.get("enabledPlugins") or {}).items():
+    project.setdefault("enabledPlugins", {}).setdefault(plugin, on)
 Path(sys.argv[2]).write_text(json.dumps(project, indent=2) + "\n")
 '@
         $merge | & $script:PYTHON.Source - $fw $pr

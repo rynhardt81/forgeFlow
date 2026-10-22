@@ -44,14 +44,17 @@ The path must be absolute (`~` allowed); separate several with `:`. One copy ser
 every project: the band finds Forge Flow under `.claude/` or at the repo root, and outside
 a Forge Flow project it shows the cache alone.
 
-**Per project, for everyone who opens it (not yet verified live)** — refresh ships a
-marketplace manifest at `.claude/mods/.claude-plugin/marketplace.json` (marketplace
-`forge-flow`). Opt a project in by adding to its committed `.claude/settings.json`:
+**Per project, for everyone who opens it (the default)** — refresh ships a marketplace
+manifest at `.claude/mods/.claude-plugin/marketplace.json` (marketplace `forge-flow`), and
+the settings merge writes this into the project's `.claude/settings.json`:
 
 ```json
 "extraKnownMarketplaces": { "forge-flow": { "source": { "source": "directory", "path": ".claude/mods" } } },
 "enabledPlugins": { "forge-band@forge-flow": true }
 ```
+
+The marketplace entry is re-set on every refresh; `enabledPlugins` is written only when the
+key is absent, so set it to `false` to keep the band off in a project.
 
 Claude Code applies a project marketplace only after the workspace trust dialog is
 accepted; headless (`-p`) runs need the folder trusted first, and

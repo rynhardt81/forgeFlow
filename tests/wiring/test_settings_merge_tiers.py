@@ -227,3 +227,25 @@ def test_shipped_settings_ships_no_write_rules_and_retires_them():
     for path in (".claude/**", "docs/tasks/**", "docs/project-memory/**"):
         assert f"Write({path})" in retired, f"Write({path}) dropped but not retired"
         assert f"Edit({path})" in allow, f"Edit({path}) missing — retiring Write would remove access"
+
+
+def test_forge_band_plugin_on_by_default_but_consumer_off_sticks(tmp_path):
+    """T940: the vendored marketplace is always re-set; a consumer's `false` survives."""
+    framework = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    fresh = run_merge(tmp_path, framework, {})
+    assert fresh["enabledPlugins"]["forge-band@forge-flow"] is True
+    assert fresh["extraKnownMarketplaces"]["forge-flow"]["source"]["path"] == ".claude/mods"
+
+    stale = {"enabledPlugins": {"forge-band@forge-flow": False, "other@x": True},
+             "extraKnownMarketplaces": {"forge-flow": {"source": {"source": "directory", "path": "old"}}}}
+    merged = run_merge(tmp_path, framework, stale)
+    assert merged["enabledPlugins"] == {"forge-band@forge-flow": False, "other@x": True}
+    assert merged["extraKnownMarketplaces"]["forge-flow"]["source"]["path"] == ".claude/mods"
+
+
+def test_marketplace_path_resolves_to_the_vendored_manifest():
+    path = json.loads(SETTINGS.read_text(encoding="utf-8"))["extraKnownMarketplaces"]["forge-flow"]["source"]["path"]
+    assert path == ".claude/mods"
+    manifest = json.loads((REPO_ROOT / "mods" / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+    assert {p["name"] for p in manifest["plugins"]} == {"forge-band"}
+    assert manifest["name"] == "forge-flow"

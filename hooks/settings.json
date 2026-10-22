@@ -200,5 +200,12 @@
       "Read(./**/build/**)"
     ]
   },
-  "_retired_permissions_note": "Rules the framework has WITHDRAWN. The settings merge is a union — it adds framework rules and never removes them — so a rule dropped from this file otherwise survives in every consumer forever. Listing it here removes it on the next refresh. Only ever list rules the framework itself shipped; a consumer's own rules are never touched. Entries can be deleted once every project has refreshed past them."
+  "_retired_permissions_note": "Rules the framework has WITHDRAWN. The settings merge is a union — it adds framework rules and never removes them — so a rule dropped from this file otherwise survives in every consumer forever. Listing it here removes it on the next refresh. Only ever list rules the framework itself shipped; a consumer's own rules are never touched. Entries can be deleted once every project has refreshed past them.",
+  "_plugins_note": "forge-band (mods/forge-band) loads from the vendored .claude/mods marketplace. The merge re-sets the marketplace on every refresh but writes enabledPlugins only when the key is absent, so a project that sets it to false keeps it off. Applies after the folder is trusted; a CLAUDE_CODE_PLUGIN_DIRS copy of forge-band shadows this one.",
+  "extraKnownMarketplaces": {
+    "forge-flow": { "source": { "source": "directory", "path": ".claude/mods" } }
+  },
+  "enabledPlugins": {
+    "forge-band@forge-flow": true
+  }
 }
