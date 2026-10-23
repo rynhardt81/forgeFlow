@@ -35,6 +35,19 @@ python3 -c "import json,sys,os; d=json.load(open(os.path.expanduser('~/.claude/p
 
 Matches the plugin by its name-portion regardless of `@marketplace` suffix — the `installed_plugins.json` (schema v2) key is `pr-review-toolkit@claude-plugins-official`, never the bare name, so a `grep '"pr-review-toolkit"'` would never match. Missing file / bad JSON → non-zero exit → treated as absent (safe default).
 
+**Review tier** — decide it before selecting agents, from the diff. Door and radius are the ones the PR body's Merge Danger section states, so the review and the description cannot disagree.
+
+- **One-way door** when the diff does anything hard to walk back: a schema migration, data deletion or a destructive script, a published release or version bump, an external send (email, webhook, payment), a removed or renamed public API, route, CLI flag or config key. A **hard-floor domain** (schema, auth, money paths, security) is always one-way, whatever the diff looks like.
+- **Wide blast radius** when the change reaches past its own module: more than one top-level package or service, a public interface other code calls, CI/build/deploy config, shared config or anything other projects vendor, or more than ~15 files / ~400 changed lines. Otherwise **narrow**.
+
+| Tier | When | Review set |
+|------|------|------------|
+| **1** | two-way + narrow | `code-reviewer` + specialists the table below matches + Standards/Spec axes |
+| **2** | two-way + wide | **every** specialist in the table (pattern match ignored) + the axes; Step 3.8 local review runs if configured, and an unset `forge.localReview` is named in Pre-flight notes |
+| **3** | one-way, any radius | all of tier 2 + `security-boss` (subagent_type `security-boss`, given the diff); after MUST-FIX fixes, a **second full tier-3 pass over the whole diff** before the push, not only the fix diff |
+
+Name the tier and the signal that set it in Pre-flight notes (`Review tier 3: migration 021 — one-way`). When unsure between two tiers, take the higher one: an extra reviewer costs minutes, a missed one-way finding costs a rollback that may not exist. A user can lower the tier only with a stated reason, recorded in Pre-flight notes.
+
 **Agent selection** (deterministic — walk once against the changed files, accumulate matches):
 
 | Diff pattern | Specialist (`pr-review-toolkit:` prefix) |

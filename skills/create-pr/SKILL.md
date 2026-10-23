@@ -17,7 +17,7 @@ Opens a PR behind pre-push gates, then triages review feedback. Flow: Analyze �
 | File or section | Read when… |
 |-----------------|------------|
 | `TEMPLATES.md` | Step 4 — PR body templates, size thresholds, Pre-flight notes |
-| `GATES.md` | Review-bot setup; Step 3.7 plugin check + specialist table; Step 3.8 mechanics and rationale |
+| `GATES.md` | Review-bot setup; Step 3.7 plugin check, review tier, specialist table; Step 3.8 mechanics and rationale |
 | `TWO-AXIS.md` | Step 3.7 and `review-since` — Standards + Spec axes, smell baseline, dispatches, bucketing |
 | `REVIEW.md` | Steps 6–7 — fetch commands, Codex endpoints, security re-review, merge-order procedure |
 | `_shared/ci-failure-classifier.md` | Step 3.6 exits 3 — routing failures |
@@ -86,7 +86,7 @@ python3 .claude/scripts/preflight/preflight.py --project-root . --regenerate
 
 **CI remains the gate of record.** Check `pr-review-toolkit` is installed (GATES.md). Absent → cross-check first (a skip verdict earns *more* scrutiny): if `pr-review-toolkit:code-reviewer` is available, run it. Else emit `Specialist review skipped (pr-review-toolkit not installed)` and continue — **do not block**.
 
-Select specialists from the diff (table: GATES.md; `code-reviewer` always) and add the **Standards** and **Spec** axes (TWO-AXIS.md), all in one message. A missing or wrong requirement (task, intent, ISA) is `MUST-FIX`; a code smell never blocks alone. Buckets: `MUST-FIX` / `NICE-TO-HAVE` / `NO-ACTION`.
+**Door + blast radius** set the review tier (GATES.md). Select specialists from the diff and tier (`code-reviewer` always) + the **Standards** and **Spec** axes (TWO-AXIS.md), in one message. A missing or wrong requirement (task, intent, ISA) is `MUST-FIX`; a smell never blocks alone; buckets: `MUST-FIX` / `NICE-TO-HAVE` / `NO-ACTION`.
 
 **Push gate:** unresolved MUST-FIX blocks PR creation. Fix (re-run checks + 3.7), defer (`forge task add` after applying `_shared/task-triage.md` — default `--epic E99`; schema/auth/money/security never deferred), or `--proceed-anyway` (reason in Pre-flight notes). NICE-TO-HAVE → Pre-flight notes, no gate.
 
