@@ -76,7 +76,7 @@ Delegated output and green tests are inputs to verification, not proof (`rules/a
 
 ## Where it plugs in
 
-- `/run-epic`: the ask at Step 1.6; LOOP.md → Execute dispatches instead of following the discipline inline.
+- `/run-epic`: the ask at Step 1.6; LOOP.md → Execute dispatches instead of following the discipline inline. Orchestration governs the **primary** task. Agents `--parallel` spawns into worktrees keep their own contract (PARALLEL.md: each owns its task through `/create-pr`), since a worktree agent already runs isolated with its own review.
 - `/new-feature`: the ask at Step 1; PHASES.md → Implementation dispatches the implementer, Verification and Review become the task review above. Design and Planning stay with the orchestrator.
 
 <!-- Task loop (implementer statuses, task review, five-round fix loop with resume-then-escalate, the breaker) adapted from obra/superpowers subagent-driven-development (MIT, © 2025 Jesse Vincent) — see THIRD-PARTY-NOTICES.md -->
