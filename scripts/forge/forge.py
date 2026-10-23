@@ -1002,7 +1002,7 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--scope-files", help="Comma-separated specific files the task touches")
     a.add_argument("--file", help="Relative path to the task markdown file")
     a.add_argument("--priority", type=int, default=1, help="Priority (lower = higher)")
-    a.add_argument("--category", default="", help="Category: a code (A-T), or decision:<type> for a /wayfinder ticket")
+    a.add_argument("--category", default="", help="Category: a code (A-T), or decision:<type> for a /compass ticket")
     a.add_argument(
         "--preflight",
         choices=["auto", "required", "skip"],

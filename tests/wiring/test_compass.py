@@ -1,4 +1,4 @@
-"""/wayfinder runs on the forge registry; /run-epic never builds its tickets (T968)."""
+"""/compass runs on the forge registry; /run-epic never builds its tickets (T968)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-SKILL = (ROOT / "skills" / "wayfinder" / "SKILL.md").read_text(encoding="utf-8")
+SKILL = (ROOT / "skills" / "compass" / "SKILL.md").read_text(encoding="utf-8")
 LOOP = (ROOT / "skills" / "run-epic" / "LOOP.md").read_text(encoding="utf-8")
 
 
@@ -43,8 +43,8 @@ def test_run_epic_pick_filter_skips_decision_tickets():
 
 def test_registered():
     manifest = json.loads((ROOT / "skills" / "skills-manifest.json").read_text(encoding="utf-8"))
-    assert any(s["name"] == "wayfinder" for s in manifest["skills"])
-    assert "/wayfinder" in (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    assert any(s["name"] == "compass" for s in manifest["skills"])
+    assert "/compass" in (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(shutil.which("jq") is None, reason="jq not installed")

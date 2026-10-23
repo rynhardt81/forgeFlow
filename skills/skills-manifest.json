@@ -657,9 +657,9 @@
       ]
     },
     {
-      "name": "wayfinder",
-      "command": "/wayfinder",
-      "path": "skills/wayfinder/SKILL.md",
+      "name": "compass",
+      "command": "/compass",
+      "path": "skills/compass/SKILL.md",
       "category": "quality",
       "agents": [
         "worker-e2"
@@ -667,7 +667,7 @@
       "flags": [],
       "prerequisites": [],
       "creates": [
-        "wayfinder map epic + decision:<type> tickets"
+        "compass map epic + decision:<type> tickets"
       ]
     }
   ],
@@ -739,7 +739,7 @@
         "grilling",
         "codebase-design",
         "improve-codebase-architecture",
-        "wayfinder"
+        "compass"
       ]
     },
     "automation": {
@@ -830,9 +830,9 @@
       "setup wizard": "wizard",
       "walk me through setting up": "wizard",
       "provision credentials": "wizard",
-      "wayfinder": "wayfinder",
-      "too big for one session": "wayfinder",
-      "chart the way": "wayfinder"
+      "compass": "compass",
+      "too big for one session": "compass",
+      "chart the way": "compass"
     }
   }
 }

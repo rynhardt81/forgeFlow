@@ -7,7 +7,7 @@ All notable changes to Claude Forge are documented here. Format follows [Keep a 
 ### Added
 
 - **Orchestrated (subagent-driven) development is the default for `/run-epic` and `/new-feature`**, behind one question at their existing confirmation point. The main agent orchestrates and verifies; a fresh implementer subagent per task (routed by effort tier), a spec + quality task review, and a capped five-round fix loop do the work. Answer *no* to keep the inline path. Protocol: `skills/_shared/orchestrated-development.md`, ported from obra/superpowers `subagent-driven-development` (MIT).
-- **`/wayfinder`** (ported from mattpocock/skills, MIT): plan work too big and foggy for one session as a map epic of `decision:` tickets — research, prototype, grilling, task — resolved one per session until the route is clear. `/run-epic` skips decision tickets.
+- **`/compass`** (ported from mattpocock/skills `wayfinder`, MIT): plan work too big and foggy for one session as a map epic of `decision:` tickets — research, prototype, grilling, task — resolved one per session until the route is clear. `/run-epic` skips decision tickets.
 - **`/create-pr` review tiers.** Door and blast radius, classified from diff signals, now decide review depth: tier 1 (two-way, narrow) is the previous set; tier 2 (two-way, wide) runs every specialist; tier 3 (one-way) adds `security-boss` and a second full pass after fixes. Hard-floor domains are always one-way.
 - **`/reflect retro <session>`** runs the learning pass on a past session from its transcript (`Tools/transcript_digest.py`), and `/reflect` now checks steering files (CLAUDE.md/AGENTS.md) for instructions that belong in standards or a check.
 

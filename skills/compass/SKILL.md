@@ -1,10 +1,10 @@
 ---
-name: wayfinder
+name: compass
 description: "Plan a huge chunk of work (more than one agent session can hold) as a shared map of decision tickets on the forge registry, and resolve them one at a time until the way to the destination is clear. Use when an idea is too big and too foggy for one session or one /grilling pass. NOT FOR work whose route is already clear (use /intent or /new-feature)."
 disable-model-invocation: true
 ---
 
-# Wayfinder
+# Compass
 
 ## Index
 
@@ -15,13 +15,13 @@ disable-model-invocation: true
 | Chart the map / Work through the map (below) | The mode you were invoked in |
 | `_shared/model-routing.md` | Dispatching a research subagent |
 
-A loose idea has arrived, too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on the forge registry, then works its **decision tickets** (questions whose resolution is a decision, not slices of a build to execute) one at a time until the route is clear.
+A loose idea has arrived, too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Finding that way is the job, not charging at the destination. This skill charts the way as a **shared map** on the forge registry, then works its **decision tickets** (questions whose resolution is a decision, not slices of a build to execute) one at a time until the route is clear.
 
 The destination varies per effort, and naming it is the first act of charting: it shapes every ticket. It might be a spec to hand off, a decision to lock before planning starts, or a change made in place like a data-structure migration.
 
 ## Plan, don't do
 
-Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear, with nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off — to `/intent` (a spec someone must accept) or to build tasks in an ordinary epic (`/run-epic`). An effort can override this in its **Notes**, carrying execution into the map itself, but absent that, produce decisions, not deliverables.
+Compass is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear, with nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off — to `/intent` (a spec someone must accept) or to build tasks in an ordinary epic (`/run-epic`). An effort can override this in its **Notes**, carrying execution into the map itself, but absent that, produce decisions, not deliverables.
 
 ## Refer by name
 
@@ -29,11 +29,11 @@ In everything the human reads (narration, the map's Decisions so far), refer to 
 
 ## The map
 
-The map is **one epic**, named `Wayfinder: <destination>`; its body file holds the map (template: MAP.md). Its tickets are tasks in that epic. The map is an **index**, not a store: a decision lives in exactly one place, its ticket, so the map never restates it, only gists it and links.
+The map is **one epic**, named `Compass: <destination>`; its body file holds the map (template: MAP.md). Its tickets are tasks in that epic. The map is an **index**, not a store: a decision lives in exactly one place, its ticket, so the map never restates it, only gists it and links.
 
-| Wayfinder concept | Forge operation |
+| Compass concept | Forge operation |
 |---|---|
-| Create the map | `forge epic add E## --name "Wayfinder: <destination>"`, then write the body sections into its body file |
+| Create the map | `forge epic add E## --name "Compass: <destination>"`, then write the body sections into its body file |
 | A ticket | `forge task add T### --epic E## --name "<the question>" --category decision:<type>`; body `## Question` |
 | Blocking | `forge task set-deps T### --deps T###,…` — a ticket is unblocked when every ticket blocking it is completed |
 | The **frontier** | `forge task ls --epic E## --ready` — open, unblocked, unclaimed (a locked ticket is not ready) |
@@ -55,7 +55,7 @@ Every ticket is **HITL** (worked *with* a human who speaks for themselves) or **
 
 Two modes. Either way, **never resolve more than one ticket per session**, research tickets excepted.
 
-### Chart the map — `/wayfinder "<loose idea>"`
+### Chart the map — `/compass "<loose idea>"`
 
 1. **Name the destination.** Run `/grilling` and `/domain-modeling` to pin down what this map is finding its way to: the spec, decision, or change. The destination fixes the scope, so it's settled first.
 2. **Map the frontier.** Grill again, **breadth-first**: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** (the way is already clear, the journey small enough for one session), you don't need a map: stop and ask how the user would like to proceed.
@@ -64,7 +64,7 @@ Two modes. Either way, **never resolve more than one ticket per session**, resea
 5. **Fire the research subagents** for each `decision:research` ticket, in parallel and in the background.
 6. Stop: charting is one session's work; it hand-resolves nothing.
 
-### Work through the map — `/wayfinder E## [T###]`
+### Work through the map — `/compass E## [T###]`
 
 1. Load the **map** — the epic body, not every ticket body.
 2. Choose the ticket: the one named, else the first frontier ticket. **Claim it** before any work.
