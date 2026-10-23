@@ -5,10 +5,13 @@ One iteration of the loop = one task taken from `ready` to `complete` (or `pr_pe
 ## Pick
 
 ```bash
-python3 .claude/scripts/forge/forge.py task ls --epic <E##> --ready --json | jq -r '.[0].id'
+python3 .claude/scripts/forge/forge.py task ls --epic <E##> --ready --json \
+  | jq -r '[.[] | select((.category // "") | startswith("decision:") | not)][0].id'
 ```
 
 Highest-priority ready task wins; tie-break lowest ID (oldest first). `null` → no ready tasks → exit the loop.
+
+**Decision tickets are skipped.** A task whose category starts with `decision:` is a `/wayfinder` ticket — a question to resolve with a human, not work to build — so the loop never picks it, even in an epic that mixes both.
 
 `task ls` orders by (epic priority, task priority, id), so `.[0]` is genuinely the
 highest-priority task — do not re-sort in the loop.

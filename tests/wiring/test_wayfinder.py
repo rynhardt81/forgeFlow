@@ -1,0 +1,47 @@
+"""/wayfinder runs on the forge registry; /run-epic never builds its tickets (T968)."""
+
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+SKILL = (ROOT / "skills" / "wayfinder" / "SKILL.md").read_text(encoding="utf-8")
+LOOP = (ROOT / "skills" / "run-epic" / "LOOP.md").read_text(encoding="utf-8")
+
+
+def test_every_ticket_type_is_a_decision_category():
+    for kind in ("research", "prototype", "grilling", "task"):
+        assert f"`decision:{kind}`" in SKILL
+
+
+def test_tracker_operations_map_to_forge_cli():
+    for op in ("forge epic add", "--category decision:", "forge task set-deps",
+               "forge task lock", "forge task complete", "--ready"):
+        assert op in SKILL, op
+
+
+def test_one_ticket_per_session_and_claim_first():
+    assert "never resolve more than one ticket per session" in SKILL
+    assert "**first**, before any work" in SKILL
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="jq not installed")
+def test_run_epic_pick_filter_skips_decision_tickets():
+    line = next(l for l in LOOP.splitlines() if "jq -r" in l)
+    expr = line.split("jq -r ", 1)[1].strip().strip("'")
+    ready = [{"id": "T1", "category": "decision:grilling"}, {"id": "T2", "category": ""}, {"id": "T3"}]
+    out = subprocess.run(["jq", "-r", expr], input=json.dumps(ready), capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == "T2"
+    only = subprocess.run(["jq", "-r", expr], input=json.dumps(ready[:1]), capture_output=True, text=True, check=True)
+    assert only.stdout.strip() == "null"
+
+
+def test_registered():
+    manifest = json.loads((ROOT / "skills" / "skills-manifest.json").read_text(encoding="utf-8"))
+    assert any(s["name"] == "wayfinder" for s in manifest["skills"])
+    assert "/wayfinder" in (ROOT / "CLAUDE.md").read_text(encoding="utf-8")

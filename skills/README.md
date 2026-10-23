@@ -39,6 +39,7 @@ One directory per skill. Each skill's `SKILL.md` is its entry point: frontmatter
 | `/improve-codebase-architecture` | Survey for deepening opportunities → visual HTML report with before/after diagrams → grill the one you pick |
 | `/codebase-design` | Deep-module vocabulary (module, interface, depth, seam, adapter, leverage, locality), deepening and design-it-twice |
 | `/grilling` | Relentless design-tree interview in rounds, recommended answer per question (`--docs` also maintains the glossary + ADRs) |
+| `/wayfinder` | Work too big and foggy for one session → a map epic of `decision:` tickets (research, prototype, grilling, task), resolved one per session until the route is clear |
 | ISA (skill) | Ideal-state criteria + verification trail (Scaffold, CheckCompleteness, Interview) |
 | `/security-review` | Business-logic security pass (IDOR, race, state bypass) + secrets scan |
 | `/audit-rules` | Advisory audit of CLAUDE.md + rules for staleness/contradiction |

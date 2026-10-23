@@ -655,6 +655,20 @@
       "creates": [
         "interactive setup wizard script"
       ]
+    },
+    {
+      "name": "wayfinder",
+      "command": "/wayfinder",
+      "path": "skills/wayfinder/SKILL.md",
+      "category": "quality",
+      "agents": [
+        "worker-e2"
+      ],
+      "flags": [],
+      "prerequisites": [],
+      "creates": [
+        "wayfinder map epic + decision:<type> tickets"
+      ]
     }
   ],
   "categories": {
@@ -724,7 +738,8 @@
         "audit-task-status",
         "grilling",
         "codebase-design",
-        "improve-codebase-architecture"
+        "improve-codebase-architecture",
+        "wayfinder"
       ]
     },
     "automation": {
@@ -814,7 +829,10 @@
       "does this state model feel right": "prototype",
       "setup wizard": "wizard",
       "walk me through setting up": "wizard",
-      "provision credentials": "wizard"
+      "provision credentials": "wizard",
+      "wayfinder": "wayfinder",
+      "too big for one session": "wayfinder",
+      "chart the way": "wayfinder"
     }
   }
 }
