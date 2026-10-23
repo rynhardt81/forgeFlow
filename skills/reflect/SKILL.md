@@ -1,6 +1,6 @@
 ---
 name: reflect
-description: Session continuity for Forge task work — resume an interrupted session, epic or task (`resume`), show task/lock/session status (`status`), print a cold-start brief for a fresh session (`handoff`), release a stale lock (`unlock`/`cleanup`), or capture learnings into a skill's sidecar. Use when picking work back up, handing off before a context reset, or when a task lock is stuck.
+description: Session continuity for Forge task work — resume an interrupted session, epic or task (`resume`), show task/lock/session status (`status`), print a cold-start brief for a fresh session (`handoff`), release a stale lock (`unlock`/`cleanup`), or capture learnings into a skill's sidecar (this session, or a past one with `retro <session>`). Use when picking work back up, handing off before a context reset, or when a task lock is stuck.
 ---
 
 # Reflect Skill
@@ -14,7 +14,7 @@ description: Session continuity for Forge task work — resume an interrupted se
 | `flows/handoff.md` | `/reflect handoff` |
 | `flows/unlock.md` | `/reflect unlock T###` or `/reflect cleanup` |
 | `flows/config.md` | `/reflect config` / `config <key> <value>` |
-| `flows/manual-reflection.md` | `/reflect` (no args) |
+| `flows/manual-reflection.md` | `/reflect` (no args), or `/reflect retro <session>` for a past session |
 | `_shared/continuity-preservation.md` | Binding before writing any continuity — the handoff brief, a resume Continuation Context (pause, blocker, cannot-complete), or the session file's Handoff Notes at session end |
 | `_shared/task-triage.md` | `/reflect` (no args) — filing a mechanical learning as a check task |
 | Session Start Protocol · Key Rules · Storage Locations (below) | Every command |

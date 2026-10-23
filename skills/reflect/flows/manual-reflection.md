@@ -12,6 +12,7 @@ Handles `/reflect` (no arguments) — session end and learning capture.
    - **Automated checks**: did the agent make a mistake a lint, type check, test or filesystem check could have caught? Read the repo's own check commands (its lint/check scripts, its CI workflow) first, so a check that exists but sits unwired or silently broken is the finding, not a reinvention. A repo with no **guardrail** at all (no pre-commit hook and no CI job running its lint/typecheck/test command) is itself a finding.
    - **Coding standards**: should the reviewer be given a new rule, or an existing one removed or clarified?
    - **Tool economy**: an expensive tool call that could be streamlined, or token-inefficient custom tooling.
+   - **Steering files**: an instruction in `CLAUDE.md`/`AGENTS.md` (the project's or the user's global one) that belongs in coding standards, a sidecar, or an automated check instead. These files load into every agent's context, so keep them to **navigation pointers**; look hardest when they are large.
    - **No-ops**: steering instructions that don't change the agent's behaviour.
    - **Information access**: a crucial fact the agent couldn't reach (dev-server logs, read-only access to a service).
 3. Identify skills used this session; categorize findings by confidence (High/Medium/Low)
@@ -19,6 +20,17 @@ Handles `/reflect` (no arguments) — session end and learning capture.
    Match each judgement-call learning to the relevant skill (append to its `SKILL.local.md` sidecar, dated — never the framework `SKILL.md`, which refresh overwrites) or to `.claude/memories/general.md`
 5. Present a batch review of proposed changes; apply on approval — dedup first, flag contradictions instead of replacing (see SKILL.md Key Rules)
 6. Commit with a descriptive message (e.g. `reflect: session YYYY-MM-DD with N learnings`)
+
+## `/reflect retro <session-id | transcript path>`
+
+A retrospective on a **past** session, read from its transcript rather than the current conversation.
+
+1. Digest it — the raw transcript runs to thousands of lines; the digest keeps what a retro needs (user messages, tool errors, tool-call counts, largest outputs):
+   ```bash
+   python3 .claude/skills/reflect/Tools/transcript_digest.py <session-id | path.jsonl>
+   ```
+   A bare id resolves under `~/.claude/projects/<this project's slug>/`. Exit 1 with `no transcript at …` means the id or project is wrong — list that directory, don't guess.
+2. Run steps 2–6 above against the digest, zooming into the transcript (`rg` the `.jsonl`) only for a finding that needs the detail. Skip the Session End Protocol: that session is already over.
 
 <!-- Environment categories and the mechanical-vs-judgement split adapted from mattpocock/skills retro (MIT) — see THIRD-PARTY-NOTICES.md -->
 
