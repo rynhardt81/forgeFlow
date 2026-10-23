@@ -84,6 +84,8 @@ Use the Task tool:
 **Supporting Agents:**
 - `@security-boss` for security-critical features (auth, payments, data handling)
 
+**Orchestrated (Step 1 answer yes, the default):** each plan step is a task for an implementer subagent; dispatch, review and fix per `_shared/orchestrated-development.md`, then verify yourself. Phases 5–6 below still run on the combined diff. **Inline (no):** the actions below.
+
 **Actions:**
 1. Work through the plan in order
 2. For each step: write test → implement → verify test passes

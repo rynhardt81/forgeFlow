@@ -35,7 +35,9 @@ Read the task body (`forge task show <T###> --json | jq -r '.file'`). If its Not
 
 ## Execute
 
-Follow the matching discipline **inline**, in this context:
+**Orchestrated (the Step 1.6 answer was yes, the default):** do not implement here. Dispatch the task to an implementer subagent and run the task review and fix loop per `_shared/orchestrated-development.md`, handing the implementer the matching discipline file below. The orchestrator still verifies, files follow-ups and runs the PR step.
+
+**Inline (answer was no):** follow the matching discipline **inline**, in this context:
 
 - `bug` → `skills/fix-bug/SKILL.md`
 - `feature` → `skills/new-feature/SKILL.md` (follow its Index to the phase guide)

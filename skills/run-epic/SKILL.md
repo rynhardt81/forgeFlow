@@ -19,6 +19,7 @@ The distinguishing capability is the **self-feeding loop**: when execution surfa
 | `TASK-CREATION.md` | The loop's file-follow-ups step — auto-file rules, task shapes, dependency wiring, limits |
 | `PARALLEL.md` | `--parallel` only — per-iteration spawn, checkpoint discipline, reaping, guardrail interactions |
 | `_shared/task-triage.md` | Before auto-filing any follow-up, and when the loop meets a backlog epic — "what breaks if this ships later?" |
+| `_shared/orchestrated-development.md` | Step 1.6 — the one subagent-driven-development question; then every Execute step when the answer is yes |
 | `_shared/model-routing.md` | `--parallel` spawn and the §5 cap probe — tier → (model, effort) table and documented environment caps |
 | `_shared/report-format.md` | `--parallel` spawn — the four-field report every spawned agent returns |
 
@@ -49,7 +50,7 @@ Read `docs/code-map.md` (auto-regenerated each SessionStart). For an autonomous 
 3. **Refuse to start** if all four are 0 — nothing to do.
 4. **Refuse to start** if `in_progress > 0` without `--resume` — interrupted runs deserve a human glance before clobbering.
 5. With `--parallel`: probe the environment's subagent caps and compute the spawn projection ([GUARDRAILS.md](GUARDRAILS.md) §5). `--max-agents` caps a batch, not the run.
-6. Print the drain plan (counts + cap, and the spawn projection under `--parallel`) and confirm once with the user.
+6. Print the drain plan (counts + cap, and the spawn projection under `--parallel`) and confirm once with the user. In the same confirmation ask the **subagent-driven development** question (`_shared/orchestrated-development.md`; default yes) and record the answer in the session file.
 
 ## Step 2: Session start
 

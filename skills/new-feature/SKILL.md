@@ -12,6 +12,7 @@ description: Orchestrates full feature development workflow from discovery throu
 | `PHASES.md` | Step 2 — before each phase: its instructions and the concrete `Task(subagent_type=…)` blocks at each invocation point (Discovery, Design, Planning, Implementation, Verification, Review, Doc Update, Commit) |
 | `_shared/task-triage.md` | Review phase — filing a finding instead of fixing it |
 | Step 0 · Step 1 · Step 3 · Step 4 · Key Rules (below) | Every run — surface map, scope, checkpoints, PR hand-off |
+| `_shared/orchestrated-development.md` | Step 1 — the subagent-driven development question; Implementation → Review when the answer is yes |
 | `_shared/domain-docs.md` | Discovery — read the glossary + ADRs in the area; name things in the glossary's terms, flag ADR conflicts |
 
 ## Invocation
@@ -35,7 +36,7 @@ If the MCP server isn't registered, run `/audit-code-map --emit-json` and follow
 ## Step 1: Analyze and Propose
 
 1. Infer scope — **small**: one domain, 1-3 files, no schema/API surface change; **medium**: crosses one boundary (UI↔API or API↔data) or adds API surface; **large**: crosses two or more boundaries, touches schema, or changes auth/money paths. When in doubt, pick the larger scope.
-2. Present the feature, the inferred scope, and the recommended phases; get approval before building.
+2. Present the feature, the inferred scope, and the recommended phases; get approval before building. In the same approval ask the **subagent-driven development** question (`_shared/orchestrated-development.md`; default yes).
 
 ## Step 2: Execute Phases
 

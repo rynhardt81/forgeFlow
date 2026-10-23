@@ -66,7 +66,7 @@ Resume from last session with full context.
 
 ## `/reflect resume E##`
 
-1. **Session Start Protocol** — declare scope to include the epic's directories.
+1. **Session Start Protocol** — declare scope to include the epic's directories. Carry forward the interrupted session's `orchestrated: yes|no` from its Scope Declaration; none recorded → ask the question in `_shared/orchestrated-development.md`.
 2. **Load epic file** `docs/epics/E##-*/E##-*.md`; status must be `in_progress` or have incomplete tasks.
 3. **Verify task files exist (guard):** every registry task of this epic must have a file at its `file` path. If any are missing, run `python3 .claude/scripts/forge/forge.py task reconcile-files --apply` (creates stubs from `templates/task.md`), announce it, re-verify, then continue.
 4. **Load minimal context:** epic summary/scope, task list with status, dependencies and blockers.
