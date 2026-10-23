@@ -20,7 +20,7 @@ A project-portable framework for AI-assisted, full-cycle software development wi
 | **CI economics** | `/preflight-ci` mirrors your GitHub Actions locally before push; `/diagnose-ci` root-causes failed runs locally instead of retry-pushing; `/create-pr` gates pushes on a pre-flight review |
 | **Full-cycle coverage** | Idea (`/vet-idea`) → project (`/new-project`) → feature/bug/refactor → PR → release (`/release`, rollback-verified) → production (`/triage-incident`, postmortems) |
 | **Production rules** | On-demand directives for the risky parts: database migrations (expand/contract, backup-verified), release engineering (feature flags, staged rollout), data privacy (POPIA/GDPR, children's data), dependency hygiene + CVE surveillance |
-| **5 framework agents** | architect, project-manager, quality-engineer, security-boss, devops — with bound validators whose advice actually reaches the model |
+| **7 framework agents** | architect, project-manager, quality-engineer, security-boss, devops, plus the `worker-e1`/`worker-e2` tier workers subagent dispatch routes to — with bound validators whose advice actually reaches the model |
 | **Project memory** | `/remember` writes committed knowledge to `docs/project-memory/`; the SessionStart hook loads it back. Manual and intentional — no silent transcript capture, no hook ever spawns an LLM |
 | **Forge Dashboard** | `forge dashboard` (`forge` = `python3 .claude/scripts/forge/forge.py`; alias it) — local cockpit at `http://127.0.0.1:4847/` with live-reloading tabs for tasks, code map, ISAs, memory, registry, burndown. Zero external dependencies |
 | **Code map + MCP** | `/audit-code-map` generates a queryable inventory (`find_definition`, `dependents_of`, …) served by a framework-shipped MCP server |
@@ -71,8 +71,8 @@ claude
 | `/reflect resume` / `status` / `handoff` | Session continuity across days and machines |
 | `/new-feature` | Scoped feature workflow, verification trail at E3+ |
 | `/fix-bug` | Reproduce → root-cause → fix → regression test |
-| `/run-epic E##` | Autonomously drain an epic — hard caps, 3-failure halt, PR per task |
-| `/create-pr` | PR with pre-flight review gate, review-feedback triage loop, merge-order for multi-PR days |
+| `/run-epic E##` | Autonomously drain an epic — subagent-driven by default (you orchestrate, subagents implement + review), hard caps, 3-failure halt, PR per task |
+| `/create-pr` | PR with pre-flight review gate scaled by door + blast radius, review-feedback triage loop, merge-order for multi-PR days |
 | `/preflight-ci` / `/diagnose-ci` | Local CI mirror + local failure diagnosis — protect your Actions minutes |
 | `/release` | Version + changelog + tag + release-safety checklist (rollback verified before deploy) |
 | `/triage-incident` | Production incident → stabilize → fix → verify in prod → postmortem |
